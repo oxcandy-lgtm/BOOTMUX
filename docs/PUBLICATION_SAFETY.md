@@ -41,6 +41,32 @@ Avoid placeholders that accidentally reproduce real values.
 - Mark experimental routes and platform assumptions explicitly.
 - Do not embed tracking pixels, analytics identifiers, or private document links.
 
+## SAI research attribution and claims
+
+BOOTMUX documents experimental technology names and hypotheses proposed by **SAI (宰)** during project design.
+
+Allowed wording includes:
+
+- `proposed by SAI for BOOTMUX`;
+- `SAI-originated BOOTMUX research hypothesis`;
+- `experimental architecture`;
+- `BOOTMUX-specific synthesis`;
+- `not yet validated`;
+- `inspired by established work in adjacent fields`.
+
+Do not publish the following without reproducible evidence and appropriate external review:
+
+- `world first`;
+- `provably optimal`;
+- `mathematically safe` unless the exact proven property and verifier are stated;
+- `side-effect free` for general program execution;
+- `production proven`;
+- `patented`, `patentable`, or freedom-to-operate conclusions;
+- benchmark superiority without raw measurements, baselines, fixtures, and methodology;
+- an implication that established foundations such as syndrome diagnosis, semantic communication, group testing, error-correcting codes, or proof-carrying systems were invented by BOOTMUX.
+
+Research targets must remain labeled as targets. Hypotheses must be allowed to reach `REVISE` or `REJECTED`; failed evidence must not be hidden to preserve a narrative.
+
 ## Code and fixture rules
 
 - Secrets must be read from local environment or an approved secret store.
@@ -50,6 +76,31 @@ Avoid placeholders that accidentally reproduce real values.
 - Session identifiers must be random and must not encode personal data.
 - Device discovery must avoid persisting globally unique hardware identifiers unless strictly required and user-approved.
 - Debug builds must not print full BLE payloads or terminal buffers by default.
+- Unknown and contradictory research fixtures must remain synthetic.
+- Counterfactual results must be visibly distinguishable from committed evidence.
+
+## Terminal and experiment evidence
+
+Raw terminal data must remain on the target by default and use bounded retention.
+
+Before terminal, capsule, benchmark, or receipt data leaves the target:
+
+1. classify the content;
+2. remove or replace secret-like values;
+3. remove personal and infrastructure identifiers;
+4. restrict the excerpt to the minimum required context;
+5. record that redaction occurred;
+6. fail closed when safe redaction cannot be established.
+
+Research involving an Effect-Bounded Experiment Cell must preserve these evidence classes:
+
+```text
+OBSERVED        directly observed machine evidence
+COUNTERFACTUAL  isolated, modeled, or mocked result
+COMMITTED       externally executed and confirmed effect
+```
+
+A counterfactual result must never be presented as proof that a production effect occurred. Unsupported external effects must be blocked rather than assigned silent fake success.
 
 ## Pull-request checklist
 
@@ -65,6 +116,9 @@ Before every public PR:
 - [ ] Confirm PR title and body contain no private context.
 - [ ] Confirm examples use placeholders.
 - [ ] Confirm experimental claims are labeled accurately.
+- [ ] Confirm SAI attribution does not overclaim ownership of established foundations.
+- [ ] Confirm benchmark targets are not described as measured results.
+- [ ] Confirm counterfactual evidence is not described as committed evidence.
 
 ## Recommended automated checks
 
@@ -79,6 +133,7 @@ home-directory paths containing non-placeholder user names
 unknown IP addresses
 private top-level domains or infrastructure suffixes
 high-entropy strings near secret-related variable names
+unsupported world-first, optimality, proof, and production claims
 ```
 
 Allowlist exceptions must be narrow, documented, and test-covered. A broad ignore file must not become a mechanism for silently publishing sensitive material.
