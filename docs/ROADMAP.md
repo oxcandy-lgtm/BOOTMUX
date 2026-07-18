@@ -4,6 +4,8 @@
 
 The roadmap is gate-driven rather than date-driven. A phase is complete only when its acceptance evidence exists. Stretch features must not destabilize the core demonstration.
 
+This file is the core product roadmap. The independent [SAI Research Roadmap](SAI_RESEARCH_ROADMAP.md) defines the H0–H8 evidence gates for EPOCHROOT, TTYRETINA, SYNDROMUX, SYNDCOMP, VOIDCODE, CAUSALCLOCK, STRATAROOT, ROOTFIT, and effect-bounded experiments. Research features may enter this core path only after they have deterministic fallbacks and measured evidence.
+
 Priority order:
 
 ```text
@@ -25,7 +27,8 @@ Establish a safe public specification before implementation begins.
 
 - project overview;
 - architecture blueprint;
-- roadmap;
+- core roadmap;
+- SAI research hypotheses and evidence roadmap;
 - security policy;
 - publication-safety rules;
 - secret-safe ignore rules;
@@ -37,7 +40,9 @@ Establish a safe public specification before implementation begins.
 - no credentials or tokens;
 - no private hostnames, addresses, local paths, or production logs;
 - all examples are synthetic;
-- destructive operations are explicitly out of scope for automatic execution.
+- destructive operations are explicitly out of scope for automatic execution;
+- research hypotheses are identified as unvalidated until reproducible evidence exists;
+- SAI-originated synthesis is attributed without claiming invention of established foundations.
 
 ## R1 — Transport and HID proof
 
@@ -103,7 +108,8 @@ Upgrade from one-way HID input to a verified live terminal.
 - stdout, stderr, and exit-status events;
 - bounded buffering and backpressure;
 - exact Unicode insertion after Companion starts;
-- local session persistence.
+- local session persistence;
+- measurement hooks required by SAI research phase H0.
 
 ### Acceptance gate
 
@@ -112,7 +118,8 @@ Upgrade from one-way HID input to a verified live terminal.
 - process exit status reaches the iPhone;
 - Unicode text round-trips correctly in the supported environment;
 - reconnect resumes or fails closed without mixing sessions;
-- logs are bounded and redacted before leaving the target.
+- logs are bounded and redacted before leaving the target;
+- the transport can report bytes, frames, retransmissions, and reconnect cost without exposing private data.
 
 ## R4 — Terminal skills and capsules
 
@@ -128,7 +135,8 @@ Convert raw terminal failures into compact, useful machine context.
 - Context Capsule schema;
 - secret and personal-data redaction;
 - compact ESP32-S3 recovery record;
-- user-readable session timeline.
+- user-readable session timeline;
+- deterministic fallback path for any experimental TTYRETINA integration.
 
 ### Acceptance gate
 
@@ -137,7 +145,8 @@ Convert raw terminal failures into compact, useful machine context.
 - an unknown failure remains explicitly unknown;
 - secret-like fixture values are removed from outbound capsules;
 - raw full logs are not transmitted by default;
-- restart resumes from the last verified stage.
+- restart resumes from the last verified stage;
+- semantic terminal processing cannot discard the bounded raw evidence required for fallback.
 
 ## R5 — Policy gate and proof-carrying recovery
 
@@ -154,7 +163,9 @@ Use GPT-5.6 for reasoning while keeping execution deterministic and reviewable.
 - evidence collector and verifier;
 - approval UI;
 - rollback boundary metadata;
-- model-output validation.
+- model-output validation;
+- explicit abstention state for insufficient or contradictory evidence;
+- extension points for Policy-Certified Probe Prefix, SYNDCOMP, SYNDROMUX, and VOIDCODE experiments.
 
 ### Acceptance gate
 
@@ -163,7 +174,9 @@ Use GPT-5.6 for reasoning while keeping execution deterministic and reviewable.
 - denied actions remain blocked even when requested by model output;
 - no model-generated string is passed directly to a shell interpreter;
 - a controlled repair produces a matching Evidence Receipt;
-- the model cannot independently mark its proposal successful.
+- the model cannot independently mark its proposal successful;
+- an unknown or underdetermined incident cannot be forced into an automatic mutation path;
+- experimental diagnostic compilation can be disabled without disabling the core deterministic recovery path.
 
 ## R6 — Target-side Codex bootstrap
 
@@ -179,7 +192,8 @@ Install and activate Codex on the target, then transfer control from phone-side 
 - installation evidence;
 - Codex event bridge;
 - Handoff Capsule;
-- runtime selector transition to `CODEX`.
+- runtime selector transition to `CODEX`;
+- versioned evidence dependencies suitable for future CAUSALCLOCK and STRATAROOT experiments.
 
 ### Acceptance gate
 
@@ -188,7 +202,8 @@ Install and activate Codex on the target, then transfer control from phone-side 
 - authentication secrets are never exposed to the model or logs;
 - executable path and version are verified;
 - a simple target-side Codex task runs;
-- the iPhone UI displays the runtime transition and resulting events.
+- the iPhone UI displays the runtime transition and resulting events;
+- success evidence remains distinguishable from counterfactual or simulated results.
 
 ## R7 — Integrated demonstration
 
@@ -219,7 +234,36 @@ Demonstrate the full BOOTMUX thesis on one supported target platform.
 - every stage reports explicit success or failure;
 - no manual hidden terminal is used to bypass the demonstrated path;
 - no credentials or personal information appear in the recording;
-- failure paths remain honest and recoverable.
+- failure paths remain honest and recoverable;
+- the core demo remains reproducible with every SAI research optimization disabled;
+- enabled research components report raw measurements and do not present targets as achieved results.
+
+## SAI research overlay
+
+The SAI research program is deliberately separated from the primary R0–R7 completion claim.
+
+```text
+H0 measurement and replay
+→ H1 TTYRETINA
+→ H2 EPOCHROOT
+→ H3 SYNDCOMP and SYNDROMUX
+→ H4 VOIDCODE
+→ H5 CAUSALCLOCK and STRATAROOT
+→ H6 ROOTFIT
+→ H7 Effect-Bounded Experiment Cell
+→ H8 integrated sparse recovery experiment
+```
+
+Promotion into the core implementation requires:
+
+- deterministic fallback behavior;
+- versioned public schemas;
+- negative safety tests;
+- a measured improvement or safety property;
+- an explicit disable switch;
+- honest support, revision, or rejection based on benchmark evidence.
+
+See [SAI Research Roadmap](SAI_RESEARCH_ROADMAP.md) for full phase definitions and gates.
 
 ## Stretch tracks
 
@@ -258,6 +302,8 @@ BOOTMUX/
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── ROADMAP.md
+│   ├── SAI_RESEARCH_HYPOTHESES.md
+│   ├── SAI_RESEARCH_ROADMAP.md
 │   └── PUBLICATION_SAFETY.md
 ├── protocol/
 │   ├── schemas/
@@ -307,4 +353,16 @@ target PTY output
 → selectable iPhone terminal
 ```
 
-Only after both slices are reliable should cloud reasoning and Codex installation be added.
+The first research vertical slice should be:
+
+```text
+synthetic PTY fixture
+→ deterministic TTYRETINA event
+→ fixed two-fault hypothesis matrix
+→ three read-only probes
+→ compact syndrome
+→ Evidence Receipt
+→ byte and round-trip comparison
+```
+
+Only after both core slices are reliable should cloud reasoning and Codex installation be added. Research automation must not be allowed to bypass those gates.
