@@ -61,7 +61,7 @@ The research program includes:
 
 These are openly documented research hypotheses, not claims that every underlying foundation was invented by BOOTMUX or that the system has already been validated.
 
-Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) for the definitions, attribution, safety boundaries, evaluation plan, and falsification criteria.
+Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) for definitions, attribution, safety boundaries, evaluation, and falsification criteria. The independent [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md) defines the H0–H8 evidence gates used to prototype, measure, support, revise, or reject each hypothesis without blocking the core product path.
 
 ## Safety model
 
@@ -75,7 +75,7 @@ BOOTMUX does not grant an AI unrestricted shell access. A deterministic policy g
 - Insufficient or contradictory evidence must produce abstention rather than a forced repair classification.
 - Counterfactual experiment results must never be labeled as committed production evidence.
 
-See [Architecture](docs/ARCHITECTURE.md), [Roadmap](docs/ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
+See [Architecture](docs/ARCHITECTURE.md), [Core Roadmap](docs/ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
 
 ## Repository policy
 
