@@ -61,7 +61,7 @@ The research program includes:
 
 These are openly documented research hypotheses, not claims that every underlying foundation was invented by BOOTMUX or that the system has already been validated.
 
-Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) for definitions, attribution, safety boundaries, evaluation, and falsification criteria. The independent [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md) defines the H0–H8 evidence gates used to prototype, measure, support, revise, or reject each hypothesis without blocking the core product path.
+Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) for definitions, attribution, safety boundaries, evaluation, and falsification criteria. The independent [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md) defines the H0–H8 evidence gates used to move each hypothesis through `CONCEPT`, `SPECIFIED`, `PROTOTYPED`, `MEASURED`, and ultimately `SUPPORTED`, `REVISE`, or `REJECTED` without blocking the core product path.
 
 ## Safety model
 
