@@ -2,245 +2,431 @@
 
 ## Roadmap policy
 
-The roadmap is gate-driven rather than date-driven. A phase is complete only when its acceptance evidence exists. Stretch features must not destabilize the core demonstration.
+BOOTMUX currently has one implementation priority:
 
-This file is the core product roadmap. The independent [SAI Research Roadmap](SAI_RESEARCH_ROADMAP.md) defines the H0–H8 evidence gates for EPOCHROOT, TTYRETINA, SYNDROMUX, SYNDCOMP, VOIDCODE, CAUSALCLOCK, STRATAROOT, ROOTFIT, and effect-bounded experiments. Research features may enter this core path only after they have deterministic fallbacks and measured evidence.
+> Complete the smallest repeatable Hackathon V1 before building the full product or validating the SAI research program.
 
-Priority order:
+The roadmap is gate-driven. A phase is complete only when its acceptance evidence exists.
+
+The current target is defined in [Hackathon V1](HACKATHON_V1.md).
 
 ```text
-physical input
-→ reliable transport
-→ verified terminal
-→ safe diagnosis
-→ proof-carrying recovery
-→ target-side Codex handoff
+V0 software loop
+→ V1 physical keyboard path
+→ V2 terminal return
+→ V3 Codex installation
+→ V4 Codex connectivity and copy
+→ repeatable final demonstration
 ```
 
-## R0 — Public repository and contracts
+Research phases H0–H8 and the larger BOOTMUX architecture remain preserved, but they do not block this path.
+
+---
+
+# Current critical path — Hackathon V1
+
+## V0 — Software terminal loop
 
 ### Goal
 
-Establish a safe public specification before implementation begins.
+Prove the iPhone terminal interface and Companion before firmware becomes a dependency.
+
+```text
+iPhone
+↔ local WebSocket
+↔ Companion
+↔ PTY
+```
 
 ### Deliverables
 
-- project overview;
-- architecture blueprint;
-- core roadmap;
-- SAI research hypotheses and evidence roadmap;
-- security policy;
-- publication-safety rules;
-- secret-safe ignore rules;
-- terminology and scope boundaries.
+- minimal one-screen iPhone app;
+- command input field;
+- `SEND`, `ENTER`, `BACKSPACE`, and `CTRL-C` actions;
+- selectable, read-only terminal output;
+- native iOS copy behavior;
+- Companion PTY lifecycle;
+- local WebSocket transport;
+- bounded terminal buffer;
+- minimal ANSI sanitization;
+- UTF-8-safe output and process-exit indication.
 
 ### Acceptance gate
 
-- no personal contact details;
-- no credentials or tokens;
-- no private hostnames, addresses, local paths, or production logs;
-- all examples are synthetic;
-- destructive operations are explicitly out of scope for automatic execution;
-- research hypotheses are identified as unvalidated until reproducible evidence exists;
-- SAI-originated synthesis is attributed without claiming invention of established foundations.
+- `echo BOOTMUX_V0` entered on the iPhone executes in the target PTY;
+- `BOOTMUX_V0` appears in the iPhone terminal view;
+- the marker can be selected and copied;
+- disconnect does not crash the app or Companion;
+- terminal output is bounded;
+- synthetic test output contains no private data.
 
-## R1 — Transport and HID proof
+### Stop rule
+
+Do not wait for ESP32-S3 firmware before closing V0.
+
+---
+
+## V1 — Physical iPhone keyboard path
 
 ### Goal
 
-Prove that the iPhone can control the target through ESP32-S3 without target-side software.
+Prove the unique BOOTMUX physical input path.
+
+```text
+iPhone
+→ BLE GATT
+→ ESP32-S3
+→ USB HID keyboard
+→ target
+```
 
 ### Deliverables
 
-- BLE GATT connection between iPhone and ESP32-S3;
-- USB HID mouse;
-- USB HID keyboard;
-- active-output state machine;
-- sequence numbers and duplicate suppression;
-- emergency stop;
-- disconnect-safe neutral input state.
+- BLE GATT input service;
+- iPhone BLE connection state;
+- ESP32-S3 USB HID keyboard;
+- documented baseline keyboard layout;
+- committed text framing;
+- duplicate suppression or sequence handling;
+- `ENTER`, `BACKSPACE`, and `CTRL-C` mappings;
+- disconnect-safe neutral state;
+- emergency output-disable path.
 
 ### Acceptance gate
 
-- pointer movement and click work repeatedly;
-- keyboard input works for a documented baseline layout;
-- reconnect does not replay stale input;
-- no duplicated events after transport retry;
-- emergency stop prevents further output;
+- a documented ASCII shell command reaches the target correctly;
+- one committed input message produces one target input;
+- reconnect does not replay stale text;
+- `ENTER`, `BACKSPACE`, and `CTRL-C` work;
+- emergency stop prevents further HID output;
 - no device identifier is written to public logs.
 
-## R2 — iPhone interaction surfaces
+### Explicit exclusions
+
+- mouse and trackpad;
+- arbitrary Unicode through HID;
+- BLE HID to the target;
+- USB CDC;
+- Wi-Fi firmware features.
+
+---
+
+## V2 — Terminal return to iPhone
 
 ### Goal
 
-Deliver the three-tab operator experience.
+Return verified target terminal text to the same iPhone interface.
+
+```text
+target PTY
+→ Companion
+→ local WebSocket
+→ iPhone terminal view
+```
 
 ### Deliverables
 
-- PAD tab;
-- TERMINAL tab with synthetic Stage 0 status;
-- AI tab;
-- collapsible system keyboard;
-- connection and route indicators;
-- native text selection and copy behavior;
-- approval, rejection, and stop controls.
+- stdout and stderr forwarding;
+- process-exit event;
+- connection-state display separate from BLE state;
+- bounded buffering and slow-client behavior;
+- plain-text terminal rendering;
+- minimal ANSI removal;
+- native selection and copy;
+- clear distinction between sent input and observed output.
 
 ### Acceptance gate
 
-- all three tabs work on a physical iPhone;
-- PAD gestures map deterministically to HID events;
-- committed text is preserved within the supported Stage 0 constraints;
-- terminal status clearly distinguishes sent input from verified output;
-- stop remains reachable from every primary surface.
+- output generated by the target appears on the iPhone;
+- stdout and stderr are not silently lost;
+- ANSI escape bytes do not appear in copied text;
+- an output marker can be selected and copied;
+- a large synthetic output remains bounded;
+- terminal reconnect does not mix different sessions.
 
-## R3 — USB data channel and Companion
+### Claim boundary
 
-### Goal
+V2 uses a development WebSocket return path. It does not claim full-duplex terminal transport through ESP32-S3.
 
-Upgrade from one-way HID input to a verified live terminal.
+---
 
-### Deliverables
-
-- USB data interface;
-- framed protocol;
-- Companion process;
-- PTY management;
-- stdout, stderr, and exit-status events;
-- bounded buffering and backpressure;
-- exact Unicode insertion after Companion starts;
-- local session persistence;
-- measurement hooks required by SAI research phase H0.
-
-### Acceptance gate
-
-- Companion starts through the documented bootstrap path;
-- terminal output is displayed without being mislabeled;
-- process exit status reaches the iPhone;
-- Unicode text round-trips correctly in the supported environment;
-- reconnect resumes or fails closed without mixing sessions;
-- logs are bounded and redacted before leaving the target;
-- the transport can report bytes, frames, retransmissions, and reconnect cost without exposing private data.
-
-## R4 — Terminal skills and capsules
+## V3 — Codex installation bootstrap
 
 ### Goal
 
-Convert raw terminal failures into compact, useful machine context.
+Use the iPhone-to-S3 HID path to initiate Codex installation in a clean target environment.
 
 ### Deliverables
 
-- deterministic event detector;
-- initial Terminal Skill taxonomy;
-- repeated-failure and stall detection;
-- Context Capsule schema;
-- secret and personal-data redaction;
-- compact ESP32-S3 recovery record;
-- user-readable session timeline;
-- deterministic fallback path for any experimental TTYRETINA integration.
-
-### Acceptance gate
-
-- a controlled permission failure is classified correctly;
-- a command-not-found failure is classified correctly;
-- an unknown failure remains explicitly unknown;
-- secret-like fixture values are removed from outbound capsules;
-- raw full logs are not transmitted by default;
-- restart resumes from the last verified stage;
-- semantic terminal processing cannot discard the bounded raw evidence required for fallback.
-
-## R5 — Policy gate and proof-carrying recovery
-
-### Goal
-
-Use GPT-5.6 for reasoning while keeping execution deterministic and reviewable.
-
-### Deliverables
-
-- Recovery Capsule schema;
-- risk and approval classes;
-- structured tool registry;
-- executable-and-argument executor;
-- evidence collector and verifier;
-- approval UI;
-- rollback boundary metadata;
-- model-output validation;
-- explicit abstention state for insufficient or contradictory evidence;
-- extension points for Policy-Certified Probe Prefix, SYNDCOMP, SYNDROMUX, and VOIDCODE experiments.
-
-### Acceptance gate
-
-- read-only probes can run through the policy gate;
-- mutation cannot run without required approval;
-- denied actions remain blocked even when requested by model output;
-- no model-generated string is passed directly to a shell interpreter;
-- a controlled repair produces a matching Evidence Receipt;
-- the model cannot independently mark its proposal successful;
-- an unknown or underdetermined incident cannot be forced into an automatic mutation path;
-- experimental diagnostic compilation can be disabled without disabling the core deterministic recovery path.
-
-## R6 — Target-side Codex bootstrap
-
-### Goal
-
-Install and activate Codex on the target, then transfer control from phone-side reasoning.
-
-### Deliverables
-
-- prerequisite inspection;
+- clean ARM64 Linux VM snapshot or equivalent target;
+- documented prerequisite check;
+- start-state check showing the tested Codex executable absent;
+- installation command entered through the HID path;
+- installation output visible on the iPhone;
+- executable-path and version check;
 - user-controlled authentication flow;
-- installation Recovery Capsule;
-- installation evidence;
-- Codex event bridge;
-- Handoff Capsule;
-- runtime selector transition to `CODEX`;
-- versioned evidence dependencies suitable for future CAUSALCLOCK and STRATAROOT experiments.
+- redaction and recording rules for authentication output.
 
 ### Acceptance gate
 
-- Codex is absent at the beginning of the test;
-- installation requires visible approval;
-- authentication secrets are never exposed to the model or logs;
-- executable path and version are verified;
-- a simple target-side Codex task runs;
-- the iPhone UI displays the runtime transition and resulting events;
-- success evidence remains distinguishable from counterfactual or simulated results.
+- the test begins from a declared clean snapshot;
+- installation is initiated from iPhone keyboard input through ESP32-S3;
+- the installation result is visible in the iPhone terminal;
+- the executable and version are verified;
+- authentication remains user-controlled;
+- no credential, token, account identifier, or private local path appears in committed evidence.
 
-## R7 — Integrated demonstration
+### Failure policy
+
+A failed installation is recorded honestly. It must not be described as successful because the command was merely entered.
+
+---
+
+## V4 — Codex connectivity and copy proof
 
 ### Goal
 
-Demonstrate the full BOOTMUX thesis on one supported target platform.
+Complete the smallest end-to-end BOOTMUX demonstration.
 
-### Required demo sequence
+```text
+iPhone input
+→ ESP32-S3 USB HID
+→ Codex on target
+→ live terminal output
+→ Companion WebSocket
+→ iPhone
+→ native copy
+```
 
-1. connect ESP32-S3 to the target;
-2. connect iPhone to ESP32-S3;
-3. control pointer and keyboard;
-4. start Companion through the bootstrap path;
-5. display verified live terminal output;
-6. trigger a controlled failure;
-7. classify the failure automatically;
-8. generate a GPT-5.6 Recovery Capsule;
-9. approve and execute a bounded repair;
-10. verify the state transition from target evidence;
-11. install and activate Codex;
-12. hand off to target-side Codex;
-13. complete one repository-scale task;
-14. stop or disconnect safely.
+### Required sequence
+
+1. restore the clean target snapshot;
+2. start Companion;
+3. connect the iPhone terminal return path;
+4. connect the iPhone to ESP32-S3 over BLE;
+5. enter the Codex installation command through USB HID;
+6. verify the installed version;
+7. complete user-controlled authentication;
+8. send a fixed Codex prompt;
+9. receive the fixed response marker `BOOTMUX_READY`;
+10. select and copy `BOOTMUX_READY` on the iPhone;
+11. paste it into another text field as visible proof;
+12. stop or disconnect safely.
 
 ### Acceptance gate
 
-- the demo can be repeated from a documented clean state;
-- every stage reports explicit success or failure;
-- no manual hidden terminal is used to bypass the demonstrated path;
+- every step is visible or represented by a public-safe evidence record;
+- `BOOTMUX_READY` originates from the target Codex session;
+- the marker reaches the iPhone terminal view;
+- native selection and copy work;
+- the run can be repeated from the same clean snapshot;
+- no hidden manual terminal is used to bypass the demonstrated input path;
 - no credentials or personal information appear in the recording;
-- failure paths remain honest and recoverable;
-- the core demo remains reproducible with every SAI research optimization disabled;
-- enabled research components report raw measurements and do not present targets as achieved results.
+- failures remain visible and do not become false completion claims.
 
-## SAI research overlay
+### V1 completion statement
 
-The SAI research program is deliberately separated from the primary R0–R7 completion claim.
+After this gate, BOOTMUX may claim:
+
+> BOOTMUX used an iPhone and ESP32-S3 as a physical keyboard bootstrap path to install and reach Codex in a clean target environment, then returned live terminal text to the iPhone for native selection and copy.
+
+---
+
+# One-Mac development plan
+
+A single Apple Silicon Mac is sufficient for V1 development.
+
+```text
+Mac host
+├── Xcode and physical iPhone
+├── ESP32-S3 firmware toolchain
+└── minimal ARM64 Linux VM
+    ├── Companion
+    ├── PTY
+    └── Codex test installation
+```
+
+Recommended constrained guest profile:
+
+```yaml
+cpu: 2
+memory_gib: 3
+disk_gib: 24
+graphical_desktop: false
+```
+
+## Development lanes
+
+### Lane A — software
+
+```text
+iPhone ↔ WebSocket ↔ VM Companion ↔ PTY
+```
+
+Close V0 and most of V2 here.
+
+### Lane B — hardware
+
+```text
+iPhone → BLE → ESP32-S3 → USB HID → Mac host
+```
+
+Close V1 here.
+
+### Lane C — integrated
+
+```text
+iPhone → BLE → ESP32-S3 → USB HID → focused VM console
+VM Companion → WebSocket → iPhone
+```
+
+The VM may receive keyboard input through the focused host window. This is a host-mediated test path and must be described as such.
+
+Direct USB passthrough is optional research and must not block the demo.
+
+---
+
+# Work that may proceed in parallel
+
+Only the following parallelism is allowed before V4:
+
+```text
+Track A: iPhone UI + WebSocket + copy
+Track B: Companion PTY + buffering
+Track C: BLE + ESP32-S3 USB HID
+Track D: clean VM snapshot + Codex install script notes
+```
+
+Integration order remains fixed:
+
+```text
+A + B
+→ V0 and V2
+
+C
+→ V1
+
+A + B + C + D
+→ V3 and V4
+```
+
+Do not begin experimental AI recovery work while any V0–V4 gate remains open.
+
+---
+
+# V1 exclusions
+
+The following are not Hackathon V1 dependencies:
+
+- PAD or trackpad control;
+- three-tab UI;
+- GPT-5.6 automatic diagnosis;
+- autonomous recovery;
+- policy-gated mutation engine;
+- full Recovery Capsule implementation;
+- full Evidence Receipt implementation;
+- USB CDC terminal return;
+- Wi-Fi or hotspot routing;
+- Windows support;
+- multiple target operating systems;
+- background iOS relay;
+- GPIO power or reset;
+- EPOCHROOT;
+- advanced TTYRETINA;
+- SYNDROMUX;
+- SYNDCOMP;
+- VOIDCODE;
+- CAUSALCLOCK;
+- STRATAROOT;
+- ROOTFIT;
+- JANUSPROBE.
+
+Exclusion means “not required before V1 completion,” not removal from the project.
+
+---
+
+# Immediate successor — V1.1
+
+## Goal
+
+Replace the development WebSocket return path with the BOOTMUX bridge.
+
+```text
+target Companion
+→ USB data interface
+→ ESP32-S3
+→ BLE
+→ iPhone
+```
+
+## Entry gate
+
+- V4 is repeatable from a clean snapshot;
+- BLE HID input is stable;
+- Companion buffering is bounded;
+- the iPhone terminal view already handles reconnect and copy.
+
+## Acceptance gate
+
+- target output returns through ESP32-S3;
+- control traffic remains available during terminal bursts;
+- malformed frames fail closed;
+- terminal reconnection does not replay input or mix sessions;
+- the WebSocket route is no longer required for the full demonstration.
+
+---
+
+# Post-hackathon product roadmap
+
+The larger BOOTMUX plan resumes only after V1.
+
+## P1 — Product interaction
+
+- PAD, TERMINAL, and AI surfaces;
+- trackpad and mouse HID;
+- exact Unicode insertion through Companion;
+- connection and route controls.
+
+## P2 — Structured execution
+
+- typed tool registry;
+- deterministic policy gate;
+- approval classes;
+- bounded executor;
+- machine-generated Evidence Receipts.
+
+## P3 — AI-assisted recovery
+
+- terminal event classification;
+- redacted Context Capsules;
+- GPT-5.6 Recovery Capsules;
+- explicit abstention and failure handling.
+
+## P4 — Target-side Codex handoff
+
+- structured Codex events;
+- Handoff Capsule;
+- repository-scale task execution;
+- persistent session resume.
+
+## P5 — Additional physical management
+
+- Wi-Fi and route selection;
+- UART;
+- GPIO power and reset;
+- signed firmware and Companion releases.
+
+## P6 — Additional platforms
+
+- second target operating system;
+- Windows research;
+- broader hardware compatibility.
+
+---
+
+# SAI research roadmap
+
+The independent [SAI Research Roadmap](SAI_RESEARCH_ROADMAP.md) remains unchanged as the evidence path for:
 
 ```text
 H0 measurement and replay
@@ -251,118 +437,26 @@ H0 measurement and replay
 → H5 CAUSALCLOCK and STRATAROOT
 → H6 ROOTFIT
 → H7 Effect-Bounded Experiment Cell
-→ H8 integrated sparse recovery experiment
+→ H8 integrated sparse recovery
 ```
 
-Promotion into the core implementation requires:
+Research work begins only after V1 or in isolated fixtures that cannot delay V0–V4.
 
-- deterministic fallback behavior;
-- versioned public schemas;
+Promotion into the product requires:
+
+- deterministic fallback;
+- versioned schemas;
 - negative safety tests;
-- a measured improvement or safety property;
+- measured improvement or safety value;
 - an explicit disable switch;
-- honest support, revision, or rejection based on benchmark evidence.
+- honest `SUPPORTED`, `REVISE`, or `REJECTED` status.
 
-See [SAI Research Roadmap](SAI_RESEARCH_ROADMAP.md) for full phase definitions and gates.
+---
 
-## Stretch tracks
+# Final scheduling rule
 
-These remain isolated until the integrated demo is stable.
+Until Hackathon V1 is complete, every proposed task must answer:
 
-### S1 — Additional target platform
+> Does this directly close V0, V1, V2, V3, or V4?
 
-Port Companion and bootstrap contracts to a second operating system.
-
-### S2 — Wi-Fi and hotspot routes
-
-Evaluate ESP32-S3 Wi-Fi, target hotspot connectivity, and route selection.
-
-### S3 — Application-specific phone relay
-
-Research whether selected target-agent traffic can be relayed through the iPhone without presenting it as general-purpose tethering.
-
-### S4 — GPIO and serial management
-
-Add power, reset, boot-mode, and UART capabilities using hardware-specific adapters and strong safety controls.
-
-### S5 — Local phone model
-
-Add an optional phone-local classifier or summarizer for offline diagnosis. It must not bypass the policy gate.
-
-### S6 — Signed updates and device identity
-
-Introduce signed firmware, Companion release verification, and privacy-preserving device enrollment.
-
-## Suggested repository layout
-
-```text
-BOOTMUX/
-├── README.md
-├── SECURITY.md
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── ROADMAP.md
-│   ├── SAI_RESEARCH_HYPOTHESES.md
-│   ├── SAI_RESEARCH_ROADMAP.md
-│   └── PUBLICATION_SAFETY.md
-├── protocol/
-│   ├── schemas/
-│   └── fixtures/
-├── firmware/
-│   └── esp32-s3/
-├── ios/
-│   └── BootMuxApp/
-├── companion/
-│   ├── core/
-│   └── platform/
-├── policy/
-│   ├── tools/
-│   └── rules/
-├── tests/
-│   ├── protocol/
-│   ├── redaction/
-│   ├── policy/
-│   └── integration/
-└── demo/
-    ├── scripts/
-    └── evidence/
-```
-
-## Initial implementation rule
-
-Do not start by building every component at once.
-
-The first executable vertical slice should be:
-
-```text
-iPhone gesture
-→ BLE message
-→ ESP32-S3
-→ USB HID event
-→ target response visible to the user
-```
-
-The second vertical slice should be:
-
-```text
-target PTY output
-→ Companion
-→ USB data
-→ ESP32-S3
-→ BLE
-→ selectable iPhone terminal
-```
-
-The first research vertical slice should be:
-
-```text
-synthetic PTY fixture
-→ deterministic TTYRETINA event
-→ fixed two-fault hypothesis matrix
-→ three read-only probes
-→ compact syndrome
-→ Evidence Receipt
-→ byte and round-trip comparison
-```
-
-Only after both core slices are reliable should cloud reasoning and Codex installation be added. Research automation must not be allowed to bypass those gates.
+If not, it is deferred.
