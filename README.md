@@ -41,6 +41,23 @@ V1 is complete when that marker reaches the iPhone and can be selected, copied, 
 
 Read [Hackathon V1](docs/HACKATHON_V1.md) for the exact boundary and [Roadmap](docs/ROADMAP.md) for the V0–V4 implementation gates.
 
+## V1 implementation strategy
+
+Hackathon V1 minimizes code, dependencies, and runtime layers.
+
+- prefer platform-native phone capabilities;
+- use the vendor-supported embedded stack for BLE and USB HID;
+- deploy Companion as one small executable or equivalent minimal bundle;
+- send committed command text in batches instead of one BLE transaction per character;
+- send terminal output in bounded batches instead of one frame per byte;
+- use selectable plain text instead of a complete terminal emulator;
+- prefer a bounded one-shot Codex invocation for the final connectivity proof;
+- prefer the smallest supported official Codex distribution;
+- keep initial protocols readable and versioned;
+- defer compression, advanced codecs, local models, and research transports until measurements justify them.
+
+The public architecture names capabilities rather than optional third-party packages. Concrete implementation dependencies may be selected later, pinned in build metadata, and disclosed in attribution files.
+
 ## Project status
 
 BOOTMUX is in the architecture and proof-of-concept stage. The first test environment is a minimal ARM64 Linux virtual machine hosted on a single Apple Silicon Mac, alongside a physical iPhone and ESP32-S3.
