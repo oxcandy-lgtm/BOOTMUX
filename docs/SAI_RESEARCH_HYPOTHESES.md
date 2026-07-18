@@ -23,6 +23,7 @@ These are research hypotheses, not completed product claims, patent opinions, or
 | `PROTOTYPED` | A runnable implementation exists |
 | `MEASURED` | Benchmarks exist against a declared baseline |
 | `SUPPORTED` | Evidence supports the hypothesis within the tested scope |
+| `REVISE` | Evidence identifies a useful direction but the hypothesis or mechanism must change |
 | `REJECTED` | Results do not support the hypothesis or costs exceed benefits |
 
 All hypotheses in this document begin as `CONCEPT` unless explicitly updated by measured evidence.
