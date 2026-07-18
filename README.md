@@ -1,5 +1,57 @@
 # BOOTMUX
 
-Public repository for the BOOTMUX architecture and implementation.
+**BOOTMUX creates the first physical and software path for AI into a computer that is not ready to run AI yet.**
 
-The initial design blueprint and roadmap are being prepared in a draft pull request.
+It combines an iPhone, an ESP32-S3, USB HID, BLE, a terminal bridge, and policy-gated AI recovery to bootstrap a target computer from basic input control to a live terminal and, eventually, a local Codex runtime.
+
+> The first path for AI into any computer.
+
+## Project status
+
+BOOTMUX is in the architecture and proof-of-concept stage. The first implementation target is a narrowly scoped macOS or Linux demonstration. Windows support, power-control hardware, and application-specific cellular relays are later research tracks.
+
+## Core flow
+
+```mermaid
+flowchart LR
+    A[iPhone app] <-->|BLE GATT| B[ESP32-S3]
+    B <-->|USB HID + data channel| C[Target computer]
+    C <-->|PTY and structured events| D[BOOTMUX Companion]
+    A <-->|Cloud connection| E[GPT-5.6 or compatible API]
+    D <-->|After bootstrap| F[Codex on target]
+```
+
+The system advances through three stages:
+
+1. **Input path:** ESP32-S3 appears as a USB mouse and keyboard.
+2. **Terminal path:** BOOTMUX Companion opens a live PTY and returns stdout, stderr, and exit status.
+3. **Agent path:** Codex is installed on the target and takes over repository-scale work.
+
+## Product surfaces
+
+- **PAD:** full-screen trackpad with a collapsible system keyboard.
+- **TERMINAL:** selectable live terminal with an embedded AI diagnosis panel.
+- **AI:** conversation, runtime selection, approvals, and recovery status.
+- **BRIDGE:** ESP32-S3 firmware for BLE, USB HID, transport switching, and compact state storage.
+- **COMPANION:** target-side PTY bridge and structured executor.
+- **CAPSULE:** redacted state, proposed action, evidence, and resume data.
+
+## Safety model
+
+BOOTMUX does not grant an AI unrestricted shell access. A deterministic policy gate sits outside the model.
+
+- Read-only probes may be eligible for automatic execution.
+- Package installation, file mutation, service changes, elevated privileges, and authentication require approval.
+- Disk initialization, unrestricted recursive deletion, credential export, security disabling, self-approval, and policy modification are denied by default.
+- Structured executable-and-argument calls are preferred over shell interpolation.
+- Success is determined from machine-generated evidence rather than an AI assertion.
+
+See [Architecture](docs/ARCHITECTURE.md), [Roadmap](docs/ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
+
+## Repository policy
+
+This public repository must not contain credentials, personal contact information, private infrastructure names, local absolute paths, raw production logs, private network addresses, or device identifiers. Use synthetic examples and placeholders in all documentation, tests, fixtures, screenshots, and demos.
+
+## License
+
+No license has been selected yet. Until one is added, normal copyright restrictions apply.
