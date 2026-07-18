@@ -47,9 +47,57 @@ The asymmetric transport is deliberate.
 
 - The input path proves the physical BOOTMUX bridge.
 - The WebSocket output path keeps the first implementation small and observable.
-- Returning terminal output through USB CDC and ESP32-S3 BLE is deferred to V1.1.
+- Returning terminal output through USB data and ESP32-S3 BLE is deferred to V1.1.
 
 V1 must not imply that its terminal return path is already out-of-band or carried through ESP32-S3.
+
+## Minimal-dependency contract
+
+Hackathon V1 describes capabilities instead of prescribing optional third-party packages.
+
+Implementation choices should prefer:
+
+1. platform-native phone APIs;
+2. vendor-supported embedded SDK components;
+3. one small Companion executable or minimal bundle;
+4. official Codex distribution channels;
+5. readable, versioned protocols;
+6. deterministic code over model-based parsing.
+
+Concrete dependencies may be selected during implementation, pinned in build metadata, and disclosed in the appropriate attribution files. A dependency name does not belong in the V1 architecture unless the implementation cannot be described accurately without it.
+
+### Dependency budget
+
+```yaml
+iphone_app:
+  external_runtime_dependencies: 0
+
+firmware:
+  foundation:
+    - vendor-supported BLE support
+    - vendor-supported USB HID support
+
+companion:
+  external_runtime_services: 0
+  deployment: one small executable or equivalent minimal bundle
+  optional_libraries: keep to the minimum needed for PTY and WebSocket behavior
+
+target_agent:
+  source: official distribution only
+```
+
+### V1 optimization rules
+
+- send committed text in bounded batches instead of one BLE transaction per character;
+- keep `ENTER`, `BACKSPACE`, `CTRL-C`, stop, and disconnect as separate control events;
+- expand committed text into USB HID reports on ESP32-S3;
+- send PTY output in batches rather than one WebSocket frame per byte;
+- update the visible terminal at a bounded rate;
+- use selectable plain text instead of a complete terminal emulator;
+- prefer a one-shot Codex invocation for the final proof;
+- avoid installing an additional language runtime when a supported official standalone Codex distribution is available;
+- keep the initial protocol readable instead of introducing an advanced binary codec;
+- measure before adding compression or research transport features.
 
 ## Minimal components
 
@@ -78,11 +126,13 @@ Required:
 - BLE connection to ESP32-S3;
 - local WebSocket connection to Companion;
 - command text entry;
+- committed-text batching;
 - `SEND`, `ENTER`, `BACKSPACE`, and `CTRL-C` actions;
 - connection state for both BLE and terminal return paths;
 - read-only, selectable terminal text;
 - native iOS copy behavior;
 - bounded visible terminal history;
+- bounded UI refresh frequency;
 - explicit disconnect or stop control.
 
 Not required:
@@ -92,7 +142,8 @@ Not required:
 - full terminal emulation;
 - arbitrary Unicode through Stage 0 HID;
 - automatic recovery UI;
-- background operation.
+- background operation;
+- third-party phone runtime libraries.
 
 ### ESP32-S3 firmware
 
@@ -100,7 +151,9 @@ Required:
 
 - custom BLE GATT input service;
 - USB HID keyboard output;
-- sequence number or duplicate suppression for committed input messages;
+- committed-text message type;
+- bounded text chunk reassembly;
+- sequence and duplicate suppression;
 - mapping for the documented baseline keyboard layout;
 - `ENTER`, `BACKSPACE`, and `CTRL-C` support;
 - disconnect-safe neutral state;
@@ -110,9 +163,11 @@ Required:
 Not required:
 
 - USB mouse;
-- USB CDC return path;
+- USB data return path;
 - BLE HID to the target;
 - Wi-Fi;
+- compression;
+- advanced multiplexing;
 - persistent recovery capsules;
 - GPIO or power control.
 
@@ -124,26 +179,30 @@ Required:
 - PTY creation and lifecycle management;
 - WebSocket endpoint bound to the local development network;
 - forwarding of PTY output to the iPhone;
+- output batching on newline, short interval, bounded size, or process exit;
 - bounded buffering and slow-client handling;
 - ANSI sanitization suitable for a plain-text V1 view;
 - UTF-8-safe output;
 - process exit indication;
-- synthetic public-safe logs for tests.
+- session identity that prevents reconnect mixing;
+- synthetic public-safe logs for tests;
+- minimal deployment footprint.
 
-V1 does not require a general structured executor, policy engine, or cross-platform abstraction.
+V1 does not require a general structured executor, policy engine, cross-platform abstraction, full terminal emulator, model-based parser, or persistent background service.
 
 ### Codex bootstrap
 
 Required proof sequence:
 
 1. confirm that the selected clean target snapshot does not already contain the tested Codex installation;
-2. enter the documented installation command through the iPhone-to-S3 HID path;
-3. observe installation progress or result in the iPhone terminal view;
-4. verify the installed executable and version;
-5. complete authentication through a user-controlled flow;
-6. send one fixed connectivity prompt;
-7. receive the fixed response marker on the iPhone;
-8. copy that marker using native iOS selection.
+2. select the smallest supported official Codex installation artifact or route;
+3. enter the documented installation command through the iPhone-to-S3 HID path;
+4. observe installation progress or result in the iPhone terminal view;
+5. verify the installed executable and version;
+6. complete authentication through a user-controlled flow;
+7. send one fixed, bounded, preferably non-interactive connectivity prompt;
+8. receive the fixed response marker on the iPhone;
+9. copy that marker using native iOS selection.
 
 Authentication secrets must not be transported to the iPhone terminal view, committed to fixtures, or included in recordings.
 
@@ -153,8 +212,8 @@ A single Mac can host the entire development setup.
 
 ```text
 Mac host
-├── Xcode and physical iPhone
-├── ESP32-S3 toolchain
+├── phone application development and physical iPhone
+├── ESP32-S3 firmware toolchain
 └── ARM64 Linux virtual machine
     ├── BOOTMUX Companion
     ├── shell / PTY
@@ -186,7 +245,7 @@ Purpose:
 
 - finish the iPhone terminal view;
 - validate copy and paste;
-- validate PTY streaming;
+- validate PTY streaming and batching;
 - test Codex installation without waiting for firmware.
 
 #### Lane B — hardware input
@@ -201,9 +260,10 @@ iPhone
 
 Purpose:
 
-- validate BLE framing;
+- validate committed-text framing;
 - validate keyboard mapping;
-- validate duplicate suppression and stop behavior.
+- validate duplicate suppression and stop behavior;
+- measure BLE writes against a per-character baseline.
 
 #### Lane C — integrated V1
 
@@ -233,7 +293,10 @@ A successful run should produce public-safe evidence containing:
 - Companion build identifier;
 - target guest OS and architecture using generic values;
 - start state showing the tested Codex executable absent;
-- HID input receipt counters without raw personal text;
+- committed-text message count;
+- BLE write count;
+- duplicate-suppression result;
+- terminal batch and frame counts;
 - terminal connection state;
 - Codex version output;
 - fixed connectivity response marker;
@@ -258,7 +321,11 @@ The following are preserved in the full architecture and research roadmap but ar
 - CAUSALCLOCK and STRATAROOT;
 - ROOTFIT;
 - JANUSPROBE;
-- USB CDC terminal return;
+- USB data terminal return;
+- complete terminal emulation;
+- interactive full-screen Codex automation;
+- advanced binary codecs;
+- additional local AI models;
 - Windows support;
 - multiple target operating systems;
 - GPIO power and reset;
