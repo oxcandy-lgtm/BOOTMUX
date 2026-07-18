@@ -41,6 +41,31 @@ V1 is complete when that marker reaches the iPhone and can be selected, copied, 
 
 Read [Hackathon V1](docs/HACKATHON_V1.md) for the exact boundary and [Roadmap](docs/ROADMAP.md) for the V0–V4 implementation gates.
 
+## OpenAI Build Week compliance
+
+BOOTMUX treats submission compliance as a parallel delivery path rather than a final checklist.
+
+```text
+Technical gates:
+V0 → V1 → V2 → V3 → V4
+
+Submission gates:
+BW0 → BW1 → BW2 → BW3 → BW4 → BW5 → BW6 → BW7 → BW8 → BW9
+```
+
+The official-source summary is maintained in [OpenAI Build Week Requirements](docs/OPENAI_BUILD_WEEK.md). The executable submission sequence is maintained in the [Build Week Submission Roadmap](docs/BUILD_WEEK_SUBMISSION_ROADMAP.md).
+
+Mandatory submission evidence includes:
+
+- meaningful Codex and GPT-5.6 use;
+- a `/feedback` Session ID from the primary Codex build thread;
+- a public YouTube demo of three minutes or less with voice narration;
+- setup, supported-platform, and judge-test instructions;
+- a public repository with relevant licensing, or the required private judge sharing;
+- explicit separation of pre-existing work and Submission Period work.
+
+Current submission blockers include implementation of V0–V4, selection of a public-repository license, capture of the private `/feedback` Session ID, creation of a no-rebuild judge test path, and production of the narrated demo video.
+
 ## V1 implementation strategy
 
 Hackathon V1 minimizes code, dependencies, and runtime layers.
@@ -62,7 +87,7 @@ The public architecture names capabilities rather than optional third-party pack
 
 BOOTMUX is in the architecture and proof-of-concept stage. The first test environment is a minimal ARM64 Linux virtual machine hosted on a single Apple Silicon Mac, alongside a physical iPhone and ESP32-S3.
 
-No runtime, hardware, benchmark, or novelty claim is considered complete until reproducible evidence is committed.
+No runtime, hardware, benchmark, novelty, or Build Week compliance claim is considered complete until reproducible evidence exists.
 
 ## Full architecture
 
@@ -105,7 +130,7 @@ The research program includes EPOCHROOT, TTYRETINA, Proof Frontier Execution, SY
 
 These are documented research hypotheses, not completed V1 dependencies and not claims that every underlying foundation was invented by BOOTMUX.
 
-Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) and the independent [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md). Research work begins after V1 or in isolated fixtures that cannot delay V0–V4.
+Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) and the independent [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md). Research work begins after V1 or in isolated fixtures that cannot delay V0–V4 or BW0–BW9.
 
 ## Safety model
 
@@ -118,16 +143,17 @@ For Hackathon V1:
 - terminal output is bounded;
 - sent HID input is not presented as verified target output;
 - failures remain visible and cannot become false completion claims;
-- the WebSocket return path is described honestly as a development path.
+- the WebSocket return path is described honestly as a development path;
+- the real `/feedback` Session ID remains outside the public repository by default.
 
 For the full architecture, a deterministic policy gate, structured execution, explicit approval, evidence verification, and abstention remain part of the post-V1 roadmap.
 
-See [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), [Roadmap](docs/ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
+See [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), [Roadmap](docs/ROADMAP.md), [OpenAI Build Week Requirements](docs/OPENAI_BUILD_WEEK.md), [Build Week Submission Roadmap](docs/BUILD_WEEK_SUBMISSION_ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
 
 ## Repository policy
 
-This public repository must not contain credentials, personal contact information, private infrastructure names, local absolute paths, raw production logs, private network addresses, or device identifiers. Use synthetic examples and placeholders in all documentation, tests, fixtures, screenshots, and demos.
+This public repository must not contain credentials, personal contact information, private infrastructure names, local absolute paths, raw production logs, private network addresses, device identifiers, or private submission credentials. Use synthetic examples and placeholders in all documentation, tests, fixtures, screenshots, and demos.
 
 ## License
 
-No license has been selected yet. Until one is added, normal copyright restrictions apply.
+No license has been selected yet. Until one is added, normal copyright restrictions apply. A relevant license is a mandatory blocker before using this public repository for the Build Week submission route.
