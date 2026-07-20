@@ -158,7 +158,7 @@ struct ContentView: View {
                         .focused($focusedField, equals: .endpoint)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Text("TERM (session.state.label)")
+                    Text("TERM \\(session.state.label)")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                     Button("CONNECT") { session.connect(endpoint: endpoint) }
