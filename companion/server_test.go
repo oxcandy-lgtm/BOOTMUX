@@ -76,6 +76,61 @@ func TestProtocolAndSessionRejection(t *testing.T) {
 	}
 }
 
+func TestMirrorProductionPathIsReadOnlyAndObserved(t *testing.T) {
+	path := t.TempDir() + "/transcript"
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewServer("/bin/sh", "-i")
+	s.MirrorPath = path
+	httpServer := httptest.NewServer(s.Handler())
+	t.Cleanup(httpServer.Close)
+	u := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/v1/mirror"
+	c, _, err := websocket.DefaultDialer.Dial(u, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	_, data, err := c.ReadMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hello serverMessage
+	if err := json.Unmarshal(data, &hello); err != nil || hello.Type != "mirror_hello" || hello.Stream != "hid_mirror" {
+		t.Fatalf("mirror hello=%+v err=%v", hello, err)
+	}
+	if err := c.WriteMessage(websocket.TextMessage, []byte(`{"v":1,"type":"input_text"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntilType(t, c, "mirror_error"); got.Code != "mirror_read_only" {
+		t.Fatalf("read-only response=%+v", got)
+	}
+	if err := os.WriteFile(path, []byte("BOOTMUX_HID_MIRROR_OK\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntilType(t, c, "mirror_output"); got.Text != "BOOTMUX_HID_MIRROR_OK\n" {
+		t.Fatalf("mirror output=%q", got.Text)
+	}
+}
+
+func readUntilType(t *testing.T, c *websocket.Conn, typ string) serverMessage {
+	t.Helper()
+	_ = c.SetReadDeadline(time.Now().Add(3 * time.Second))
+	for {
+		_, data, err := c.ReadMessage()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var message serverMessage
+		if err := json.Unmarshal(data, &message); err != nil {
+			t.Fatal(err)
+		}
+		if message.Type == typ {
+			return message
+		}
+	}
+}
+
 func TestCodexMessagesAreBoundedAndSessionScoped(t *testing.T) {
 	msg, err := decodeClientMessage([]byte(`{"v":1,"type":"codex_prompt","session_id":"s","request_id":"r1","prompt":"BOOTMUX_READY"}`))
 	if err != nil || msg.Prompt != "BOOTMUX_READY" || msg.RequestID != "r1" {

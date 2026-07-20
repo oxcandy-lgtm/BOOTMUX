@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
 const protocolVersion = 1
+
+var errMirrorReadOnly = errors.New("mirror_read_only")
 
 type clientMessage struct {
 	Version   int    `json:"v"`

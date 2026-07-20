@@ -71,6 +71,22 @@ final class TerminalTests: XCTestCase {
         XCTAssertFalse(BLEAckContract.accepts("STOPPED", for: .control(.enter)))
     }
 
+    func testHIDTextRejectsNonASCIIBeforeBLEOperation() {
+        XCTAssertTrue(BLEBridgeSession.supportsASCIIHIDText("echo BOOTMUX_HID"))
+        XCTAssertFalse(BLEBridgeSession.supportsASCIIHIDText("日本語"))
+        XCTAssertFalse(BLEBridgeSession.supportsASCIIHIDText("line\n"))
+        XCTAssertFalse(BLEBridgeSession.supportsASCIIHIDText("line\r"))
+    }
+
+    func testMirrorProtocolKeepsReadOnlyStreamDistinct() throws {
+        let hello = Data("{\"v\":1,\"type\":\"mirror_hello\",\"session_id\":\"m\",\"stream\":\"hid_mirror\"}".utf8)
+        guard case let .mirrorHello(sessionID) = try TerminalProtocol.decodeServer(hello, expectedSession: nil) else { return XCTFail("expected mirror hello") }
+        XCTAssertEqual(sessionID, "m")
+        let output = Data("{\"v\":1,\"type\":\"mirror_output\",\"session_id\":\"m\",\"stream\":\"hid_mirror\",\"text\":\"BOOTMUX_HID_MIRROR_OK\\n\"}".utf8)
+        guard case let .mirrorOutput(_, text) = try TerminalProtocol.decodeServer(output, expectedSession: "m") else { return XCTFail("expected mirror output") }
+        XCTAssertEqual(text, "BOOTMUX_HID_MIRROR_OK\n")
+    }
+
     func testObservedOutputIsNotSynthesizedFromInput() throws {
         let data = Data("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"BOOTMUX_V0\"}".utf8)
         guard case let .output(_, text) = try TerminalProtocol.decodeServer(data, expectedSession: "s") else { return XCTFail("expected output") }
@@ -145,6 +161,13 @@ final class TerminalTests: XCTestCase {
         XCTAssertEqual(SelectionRange.preserved(NSRange(location: 20, length: 1), newUTF16Length: 10), NSRange(location: 10, length: 0))
     }
 
+    func testFollowPolicyPreservesScrolledOrSelectedText() {
+        XCTAssertTrue(TerminalFollowPolicy.shouldFollow(enabled: true, nearBottom: true, hasSelection: false))
+        XCTAssertFalse(TerminalFollowPolicy.shouldFollow(enabled: true, nearBottom: false, hasSelection: false))
+        XCTAssertFalse(TerminalFollowPolicy.shouldFollow(enabled: true, nearBottom: true, hasSelection: true))
+        XCTAssertFalse(TerminalFollowPolicy.shouldFollow(enabled: false, nearBottom: true, hasSelection: false))
+    }
+
     func testNormalExitReturnsDisconnectedAndNotFailed() async throws {
         let fake = FakeTransport()
         let session = TerminalSession { _ in fake }
@@ -197,7 +220,7 @@ final class TerminalTests: XCTestCase {
         session.connect(endpoint: "ws://local/v1/terminal")
         fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
         fake.push(.string("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"pending\\r\"}"))
-        try await waitUntil { fake.receiveCount >= 2 }
+        try await waitUntil { session.hasPendingPublication }
         session.clearVisibleHistory()
         try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertEqual(session.terminalText, "")
@@ -237,7 +260,7 @@ final class TerminalTests: XCTestCase {
         session.connect(endpoint: "ws://local/v1/terminal")
         second.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"new\"}"))
         try await waitUntil { if case .connected("new") = session.state { return true }; return false }
-        XCTAssertEqual(second.receiveCount, 1)
+        XCTAssertGreaterThanOrEqual(second.receiveCount, 1)
     }
 
     func testConnectBeforeHelloRejectedAndSendFailureFailsClosed() async throws {

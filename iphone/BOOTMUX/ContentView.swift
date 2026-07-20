@@ -1,4 +1,11 @@
 import SwiftUI
+import UIKit
+
+enum BOOTMUXClientMode: String {
+    case directPTY = "DIRECT PTY"
+    case hidMirror = "HID MIRROR"
+    case codex = "CODEX"
+}
 
 enum BOOTMUXScenePhasePolicy {
     static func disconnects(for phase: ScenePhase) -> Bool {
@@ -10,10 +17,14 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var session = TerminalSession()
     @StateObject private var ble = BLEBridgeSession()
-    @State private var endpoint = "ws://127.0.0.1:8765/v1/terminal"
+    @AppStorage("bootmux.lastSuccessfulEndpoint") private var lastSuccessfulEndpoint = ""
+    @State private var endpoint = ""
     @State private var command = ""
     @State private var codexPrompt = ""
-    @State private var codexMode = false
+    @State private var mode: BOOTMUXClientMode = .directPTY
+    @State private var followOutput = true
+    @State private var visibleFeedback = ""
+    @State private var feedbackToken = 0
     @State private var showSettings = false
     @State private var showDiagnostics = false
     @FocusState private var focusedField: InputField?
@@ -24,21 +35,34 @@ struct ContentView: View {
         GeometryReader { proxy in
             VStack(spacing: 8) {
                 compactHeader
-                Picker("Mode", selection: $codexMode) {
-                    Text("TERMINAL").tag(false)
-                    Text("CODEX").tag(true)
+                Picker("Mode", selection: $mode) {
+                    ForEach([BOOTMUXClientMode.directPTY, .hidMirror, .codex], id: \.self) { item in
+                        Text(item.rawValue).tag(item)
+                    }
                 }
                 .pickerStyle(.segmented)
-                SelectableTerminalView(text: session.terminalText)
+                if mode == .hidMirror {
+                    Text("SOURCE: HID MIRROR  \(session.isMirror ? "MIRROR LIVE" : "MIRROR OFF")")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                SelectableTerminalView(text: session.terminalText, follow: followOutput, scrollToken: feedbackToken)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .layoutPriority(10)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.3)))
+                terminalActions
+                if !visibleFeedback.isEmpty {
+                    Text(visibleFeedback)
+                        .font(.caption2.bold())
+                        .foregroundStyle(.tint)
+                }
                 Text(session.statusMessage)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if codexMode {
+                if mode == .codex {
                     codexComposer
                 } else {
                     commandComposer
@@ -65,6 +89,12 @@ struct ContentView: View {
                 session.disconnect()
                 ble.disconnect()
             }
+        }
+        .onAppear {
+            if endpoint.isEmpty { endpoint = lastSuccessfulEndpoint }
+        }
+        .onChange(of: session.state) { _, state in
+            if case .connected = state { persistEndpointIfSafe() }
         }
     }
 
@@ -156,6 +186,16 @@ struct ContentView: View {
         }
     }
 
+    private var terminalActions: some View {
+        HStack(spacing: 6) {
+            Button("COPY ALL") { copyAll() }
+            Button("CLEAR") { clearTerminal() }
+            Button(followOutput ? "FOLLOW ON" : "FOLLOW OFF") { followOutput.toggle() }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
     private var settingsSheet: some View {
         NavigationStack {
             Form {
@@ -171,13 +211,11 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Button("CONNECT") { session.connect(endpoint: endpoint) }
+                    Button("CONNECT") { session.connect(endpoint: connectionEndpoint) }
                         .disabled(!session.canConnect)
                     Button("DISCONNECT") { session.disconnect() }
                         .disabled(!session.canDisconnect)
-                    Button("CLEAR") {
-                        session.clearVisibleHistory()
-                    }
+                    Button("CLEAR") { clearTerminal() }
                     Button("SEND") {
                         let value = command
                         Task { if await session.sendInput(value) { command = "" } }
@@ -220,6 +258,39 @@ struct ContentView: View {
 
     private func sendHIDEnter() {
         ble.send(.enter)
+    }
+
+    private var connectionEndpoint: String {
+        guard mode == .hidMirror else { return endpoint }
+        return endpoint.replacingOccurrences(of: "/v1/terminal", with: "/v1/mirror")
+    }
+
+    private func persistEndpointIfSafe() {
+        guard let url = URL(string: endpoint),
+              ["ws", "wss"].contains(url.scheme?.lowercased() ?? ""),
+              url.user == nil, url.password == nil else { return }
+        lastSuccessfulEndpoint = endpoint
+    }
+
+    private func copyAll() {
+        UIPasteboard.general.string = session.terminalText
+        showFeedback("COPIED")
+    }
+
+    private func clearTerminal() {
+        session.clearVisibleHistory()
+        feedbackToken += 1
+        showFeedback("CLEARED")
+    }
+
+    private func showFeedback(_ message: String) {
+        visibleFeedback = message
+        let token = feedbackToken
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard token == feedbackToken else { return }
+            visibleFeedback = ""
+        }
     }
 }
 

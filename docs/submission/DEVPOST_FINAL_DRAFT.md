@@ -38,7 +38,7 @@ Codex was used for the V0A Companion, V0B iPhone client, lifecycle repairs, Judg
 
 ## Challenges and accomplishments
 
-The central challenge was preserving the distinction between text sent by a client and output actually observed from a PTY. The project now has a bounded local terminal path and a judge-accessible replay/live mode while retaining honest boundaries around unfinished hardware and bootstrap paths.
+The central challenge was preserving the distinction between text sent by a client and output actually observed from a PTY. The project now has a bounded local terminal path, an owner-observed physical ASCII keyboard path with a `BOOTMUX_READY` return, and a judge-accessible replay/live mode. Copy confirmation, CLEAR feedback, repeatability, and continued post-bootstrap use remain honest gates.
 
 ## What was learned
 
@@ -46,7 +46,7 @@ The smallest credible product slice is a target-side Companion plus a selectable
 
 ## What's next
 
-Physical iPhone acceptance, BLE-to-ESP32-S3 input, native USB HID enumeration, and a Codex `BOOTMUX_READY` run remain future evidence gates. Mouse support, background operation, full terminal emulation, and cloud services are deferred.
+The owner has observed the bounded physical BLE-to-ESP32-S3/native USB HID ASCII path and a physical Codex `BOOTMUX_READY` return. Selectable copy, visible CLEAR feedback, repeatability, and continued post-bootstrap use remain evidence gates. Unicode HID, mouse support, background operation, full terminal emulation, production readiness, and cloud services are deferred.
 
 ## Judge instructions
 
@@ -54,7 +54,7 @@ Open [`judge/index.html`](../../judge/index.html) directly for offline replay, o
 
 ## Supported platforms
 
-The Companion is locally verified on the declared Unix-like development target. The iPhone app targets iOS 17 or later but awaits Xcode and physical-device validation. The packaged Judge Mode is macOS arm64; the standalone HTML replay is platform-independent.
+The Companion is locally verified on the declared Unix-like development target and in a clean ARM64 Lima VM. The iPhone app targets iOS 17 or later; its launch canvas, bounded physical ASCII path, and physical `BOOTMUX_READY` return are owner-observed. The packaged Judge Mode is macOS arm64; the standalone HTML replay is platform-independent. This remains a working draft for owner revision before submission.
 
 ## Submission fields still requiring human action
 

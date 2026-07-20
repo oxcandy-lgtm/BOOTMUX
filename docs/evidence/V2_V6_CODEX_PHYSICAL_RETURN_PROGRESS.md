@@ -133,3 +133,24 @@ fresh physical endpoint run. The forwarder emitted only accepted, target
 connected, and closed lifecycle markers; no peer address or payload was
 recorded. The Codex log also contained an unrelated MCP authentication
 warning, while the primary Codex process returned BOOTMUX_READY successfully.
+
+## R4 current truth
+
+```yaml
+task_id: BOOTMUX-R4-PHYSICAL-DEMO-REPEATABILITY-HID-MIRROR-VIDEO
+iphone_live_terminal: PHYSICAL_BOOTMUX_READY_OBSERVED_COPY_PENDING
+physical_ble_usb_hid: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
+codex_installation: GREEN_IN_CLEAN_ARM64_VM
+bootmux_ready:
+  direct_vm: PASS
+  companion_codex_prompt: PASS
+  physical_iphone_return: PASS
+selectable_copy: PENDING_OWNER_CONFIRMATION
+clear_visible_feedback: PENDING_OWNER_CONFIRMATION
+repeatability: PENDING
+production_ready: false
+```
+
+This is the current state; earlier failed attempts remain historical. The
+receipt does not claim Unicode HID, mouse support, a full terminal emulator,
+or production readiness.

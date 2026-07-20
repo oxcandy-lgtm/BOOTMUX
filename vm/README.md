@@ -15,5 +15,13 @@ diagnostic log contains only `FORWARDER_READY`, monotonic connection IDs, and
 the lifecycle markers `CONNECTION_ACCEPTED`, `TARGET_CONNECTED`, and
 `CONNECTION_CLOSED`.
 
+For a bounded owner-run setup, `vm/run-physical-demo.sh` checks the existing
+`bootmux-demo` Lima instance and Companion, starts only its own Companion and
+forwarder children, prints the local iPhone WebSocket endpoint at runtime, and
+cleans those children on exit. It does not start or claim a focused Terminal
+window; run `vm/start-hid-target.sh` in that focused window. The optional
+Companion `/v1/mirror` endpoint is read-only and observes that private bounded
+transcript without synthesizing output from iPhone input.
+
 No credentials, auth URLs, IP addresses, SSIDs, hostnames, usernames, or VM
 private paths belong in committed evidence.

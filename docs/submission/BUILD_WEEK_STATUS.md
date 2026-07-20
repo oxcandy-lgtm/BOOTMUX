@@ -7,8 +7,8 @@ status_as_of: 2026-07-21 JST
 submission_sprint:
   P0_toolchain: IN_PROGRESS
   P1_judge_mode: GREEN
-  P2_iphone_proof: PENDING
-  P3_hardware_bridge: IN_PROGRESS
+  P2_iphone_proof: PHYSICAL_BOOTMUX_READY_OBSERVED_COPY_PENDING
+  P3_hardware_bridge: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
   P4_codex_ready: GREEN_BOUNDED_LOCAL_RUN
   P5_submission_package: READY
 feature_development: REOPENED_ONLY_FOR_V1_PHYSICAL_GATE
@@ -31,13 +31,13 @@ gates:
   BW3:
     status: IN_PROGRESS
     V0A: GREEN
-    V0B: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
-    V1: R7_BLE_TRANSPORT_STABILITY_VERIFIED_FULL_ACCEPTANCE_PENDING
-    V2: VM_CODEX_PROBE_GREEN_PHYSICAL_RETURN_PENDING
-    V3: VM_CODEX_ADAPTER_GREEN_PHYSICAL_RETURN_PENDING
+    V0B: IMPLEMENTED_PHYSICAL_BOOTMUX_READY_OBSERVED
+    V1: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
+    V2: VM_CODEX_PROBE_GREEN_PHYSICAL_RETURN_PENDING_COPY_REPEATABILITY
+    V3: VM_CODEX_ADAPTER_GREEN_PHYSICAL_RETURN_PENDING_COPY_REPEATABILITY
     V4: GREEN_BOUNDED_LOCAL_AND_VM_PROBE
     evidence: docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md; launch canvas and short BLE/HID transport path are physically observed; full control-key and stability acceptance is not yet recorded
-    remaining_gate: backspace_ctrl_c_stop_resume_duplicate_reconnect_and_full_stability_receipt
+    remaining_gate: selectable_copy_clear_feedback_and_repeatability_receipt
   BW4:
     status: GREEN
     evidence: standalone offline replay and live Companion /judge mode
@@ -68,15 +68,16 @@ gates:
 
 The real ARM64 Lima VM, official Codex CLI authentication, direct
 BOOTMUX_READY probe, and production Companion codex_prompt probe are GREEN
-locally. Physical iPhone return and copy remain unproven because the
-device-side terminal session has not yet reached TERM ON through the
-currently active LAN endpoint. See
+locally. The owner has also observed the physical iPhone return through the
+Companion. Selectable copy, visible CLEAR feedback, and repeatability remain
+pending. See
 [V2–V6 Codex Physical Return Progress](../evidence/V2_V6_CODEX_PHYSICAL_RETURN_PROGRESS.md).
 
 The iOS client now includes the required local IP/CIDR ATS exceptions for
 iOS 17+, and its Settings actions are visually separated into CONNECT,
 DISCONNECT, CLEAR, and SEND rows. This does not upgrade the physical claim
-until a fresh signed install observes BOOTMUX_READY on the iPhone.
+The physical claim is limited to the owner-observed bounded ASCII path and
+BOOTMUX_READY return; it does not claim repeatability or production readiness.
 
 R3 lifecycle repair is code-green locally: inactive no longer disconnects,
 failed sessions can reconnect directly, and CLEAR visibly resets output,

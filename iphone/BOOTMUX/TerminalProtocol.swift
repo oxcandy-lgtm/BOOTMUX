@@ -55,9 +55,12 @@ struct ClientMessage: Encodable {
 
 enum ServerMessage {
     case hello(sessionID: String)
+    case mirrorHello(sessionID: String)
     case output(sessionID: String, text: String)
+    case mirrorOutput(sessionID: String, text: String)
     case exit(sessionID: String, code: Int)
     case error(sessionID: String, code: String, message: String)
+    case mirrorError(sessionID: String, code: String, message: String)
     case codexStarted(sessionID: String, requestID: String)
     case codexOutput(sessionID: String, requestID: String, text: String)
     case codexExit(sessionID: String, requestID: String, code: Int)
@@ -107,15 +110,24 @@ enum TerminalProtocol {
         }
         switch type {
         case "hello": return .hello(sessionID: sessionID)
+        case "mirror_hello": return .mirrorHello(sessionID: sessionID)
         case "output":
             guard dictionary["stream"] as? String == "pty", let text = dictionary["text"] as? String else { throw ProtocolError.malformed }
             return .output(sessionID: sessionID, text: text)
+        case "mirror_output":
+            guard dictionary["stream"] as? String == "hid_mirror", let text = dictionary["text"] as? String else { throw ProtocolError.malformed }
+            return .mirrorOutput(sessionID: sessionID, text: text)
         case "exit":
             guard let code = dictionary["exit_code"] as? Int else { throw ProtocolError.malformed }
             return .exit(sessionID: sessionID, code: code)
         case "error":
             guard let code = dictionary["code"] as? String, let message = dictionary["message"] as? String else { throw ProtocolError.malformed }
             return .error(sessionID: sessionID, code: code, message: message)
+        case "mirror_error":
+            guard dictionary["stream"] as? String == "hid_mirror",
+                  let code = dictionary["code"] as? String,
+                  let message = dictionary["message"] as? String else { throw ProtocolError.malformed }
+            return .mirrorError(sessionID: sessionID, code: code, message: message)
         case "codex_started":
             guard let requestID = dictionary["request_id"] as? String else { throw ProtocolError.malformed }
             return .codexStarted(sessionID: sessionID, requestID: requestID)

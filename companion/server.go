@@ -24,20 +24,21 @@ import (
 var judgeHTML []byte
 
 const (
-	defaultFlushInterval = 35 * time.Millisecond
-	defaultBatchBytes    = 512
-	defaultMaxBuffer     = 4096
-	defaultChunkBytes    = 256
-	defaultChunkQueue    = 8
-	defaultOutboundQueue = 8
-	defaultInputQueue    = 8
-	defaultCodexOutput   = 128 * 1024
-	defaultCodexPrompt   = 8 * 1024
-	defaultCodexTimeout  = 180 * time.Second
-	maxWebSocketMessage  = 16 * 1024
-	maxJSONMessage       = 12 * 1024
-	maxInputTextBytes    = 8 * 1024
-	writeTimeout         = 2 * time.Second
+	defaultFlushInterval    = 35 * time.Millisecond
+	defaultBatchBytes       = 512
+	defaultMaxBuffer        = 4096
+	defaultChunkBytes       = 256
+	defaultChunkQueue       = 8
+	defaultOutboundQueue    = 8
+	defaultInputQueue       = 8
+	defaultCodexOutput      = 128 * 1024
+	defaultCodexPrompt      = 8 * 1024
+	defaultCodexTimeout     = 180 * time.Second
+	defaultMirrorBatchBytes = 1024
+	maxWebSocketMessage     = 16 * 1024
+	maxJSONMessage          = 12 * 1024
+	maxInputTextBytes       = 8 * 1024
+	writeTimeout            = 2 * time.Second
 )
 
 type Server struct {
@@ -51,6 +52,7 @@ type Server struct {
 	OutboundQueueCapacity   int
 	InputQueueCapacity      int
 	CodexExecutable         string
+	MirrorPath              string
 	MaxWebSocketMessageSize int64
 	MaxJSONMessageBytes     int
 	MaxInputTextBytes       int
@@ -91,8 +93,103 @@ func sameHostOrNativeOrigin(r *http.Request) bool {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/terminal", s.handleTerminal)
+	mux.HandleFunc("/v1/mirror", s.handleMirror)
 	mux.HandleFunc("/judge", s.handleJudge)
 	return mux
+}
+
+func (s *Server) handleMirror(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/v1/mirror" || s.MirrorPath == "" {
+		http.NotFound(w, r)
+		return
+	}
+	conn, err := s.Upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	conn.SetReadLimit(s.MaxWebSocketMessageSize)
+	id, err := newSessionID()
+	if err != nil {
+		return
+	}
+	writeMirror := func(message serverMessage) error {
+		_ = conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+		return conn.WriteJSON(message)
+	}
+	if err := writeMirror(serverMessage{
+		Version:   protocolVersion,
+		Type:      "mirror_hello",
+		SessionID: id,
+		Stream:    "hid_mirror",
+	}); err != nil {
+		return
+	}
+	observer := newMirrorObserver(s.MirrorPath, defaultMirrorBatchBytes)
+	clientErrors := make(chan error, 1)
+	stopReader := make(chan struct{})
+	defer close(stopReader)
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				select {
+				case clientErrors <- err:
+				case <-stopReader:
+				}
+				return
+			}
+			select {
+			case clientErrors <- errMirrorReadOnly:
+			case <-stopReader:
+				return
+			}
+		}
+	}()
+	ticker := time.NewTicker(defaultFlushInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case err := <-clientErrors:
+			if errors.Is(err, errMirrorReadOnly) {
+				if writeMirror(serverMessage{
+					Version:   protocolVersion,
+					Type:      "mirror_error",
+					SessionID: id,
+					Stream:    "hid_mirror",
+					Code:      "mirror_read_only",
+					Message:   "HID mirror does not accept input",
+				}) == nil {
+					continue
+				}
+			}
+			return
+		case <-ticker.C:
+			data, err := observer.readNew()
+			if err != nil {
+				_ = writeMirror(serverMessage{
+					Version:   protocolVersion,
+					Type:      "mirror_error",
+					SessionID: id,
+					Stream:    "hid_mirror",
+					Code:      "mirror_source_unavailable",
+					Message:   "HID mirror source unavailable",
+				})
+				return
+			}
+			if len(data) == 0 {
+				continue
+			}
+			if err := writeMirror(serverMessage{
+				Version:   protocolVersion,
+				Type:      "mirror_output",
+				SessionID: id,
+				Stream:    "hid_mirror",
+				Text:      string(data),
+			}); err != nil {
+				return
+			}
+		}
+	}
 }
 
 func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {

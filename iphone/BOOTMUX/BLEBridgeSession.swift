@@ -46,6 +46,10 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     private var opening = false
     private var preserveOpeningError = false
 
+    static func supportsASCIIHIDText(_ text: String) -> Bool {
+        text.utf8.allSatisfy { $0 >= 0x20 && $0 <= 0x7e }
+    }
+
     override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: nil)
@@ -96,6 +100,12 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     }
 
     func sendText(_ text: String, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard Self.supportsASCIIHIDText(text) else {
+            log("HID text rejected: unsupported non-ASCII")
+            statusMessage = "HID supports ASCII 0x20–0x7e only."
+            completion(false)
+            return
+        }
         guard state == .on, pendingOperation == nil, let peripheral else {
             log("HID text rejected: state=\(String(describing: state)), pending=\(pendingOperation != nil)")
             statusMessage = pendingOperation == nil ? "Connect BLE before sending HID text." : "Complete the current HID operation first."

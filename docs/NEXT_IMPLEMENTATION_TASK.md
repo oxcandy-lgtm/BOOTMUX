@@ -8,18 +8,18 @@ previous_task:
   status: YELLOW_SUBMISSION_READY
   final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
 current_task:
-  task_id: BOOTMUX-V2-V6-R3-PHYSICAL-RETURN-CLIENT-LIFECYCLE-FIX
-  implementation_status: PHYSICAL_CODEX_RETURN_OBSERVED_COPY_CLEAR_REPEATABILITY_PENDING
-  feature_development: REOPENED_ONLY_FOR_V1
+  task_id: BOOTMUX-R4-PHYSICAL-DEMO-REPEATABILITY-HID-MIRROR-VIDEO
+  implementation_status: IMPLEMENTED_LOCAL_MIRROR_AND_USABILITY_CONTROLS_PHYSICAL_COPY_CLEAR_REPEATABILITY_PENDING
+  feature_development: BOUNDED_DEMO_SCOPE_ONLY
   submission_baseline_preserved: true
 next_technical_task:
-  task_id: BOOTMUX-V2-V6-PHYSICAL-INTEGRATED-DEMO-RUN
+  task_id: BOOTMUX-R4-PHYSICAL-DEMO-OWNER-ACCEPTANCE
   status: BLOCKED_PENDING_OWNER_COPY_CLEAR_AND_REPEATABILITY_CONFIRMATION
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```
 
-This task temporarily reopens feature development only for the bounded V1 physical keyboard gate. The Submission Closeout baseline remains preserved. V1 does not include Codex installation, terminal return, mouse/trackpad, arbitrary Unicode, Wi-Fi firmware, background operation, App Store distribution, or USB data return. Firmware and iPhone bridge implementation are present with control ACK and STOP-latch repair; physical acceptance remains pending.
+This task is limited to a repeatable physical-demo slice. The Submission Closeout baseline remains preserved. The implementation adds bounded iPhone usability controls, an ASCII fail-fast boundary, and a read-only HID mirror beside the existing PTY path. It does not claim Unicode HID, mouse/trackpad, a full terminal emulator, production readiness, or a completed owner acceptance receipt.
 
 ## Required artifacts
 

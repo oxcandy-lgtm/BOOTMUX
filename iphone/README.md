@@ -25,7 +25,7 @@ cd companion
 go run . -addr 0.0.0.0:8765 -allow-remote
 ```
 
-In the app, enter `ws://<trusted-local-host>:8765/v1/terminal`, tap CONNECT, then send `echo BOOTMUX_V0` and tap ENTER. Only observed PTY output is added to the selectable terminal view. Physical iPhone proof is still pending.
+In the app, enter `ws://<trusted-local-host>:8765/v1/terminal`, tap CONNECT, then send `echo BOOTMUX_V0` and tap ENTER. Only observed PTY output is added to the selectable terminal view. The owner-observed physical path is bounded ASCII and includes a `BOOTMUX_READY` return; selectable copy, CLEAR feedback, and repeatability remain pending.
 
 ## Bounds and safety
 

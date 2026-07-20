@@ -63,6 +63,8 @@ final class TerminalSession: ObservableObject {
     @Published private(set) var terminalText = ""
     @Published private(set) var statusMessage = "Disconnected."
     @Published private(set) var codexState = "IDLE"
+    @Published private(set) var sourceLabel = "DIRECT PTY"
+    @Published private(set) var hasPendingPublication = false
 
     private let transportFactory: (URL) -> any TerminalTransport
     private let publishDelayNanoseconds: UInt64
@@ -99,6 +101,8 @@ final class TerminalSession: ObservableObject {
         }
     }
 
+    var isMirror: Bool { sourceLabel == "HID MIRROR" }
+
     func connect(endpoint: String) {
         switch state {
         case .disconnected, .failed:
@@ -118,9 +122,11 @@ final class TerminalSession: ObservableObject {
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
+        hasPendingPublication = false
         buffer.clear()
         terminalText = ""
         codexState = "IDLE"
+        sourceLabel = "DIRECT PTY"
         sanitizer = ANSISanitizer()
         state = .connecting
         statusMessage = "Connecting."
@@ -140,8 +146,10 @@ final class TerminalSession: ObservableObject {
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
+        hasPendingPublication = false
         transport = nil
         state = .closing
+        sourceLabel = "DIRECT PTY"
         if let oldTransport, let sessionID {
             Task { [weak self] in await self?.bestEffortClose(oldTransport, sessionID: sessionID) }
         } else {
@@ -154,6 +162,10 @@ final class TerminalSession: ObservableObject {
     func sendInput(_ text: String) async -> Bool {
         guard case let .connected(sessionID) = state, let transport else {
             statusMessage = "Connect before sending input."
+            return false
+        }
+        guard !isMirror else {
+            statusMessage = "HID mirror is read-only."
             return false
         }
         guard text.utf8.count <= TerminalProtocolLimits.inputTextBytes else {
@@ -247,6 +259,7 @@ final class TerminalSession: ObservableObject {
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
+        hasPendingPublication = false
         sanitizer = ANSISanitizer()
         if case .failed = state {
             state = .disconnected
@@ -292,10 +305,23 @@ final class TerminalSession: ObservableObject {
         case .hello(let sessionID):
             guard currentSessionID == nil, transport != nil else { throw ProtocolError.wrongSession }
             state = .connected(sessionID)
+            sourceLabel = "DIRECT PTY"
             statusMessage = "Connected."
+            return .continueReceiving
+        case .mirrorHello(let sessionID):
+            guard currentSessionID == nil, transport != nil else { throw ProtocolError.wrongSession }
+            state = .connected(sessionID)
+            sourceLabel = "HID MIRROR"
+            statusMessage = "HID mirror connected."
             return .continueReceiving
         case .output(let sessionID, let text):
             guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            buffer.append(sanitizer.consume(text))
+            schedulePublish(for: messageGeneration)
+            return .continueReceiving
+        case .mirrorOutput(let sessionID, let text):
+            guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            guard isMirror else { throw ProtocolError.wrongSession }
             buffer.append(sanitizer.consume(text))
             schedulePublish(for: messageGeneration)
             return .continueReceiving
@@ -312,6 +338,10 @@ final class TerminalSession: ObservableObject {
             return .terminal
         case .error(let sessionID, let code, let message):
             if let currentSessionID, currentSessionID != sessionID { throw ProtocolError.wrongSession }
+            failClosed("\(code): \(message)")
+            return .terminal
+        case .mirrorError(let sessionID, let code, let message):
+            guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
             failClosed("\(code): \(message)")
             return .terminal
         case .codexStarted(let sessionID, _):
@@ -344,6 +374,7 @@ final class TerminalSession: ObservableObject {
     private func schedulePublish(for loopGeneration: Int) {
         guard publishTask == nil else { return }
         let token = publishToken
+        hasPendingPublication = true
         publishTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: self?.publishDelayNanoseconds ?? 50_000_000)
             guard !Task.isCancelled else { return }
@@ -359,6 +390,7 @@ final class TerminalSession: ObservableObject {
     private func publishImmediately() {
         publishTask?.cancel()
         publishTask = nil
+        hasPendingPublication = false
         terminalText = buffer.text
     }
 
@@ -387,6 +419,7 @@ final class TerminalSession: ObservableObject {
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
+        hasPendingPublication = false
         transport?.close(code: .goingAway)
         transport = nil
         state = .failed(message)

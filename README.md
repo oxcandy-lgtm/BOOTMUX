@@ -8,7 +8,7 @@ It combines an iPhone, an ESP32-S3, USB HID, BLE, a terminal bridge, and a targe
 
 ## What BOOTMUX Does
 
-BOOTMUX provides a target-side PTY Companion and a native iPhone terminal client for bootstrapping work on a computer that is not ready to run AI. The current submission slice proves a local WebSocket terminal, selectable output, native copy behavior, and a no-rebuild Judge Mode.
+BOOTMUX provides a target-side PTY Companion and a native iPhone terminal client for bootstrapping work on a computer that is not ready to run AI. The current submission slice proves a local WebSocket terminal, a bounded physical ASCII keyboard path, physical `BOOTMUX_READY` return, and a no-rebuild Judge Mode. Copy confirmation, visible CLEAR feedback, and repeatability remain explicitly pending.
 
 Working now:
 
@@ -20,10 +20,9 @@ Working now:
 
 In progress or hardware-dependent:
 
-- physical BLE-to-ESP32-S3 path;
-- native USB HID proof;
-- automated Codex bootstrap;
-- complete `BOOTMUX_READY` hardware loop.
+- repeatable physical BLE-to-ESP32-S3 keyboard operation;
+- selectable-copy and CLEAR-feedback owner confirmation;
+- continued post-bootstrap operation and full hardware loop.
 
 ## Current build target — Hackathon V1
 
@@ -104,7 +103,7 @@ The public architecture names capabilities rather than optional third-party pack
 
 ## Project status
 
-V0A is GREEN. The V0B UI launch canvas is physically confirmed. V1 BLE transport stability and the native USB HID ASCII path are observed, while the remaining control-key, reconnect, duplicate-suppression, and repeatability acceptance is still pending. The VM harness and bounded Codex adapter are implemented and locally verified in a real ARM64 Lima VM: clean recreation, network egress, Companion tests/race/vet/build, live Judge Mode, and official Codex CLI installation pass. Human Codex authentication and physical iPhone return/copy proof remain pending, so V2 through V6 are not claimed GREEN. Judge Mode is GREEN; feature development remains bounded to the submission demonstration.
+V0A is GREEN. The V0B UI launch canvas is physically confirmed. The bounded physical ASCII BLE/USB-HID path and physical `BOOTMUX_READY` return are owner-observed; selectable copy, visible CLEAR feedback, and repeatability remain pending. The VM harness and bounded Codex adapter are implemented and locally verified in a real ARM64 Lima VM: clean recreation, network egress, Companion tests/race/vet/build, live Judge Mode, and official Codex CLI installation pass. Judge Mode is GREEN; production readiness is not claimed.
 
 The V0B iPhone implementation is present under `iphone/`. Its launch canvas and full-screen safe-area behavior were physically confirmed on the validation iPhone. The BLE transport receipt is recorded separately from the remaining V1 acceptance cases.
 
@@ -112,7 +111,7 @@ No runtime, hardware, benchmark, novelty, or Build Week compliance claim is cons
 
 ## Build Week Scope
 
-The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). The software submission slice is ready for `/feedback`, video, and final human review; Xcode, physical hardware, and registration evidence remain honestly labeled.
+The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). The integrated demo is ready for repeatability and owner usability confirmation, then `/feedback`, video, and final human review.
 
 ## Current Working Demo
 
@@ -122,7 +121,7 @@ If macOS Gatekeeper blocks the packaged launcher, first try right-click → Open
 
 ## How Codex Was Used
 
-Codex was used in V0A and V0B implementation work. The current Codex thread is the confirmed Primary Build Thread. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
+Codex was used in V0A and V0B implementation work. The Primary Build Thread designation and `/feedback` result remain human-controlled submission metadata. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
 
 ## How GPT-5.6 Was Used
 
@@ -144,7 +143,7 @@ For the V0B app, open `iphone/BOOTMUX.xcodeproj` in Xcode with an iOS SDK. Start
 
 ## Supported Platforms
 
-The verified V0A environment is the declared Unix-like local target used by the Companion tests. V0B targets iOS 17 or later but has not yet received Simulator or physical-device validation. ESP32-S3 firmware and BLE protocol support are implemented; native USB HID enumeration and the complete physical path remain unproven.
+The verified V0A environment is the declared Unix-like local target used by the Companion tests. V0B targets iOS 17 or later and its launch canvas plus physical terminal path have been owner-observed. ESP32-S3 firmware and BLE protocol support are implemented; the observed physical path is bounded ASCII only and is not a claim of Unicode HID, mouse support, or production readiness.
 
 ## Judge Test Mode
 
@@ -152,11 +151,11 @@ Judge Mode is available without rebuilding: standalone replay works offline, and
 
 ## How to Run the iPhone Demo
 
-Open `iphone/BOOTMUX.xcodeproj` in Xcode, build for an available iOS Simulator or a locally signed device, start the Companion on a trusted local network, enter its versioned WebSocket endpoint, and run `echo BOOTMUX_V0`. Physical acceptance remains pending in the claim matrix.
+Open `iphone/BOOTMUX.xcodeproj` in Xcode, build for an available iOS Simulator or a locally signed device, start the Companion on a trusted local network, enter its versioned WebSocket endpoint, and run `echo BOOTMUX_V0`. The physical `BOOTMUX_READY` return is owner-observed; selectable copy, CLEAR feedback, and repeatability remain pending in the claim matrix.
 
 ## How to Run the Hardware Demo
 
-The hardware demo remains a bounded V1 keyboard path. The current evidence separately proves the launch canvas, short BLE transport stability, and native USB HID ASCII delivery; the remaining V1 controls and repeatability cases are tracked in the [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
+The hardware demo remains a bounded V1 keyboard path. The current evidence separately records the launch canvas, BLE transport, native USB HID ASCII delivery, and physical `BOOTMUX_READY` return; the remaining usability and repeatability cases are tracked in the [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
 
 ## Architecture
 
@@ -221,7 +220,7 @@ See [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), 
 
 ## Known Limitations
 
-The current submission slice has no completed physical iPhone receipt, BLE transport, ESP32-S3 firmware, USB HID enumeration, mouse support, Codex installation proof, background operation, or full terminal emulator. Xcode and iOS SDK validation depends on a host with Xcode installed. These are tracked as claims rather than implied by Judge Mode.
+The current submission slice does not claim repeatable physical operation, complete Unicode HID, mouse support, background operation, a full terminal emulator, or production readiness. Codex installation is GREEN in the clean ARM64 VM, while continued post-bootstrap operation and owner confirmation of copy/CLEAR/repeatability remain open. These are tracked as claims rather than implied by Judge Mode.
 
 ## Repository policy
 
