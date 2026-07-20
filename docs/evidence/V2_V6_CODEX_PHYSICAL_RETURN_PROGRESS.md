@@ -154,3 +154,36 @@ production_ready: false
 This is the current state; earlier failed attempts remain historical. The
 receipt does not claim Unicode HID, mouse support, a full terminal emulator,
 or production readiness.
+
+## R4R1 VM path binding repair
+
+```yaml
+task_id: BOOTMUX-R4R1-HID-MIRROR-VM-PATH-BINDING
+vm_transcript:
+  default: .bootmux/hid-transcript
+  expansion_owner: VM_shell
+  host_home_expansion: false
+  companion_and_target_same_vm_path: true
+bounded_transcript:
+  max_bytes: enforced
+  strategy: explicit_fail_closed_at_threshold
+  stale_unlinked_writer: false
+  private_mode: "0600"
+  cleanup_on_exit: true
+owner_hid_mirror_acceptance:
+  launcher_ready: pending
+  companion_and_target_same_vm_path: pending
+  hid_input: "printf 'BOOTMUX_HID_MIRROR_OK\\n'"
+  mac_terminal_observed: pending
+  iphone_mirror_observed: pending
+  synthesized_from_sent_input: false
+  copy_all: pending
+  clear_feedback: pending
+lima_runtime: NOT_RUN_TOOL_SURFACE_UNAVAILABLE
+physical_mirror: OWNER_CONFIRMATION_PENDING
+classification: YELLOW_INTEGRATED_DEMO_GREEN_REPEATABILITY_PENDING
+```
+
+The focused-target command is owner-run only after a Lima instance is
+available. The receipt above does not promote the local threshold test or the
+existing physical `BOOTMUX_READY` observation into physical Mirror proof.
