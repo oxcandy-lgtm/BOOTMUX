@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum BOOTMUXScenePhasePolicy {
+    static func disconnects(for phase: ScenePhase) -> Bool {
+        phase == .background
+    }
+}
+
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var session = TerminalSession()
@@ -55,7 +61,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             ble.recordLifecycle(String(describing: phase))
-            if phase == .inactive || phase == .background {
+            if BOOTMUXScenePhasePolicy.disconnects(for: phase) {
                 session.disconnect()
                 ble.disconnect()
             }
@@ -161,10 +167,14 @@ struct ContentView: View {
                     Text("TERM \(session.state.label)")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
+                    Text(session.statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     Button("CONNECT") { session.connect(endpoint: endpoint) }
-                        .disabled(session.state != .disconnected)
+                        .disabled(!session.canConnect)
                     Button("DISCONNECT") { session.disconnect() }
-                        .disabled(session.state == .disconnected)
+                        .disabled(!session.canDisconnect)
                     Button("CLEAR") {
                         session.clearVisibleHistory()
                     }

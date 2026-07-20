@@ -10,7 +10,10 @@ an environmental blocker, not a successful VM proof.
 
 The VM runs Companion on loopback port 8765. A bounded host TCP forwarder can
 expose that port on a deliberately selected local interface for the iPhone.
-The forwarder does not parse WebSocket data or log payloads.
+The forwarder does not parse WebSocket data or log payloads. Its public-safe
+diagnostic log contains only `FORWARDER_READY`, monotonic connection IDs, and
+the lifecycle markers `CONNECTION_ACCEPTED`, `TARGET_CONNECTED`, and
+`CONNECTION_CLOSED`.
 
 No credentials, auth URLs, IP addresses, SSIDs, hostnames, usernames, or VM
 private paths belong in committed evidence.

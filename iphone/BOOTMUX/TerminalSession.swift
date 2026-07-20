@@ -65,6 +65,7 @@ final class TerminalSession: ObservableObject {
     @Published private(set) var codexState = "IDLE"
 
     private let transportFactory: (URL) -> any TerminalTransport
+    private let publishDelayNanoseconds: UInt64
     private var transport: (any TerminalTransport)?
     private var generation = 0
     private var publishToken = 0
@@ -72,12 +73,37 @@ final class TerminalSession: ObservableObject {
     private var sanitizer = ANSISanitizer()
     private var publishTask: Task<Void, Never>?
 
-    init(transportFactory: @escaping (URL) -> any TerminalTransport = { URLSessionTerminalTransport(url: $0) }) {
+    init(
+        transportFactory: @escaping (URL) -> any TerminalTransport = { URLSessionTerminalTransport(url: $0) },
+        publishDelayNanoseconds: UInt64 = 50_000_000
+    ) {
         self.transportFactory = transportFactory
+        self.publishDelayNanoseconds = publishDelayNanoseconds
+    }
+
+    var canConnect: Bool {
+        switch state {
+        case .disconnected, .failed:
+            return true
+        case .connecting, .connected, .closing:
+            return false
+        }
+    }
+
+    var canDisconnect: Bool {
+        switch state {
+        case .connecting, .connected, .closing:
+            return true
+        case .disconnected, .failed:
+            return false
+        }
     }
 
     func connect(endpoint: String) {
-        guard case .disconnected = state else {
+        switch state {
+        case .disconnected, .failed:
+            break
+        case .connecting, .connected, .closing:
             statusMessage = "Already connected or connecting."
             return
         }
@@ -87,6 +113,8 @@ final class TerminalSession: ObservableObject {
         }
         generation += 1
         let currentGeneration = generation
+        transport?.close(code: .goingAway)
+        transport = nil
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
@@ -219,6 +247,11 @@ final class TerminalSession: ObservableObject {
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
+        sanitizer = ANSISanitizer()
+        if case .failed = state {
+            state = .disconnected
+        }
+        codexState = "IDLE"
         statusMessage = "Terminal cleared."
     }
 
@@ -312,7 +345,7 @@ final class TerminalSession: ObservableObject {
         guard publishTask == nil else { return }
         let token = publishToken
         publishTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            try? await Task.sleep(nanoseconds: self?.publishDelayNanoseconds ?? 50_000_000)
             guard !Task.isCancelled else { return }
             await self?.publishIfCurrent(generation: loopGeneration, token: token)
         }

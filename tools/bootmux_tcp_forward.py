@@ -2,21 +2,26 @@
 """Bounded, payload-opaque TCP forwarder for the VM Companion."""
 import argparse
 import asyncio
+import itertools
 
 MAX_CONNECTIONS = 2
 BUFFER_BYTES = 64 * 1024
 IDLE_SECONDS = 300
 
 
-async def relay(reader, writer, target_host, target_port, semaphore):
+async def relay(reader, writer, target_host, target_port, semaphore, connection_counter):
+    connection_id = next(connection_counter)
+    print(f"CONNECTION_ACCEPTED id={connection_id}", flush=True)
     async with semaphore:
         try:
             target_reader, target_writer = await asyncio.wait_for(
                 asyncio.open_connection(target_host, target_port), timeout=10
             )
+            print(f"TARGET_CONNECTED id={connection_id}", flush=True)
         except Exception:
             writer.close()
             await writer.wait_closed()
+            print(f"CONNECTION_CLOSED id={connection_id}", flush=True)
             return
 
         async def pipe(source, destination):
@@ -34,13 +39,18 @@ async def relay(reader, writer, target_host, target_port, semaphore):
         writer.close()
         target_writer.close()
         await asyncio.gather(writer.wait_closed(), target_writer.wait_closed(), return_exceptions=True)
+        print(f"CONNECTION_CLOSED id={connection_id}", flush=True)
 
 
 async def main(listen_host, listen_port, target_host, target_port):
     semaphore = asyncio.Semaphore(MAX_CONNECTIONS)
+    connection_counter = itertools.count(1)
     server = await asyncio.start_server(
-        lambda r, w: relay(r, w, target_host, target_port, semaphore), listen_host, listen_port
+        lambda r, w: relay(r, w, target_host, target_port, semaphore, connection_counter),
+        listen_host,
+        listen_port,
     )
+    print("FORWARDER_READY", flush=True)
     async with server:
         await server.serve_forever()
 

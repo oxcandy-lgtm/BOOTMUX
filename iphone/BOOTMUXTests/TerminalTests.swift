@@ -158,6 +158,70 @@ final class TerminalTests: XCTestCase {
         XCTAssertFalse(session.statusMessage.contains("failed"))
     }
 
+    func testFailedSessionCanReconnectWithoutDisconnectButton() async throws {
+        let first = FakeTransport()
+        let second = FakeTransport()
+        var transports = [first, second]
+        let session = TerminalSession { _ in transports.removeFirst() }
+        session.connect(endpoint: "ws://local/v1/terminal")
+        first.push(.string("{bad"))
+        try await waitUntil { if case .failed = session.state { return true }; return false }
+        XCTAssertTrue(session.canConnect)
+        XCTAssertFalse(session.canDisconnect)
+        session.clearVisibleHistory()
+        XCTAssertEqual(session.state, .disconnected)
+        session.connect(endpoint: "ws://local/v1/terminal")
+        second.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"recovered\"}"))
+        try await waitUntil { if case .connected("recovered") = session.state { return true }; return false }
+    }
+
+    func testClearVisibleHistoryShowsFeedbackAndRemovesDisplayedOutput() async throws {
+        let fake = FakeTransport()
+        let session = TerminalSession { _ in fake }
+        session.connect(endpoint: "ws://local/v1/terminal")
+        fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
+        fake.push(.string("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"visible\"}"))
+        try await waitUntil { session.terminalText == "visible" }
+        session.clearVisibleHistory()
+        XCTAssertEqual(session.terminalText, "")
+        XCTAssertEqual(session.statusMessage, "Terminal cleared.")
+        XCTAssertTrue({ if case .connected("s") = session.state { return true }; return false }())
+    }
+
+    func testClearCancelsPendingPublishAndResetsSanitizer() async throws {
+        let fake = FakeTransport()
+        let session = TerminalSession(
+            transportFactory: { _ in fake },
+            publishDelayNanoseconds: 200_000_000
+        )
+        session.connect(endpoint: "ws://local/v1/terminal")
+        fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
+        fake.push(.string("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"pending\\r\"}"))
+        try await waitUntil { fake.receiveCount >= 2 }
+        session.clearVisibleHistory()
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(session.terminalText, "")
+        XCTAssertEqual(session.statusMessage, "Terminal cleared.")
+    }
+
+    func testScenePhasePolicyDoesNotDisconnectForInactive() {
+        XCTAssertFalse(BOOTMUXScenePhasePolicy.disconnects(for: .inactive))
+        XCTAssertTrue(BOOTMUXScenePhasePolicy.disconnects(for: .background))
+        XCTAssertFalse(BOOTMUXScenePhasePolicy.disconnects(for: .active))
+    }
+
+    func testClearFailedStateReturnsToDisconnected() async throws {
+        let fake = FakeTransport()
+        let session = TerminalSession { _ in fake }
+        session.connect(endpoint: "ws://local/v1/terminal")
+        fake.push(.string("{bad"))
+        try await waitUntil { if case .failed = session.state { return true }; return false }
+        session.clearVisibleHistory()
+        XCTAssertEqual(session.state, .disconnected)
+        XCTAssertEqual(session.codexState, "IDLE")
+        XCTAssertEqual(session.statusMessage, "Terminal cleared.")
+    }
+
     func testDoubleConnectIsRejectedAndReconnectUsesFreshSession() async throws {
         let first = FakeTransport()
         let second = FakeTransport()
@@ -236,12 +300,13 @@ final class TerminalTests: XCTestCase {
 
     func testClearPreventsScheduledPublishFromResurrectingOutput() async throws {
         let fake = FakeTransport()
-        let session = TerminalSession { _ in fake }
+        let session = TerminalSession(transportFactory: { _ in fake }, publishDelayNanoseconds: 200_000_000)
         session.connect(endpoint: "ws://local/v1/terminal")
         fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
         fake.push(.string("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"old\"}"))
+        try await waitUntil { fake.receiveCount >= 2 }
         session.clearVisibleHistory()
-        try await waitUntil { session.terminalText.isEmpty }
+        try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertEqual(session.terminalText, "")
     }
 
