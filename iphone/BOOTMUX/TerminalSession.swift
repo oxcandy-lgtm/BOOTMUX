@@ -62,6 +62,7 @@ final class TerminalSession: ObservableObject {
     @Published private(set) var state: State = .disconnected
     @Published private(set) var terminalText = ""
     @Published private(set) var statusMessage = "Disconnected."
+    @Published private(set) var codexState = "IDLE"
 
     private let transportFactory: (URL) -> any TerminalTransport
     private var transport: (any TerminalTransport)?
@@ -91,6 +92,7 @@ final class TerminalSession: ObservableObject {
         publishTask = nil
         buffer.clear()
         terminalText = ""
+        codexState = "IDLE"
         sanitizer = ANSISanitizer()
         state = .connecting
         statusMessage = "Connecting."
@@ -156,6 +158,57 @@ final class TerminalSession: ObservableObject {
             return true
         } catch {
             failClosed("Interrupt send failed.")
+            return false
+        }
+    }
+
+    func sendCodexPrompt(_ prompt: String) async -> Bool {
+        guard case let .connected(sessionID) = state, let transport else {
+            statusMessage = "Connect before sending a Codex prompt."
+            return false
+        }
+        guard prompt.utf8.count <= TerminalProtocolLimits.inputTextBytes else {
+            statusMessage = "Codex prompt exceeds the 8 KiB limit."
+            return false
+        }
+        let requestID = UUID().uuidString
+        do {
+            let payload = try TerminalProtocol.encode(.codexPrompt(sessionID: sessionID, prompt: prompt, requestID: requestID))
+            guard payload.utf8.count <= TerminalProtocolLimits.jsonMessageBytes else {
+                statusMessage = "Codex prompt message exceeds the 12 KiB JSON limit."
+                return false
+            }
+            try await transport.send(payload)
+            codexState = "RUNNING"
+            return true
+        } catch {
+            statusMessage = "Codex prompt send failed."
+            return false
+        }
+    }
+
+    func cancelCodex() async -> Bool {
+        guard case let .connected(sessionID) = state, let transport else { return false }
+        do {
+            let payload = try TerminalProtocol.encode(.codexCancel(sessionID: sessionID, requestID: UUID().uuidString))
+            try await transport.send(payload)
+            codexState = "IDLE"
+            return true
+        } catch {
+            statusMessage = "Codex cancel failed."
+            return false
+        }
+    }
+
+    func newCodexSession() async -> Bool {
+        guard case let .connected(sessionID) = state, let transport else { return false }
+        do {
+            let payload = try TerminalProtocol.encode(.codexNewSession(sessionID: sessionID))
+            try await transport.send(payload)
+            codexState = "IDLE"
+            return true
+        } catch {
+            statusMessage = "Codex session reset failed."
             return false
         }
     }
@@ -227,6 +280,25 @@ final class TerminalSession: ObservableObject {
             if let currentSessionID, currentSessionID != sessionID { throw ProtocolError.wrongSession }
             failClosed("\(code): \(message)")
             return .terminal
+        case .codexStarted(let sessionID, _):
+            guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            codexState = "RUNNING"
+            return .continueReceiving
+        case .codexOutput(let sessionID, _, let text):
+            guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            buffer.append(sanitizer.consume(text))
+            schedulePublish(for: messageGeneration)
+            return .continueReceiving
+        case .codexExit(let sessionID, _, let code):
+            guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            codexState = "IDLE"
+            statusMessage = "Codex exited with code \(code)."
+            return .continueReceiving
+        case .codexError(let sessionID, _, let code, let message):
+            guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            codexState = "IDLE"
+            statusMessage = "\(code): \(message)"
+            return .continueReceiving
         }
     }
 

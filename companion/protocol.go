@@ -13,6 +13,8 @@ type clientMessage struct {
 	SessionID string `json:"session_id"`
 	Text      string `json:"text"`
 	Control   string `json:"control"`
+	Prompt    string `json:"prompt"`
+	RequestID string `json:"request_id"`
 }
 
 type serverMessage struct {
@@ -24,6 +26,7 @@ type serverMessage struct {
 	ExitCode  *int   `json:"exit_code,omitempty"`
 	Code      string `json:"code,omitempty"`
 	Message   string `json:"message,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 func decodeClientMessage(data []byte) (clientMessage, error) {
@@ -47,6 +50,15 @@ func decodeClientMessage(data []byte) (clientMessage, error) {
 			return msg, fmt.Errorf("unsupported_control")
 		}
 	case "close":
+	case "codex_prompt":
+		if msg.Prompt == "" || msg.RequestID == "" {
+			return msg, fmt.Errorf("malformed_message")
+		}
+	case "codex_cancel":
+		if msg.RequestID == "" {
+			return msg, fmt.Errorf("malformed_message")
+		}
+	case "codex_new_session":
 	default:
 		return msg, fmt.Errorf("unsupported_message_type")
 	}

@@ -14,12 +14,15 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8765", "listen address; loopback is the default")
 	shell := flag.String("shell", "/bin/sh", "explicit shell executable")
 	allowRemote := flag.Bool("allow-remote", false, "explicitly allow a non-loopback bind")
+	codexExecutable := flag.String("codex", "codex", "Codex executable used by bounded codex_prompt messages")
 	flag.Parse()
 	if !*allowRemote && !isLoopbackAddress(*addr) {
 		log.Fatal("non-loopback bind requires -allow-remote")
 	}
 	log.Printf("BOOTMUX Companion listening on %s", *addr)
-	if err := http.ListenAndServe(*addr, NewServer(*shell, "-i").Handler()); err != nil {
+	server := NewServer(*shell, "-i")
+	server.CodexExecutable = *codexExecutable
+	if err := http.ListenAndServe(*addr, server.Handler()); err != nil {
 		log.Fatal(err)
 	}
 }

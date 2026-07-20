@@ -18,23 +18,38 @@ struct ClientMessage: Encodable {
     let sessionID: String
     let text: String?
     let control: String?
+    let prompt: String?
+    let requestID: String?
 
     enum CodingKeys: String, CodingKey {
         case v, type
         case sessionID = "session_id"
-        case text, control
+        case text, control, prompt
+        case requestID = "request_id"
     }
 
     static func input(sessionID: String, text: String) -> ClientMessage {
-        ClientMessage(v: 1, type: "input_text", sessionID: sessionID, text: text, control: nil)
+        ClientMessage(v: 1, type: "input_text", sessionID: sessionID, text: text, control: nil, prompt: nil, requestID: nil)
     }
 
     static func interrupt(sessionID: String) -> ClientMessage {
-        ClientMessage(v: 1, type: "control", sessionID: sessionID, text: nil, control: "interrupt")
+        ClientMessage(v: 1, type: "control", sessionID: sessionID, text: nil, control: "interrupt", prompt: nil, requestID: nil)
     }
 
     static func close(sessionID: String) -> ClientMessage {
-        ClientMessage(v: 1, type: "close", sessionID: sessionID, text: nil, control: nil)
+        ClientMessage(v: 1, type: "close", sessionID: sessionID, text: nil, control: nil, prompt: nil, requestID: nil)
+    }
+
+    static func codexPrompt(sessionID: String, prompt: String, requestID: String) -> ClientMessage {
+        ClientMessage(v: 1, type: "codex_prompt", sessionID: sessionID, text: nil, control: nil, prompt: prompt, requestID: requestID)
+    }
+
+    static func codexCancel(sessionID: String, requestID: String) -> ClientMessage {
+        ClientMessage(v: 1, type: "codex_cancel", sessionID: sessionID, text: nil, control: nil, prompt: nil, requestID: requestID)
+    }
+
+    static func codexNewSession(sessionID: String) -> ClientMessage {
+        ClientMessage(v: 1, type: "codex_new_session", sessionID: sessionID, text: nil, control: nil, prompt: nil, requestID: nil)
     }
 }
 
@@ -43,6 +58,10 @@ enum ServerMessage {
     case output(sessionID: String, text: String)
     case exit(sessionID: String, code: Int)
     case error(sessionID: String, code: String, message: String)
+    case codexStarted(sessionID: String, requestID: String)
+    case codexOutput(sessionID: String, requestID: String, text: String)
+    case codexExit(sessionID: String, requestID: String, code: Int)
+    case codexError(sessionID: String, requestID: String, code: String, message: String)
 }
 
 enum ProtocolError: LocalizedError, Equatable {
@@ -97,6 +116,18 @@ enum TerminalProtocol {
         case "error":
             guard let code = dictionary["code"] as? String, let message = dictionary["message"] as? String else { throw ProtocolError.malformed }
             return .error(sessionID: sessionID, code: code, message: message)
+        case "codex_started":
+            guard let requestID = dictionary["request_id"] as? String else { throw ProtocolError.malformed }
+            return .codexStarted(sessionID: sessionID, requestID: requestID)
+        case "codex_output":
+            guard let requestID = dictionary["request_id"] as? String, let text = dictionary["text"] as? String else { throw ProtocolError.malformed }
+            return .codexOutput(sessionID: sessionID, requestID: requestID, text: text)
+        case "codex_exit":
+            guard let requestID = dictionary["request_id"] as? String, let code = dictionary["exit_code"] as? Int else { throw ProtocolError.malformed }
+            return .codexExit(sessionID: sessionID, requestID: requestID, code: code)
+        case "codex_error":
+            guard let requestID = dictionary["request_id"] as? String, let code = dictionary["code"] as? String, let message = dictionary["message"] as? String else { throw ProtocolError.malformed }
+            return .codexError(sessionID: sessionID, requestID: requestID, code: code, message: message)
         default: throw ProtocolError.unsupportedMessage
         }
     }

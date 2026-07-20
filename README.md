@@ -104,7 +104,7 @@ The public architecture names capabilities rather than optional third-party pack
 
 ## Project status
 
-V0A is GREEN. The V0B UI launch canvas is physically confirmed. V1 BLE transport stability and the native USB HID ASCII path are observed, while the remaining control-key, reconnect, duplicate-suppression, and repeatability acceptance is still pending. V2 through V4 are open or partial. Judge Mode is GREEN; Codex bootstrap remains high-value evidence work rather than an absolute submission blocker. Feature development is frozen except for the bounded V1 physical gate.
+V0A is GREEN. The V0B UI launch canvas is physically confirmed. V1 BLE transport stability and the native USB HID ASCII path are observed, while the remaining control-key, reconnect, duplicate-suppression, and repeatability acceptance is still pending. The VM harness and bounded Codex adapter are implemented, but an ARM64 VM provider, clean-VM run, official Codex installation, human authentication, and physical iPhone return proof remain pending. V2 through V6 are not claimed GREEN. Judge Mode is GREEN; feature development remains bounded to the submission demonstration.
 
 The V0B iPhone implementation is present under `iphone/`. Its launch canvas and full-screen safe-area behavior were physically confirmed on the validation iPhone. The BLE transport receipt is recorded separately from the remaining V1 acceptance cases.
 

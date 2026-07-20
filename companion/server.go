@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	_ "embed"
 	"encoding/hex"
@@ -30,6 +31,9 @@ const (
 	defaultChunkQueue    = 8
 	defaultOutboundQueue = 8
 	defaultInputQueue    = 8
+	defaultCodexOutput   = 128 * 1024
+	defaultCodexPrompt   = 8 * 1024
+	defaultCodexTimeout  = 180 * time.Second
 	maxWebSocketMessage  = 16 * 1024
 	maxJSONMessage       = 12 * 1024
 	maxInputTextBytes    = 8 * 1024
@@ -46,6 +50,7 @@ type Server struct {
 	ChunkQueueCapacity      int
 	OutboundQueueCapacity   int
 	InputQueueCapacity      int
+	CodexExecutable         string
 	MaxWebSocketMessageSize int64
 	MaxJSONMessageBytes     int
 	MaxInputTextBytes       int
@@ -65,6 +70,7 @@ func NewServer(shell string, args ...string) *Server {
 		ChunkQueueCapacity:      defaultChunkQueue,
 		OutboundQueueCapacity:   defaultOutboundQueue,
 		InputQueueCapacity:      defaultInputQueue,
+		CodexExecutable:         "codex",
 		MaxWebSocketMessageSize: maxWebSocketMessage,
 		MaxJSONMessageBytes:     maxJSONMessage,
 		MaxInputTextBytes:       maxInputTextBytes,
@@ -184,6 +190,7 @@ type session struct {
 	id         string
 	ptmx       io.ReadWriteCloser
 	cmd        *exec.Cmd
+	codex      string
 	flush      time.Duration
 	batch      int
 	max        int
@@ -201,6 +208,10 @@ type session struct {
 	input        chan inputRequest
 	inputDone    chan struct{}
 	inputFailure chan struct{}
+	codexMu      sync.Mutex
+	codexCancel  context.CancelFunc
+	codexCmd     *exec.Cmd
+	codexActive  bool
 	outbound     chan outboundMessage
 	finished     chan struct{}
 	writerDone   chan struct{}
@@ -231,6 +242,7 @@ func newSession(s *Server, conn *websocket.Conn, id string, ptmx io.ReadWriteClo
 		id:           id,
 		ptmx:         ptmx,
 		cmd:          cmd,
+		codex:        s.CodexExecutable,
 		flush:        s.FlushInterval,
 		batch:        s.BatchBytes,
 		max:          s.MaxBufferBytes,
@@ -322,11 +334,28 @@ func (s *session) handleClientMessage(data []byte) (bool, <-chan error) {
 	if len(msg.Text) > s.maxInputBytes() {
 		return s.terminateWithError("input_too_large", "input text exceeds limit")
 	}
+	if msg.Type == "codex_prompt" && len(msg.Prompt) > defaultCodexPrompt {
+		return s.terminateWithError("codex_prompt_too_large", "Codex prompt exceeds limit")
+	}
 	if msg.SessionID != s.id {
 		if !s.enqueueError("wrong_session", "session rejected") {
 			s.stopProcess()
 			return true, nil
 		}
+		return false, nil
+	}
+	if msg.Type == "codex_prompt" {
+		if !s.startCodex(msg.Prompt, msg.RequestID) {
+			return s.terminateWithError("codex_busy", "only one Codex process is allowed")
+		}
+		return false, nil
+	}
+	if msg.Type == "codex_cancel" {
+		s.cancelCodex(msg.RequestID)
+		return false, nil
+	}
+	if msg.Type == "codex_new_session" {
+		s.cancelCodex("")
 		return false, nil
 	}
 	request := inputRequest{interrupt: msg.Type == "control"}
@@ -667,6 +696,7 @@ func (s *session) write(msg serverMessage) bool {
 
 func (s *session) stop() {
 	s.stopOnce.Do(func() {
+		s.cancelCodex("")
 		s.stopProcess()
 		_ = s.conn.Close()
 		s.mu.Lock()

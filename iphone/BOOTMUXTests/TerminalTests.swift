@@ -91,6 +91,17 @@ final class TerminalTests: XCTestCase {
         XCTAssertTrue(try TerminalProtocol.encode(.close(sessionID: "s")).contains("\"close\""))
     }
 
+    func testCodexMessagesStayOnTerminalTransport() throws {
+        let prompt = try TerminalProtocol.encode(.codexPrompt(sessionID: "s", prompt: "Respond with exactly BOOTMUX_READY", requestID: "r1"))
+        XCTAssertTrue(prompt.contains("codex_prompt"))
+        XCTAssertTrue(prompt.contains("BOOTMUX_READY"))
+        XCTAssertTrue(try TerminalProtocol.encode(.codexCancel(sessionID: "s", requestID: "r1")).contains("codex_cancel"))
+        let output = Data("{\"v\":1,\"type\":\"codex_output\",\"session_id\":\"s\",\"request_id\":\"r1\",\"text\":\"BOOTMUX_READY\"}".utf8)
+        guard case let .codexOutput(_, requestID, text) = try TerminalProtocol.decodeServer(output, expectedSession: "s") else { return XCTFail("expected Codex output") }
+        XCTAssertEqual(requestID, "r1")
+        XCTAssertEqual(text, "BOOTMUX_READY")
+    }
+
     func testProtocolLimitsAreSingleContract() {
         XCTAssertEqual(TerminalProtocolLimits.webSocketMessageBytes, 16 * 1024)
         XCTAssertEqual(TerminalProtocolLimits.jsonMessageBytes, 12 * 1024)

@@ -6,6 +6,8 @@ struct ContentView: View {
     @StateObject private var ble = BLEBridgeSession()
     @State private var endpoint = "ws://127.0.0.1:8765/v1/terminal"
     @State private var command = ""
+    @State private var codexPrompt = ""
+    @State private var codexMode = false
     @State private var showSettings = false
     @State private var showDiagnostics = false
     @FocusState private var focusedField: InputField?
@@ -16,6 +18,11 @@ struct ContentView: View {
         GeometryReader { proxy in
             VStack(spacing: 8) {
                 compactHeader
+                Picker("Mode", selection: $codexMode) {
+                    Text("TERMINAL").tag(false)
+                    Text("CODEX").tag(true)
+                }
+                .pickerStyle(.segmented)
                 SelectableTerminalView(text: session.terminalText)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .layoutPriority(10)
@@ -25,8 +32,12 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                commandComposer
-                essentialControls
+                if codexMode {
+                    codexComposer
+                } else {
+                    commandComposer
+                    essentialControls
+                }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
@@ -61,6 +72,9 @@ struct ContentView: View {
                 .font(.caption2.monospaced())
                 .lineLimit(1)
             Text("TERM \(session.state.label)")
+                .font(.caption2.monospaced())
+                .lineLimit(1)
+            Text("CODEX \(session.codexState)")
                 .font(.caption2.monospaced())
                 .lineLimit(1)
             Button("SETTINGS") { showSettings = true }
@@ -105,6 +119,34 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
             }
+        }
+    }
+
+    private var codexComposer: some View {
+        VStack(spacing: 6) {
+            TextEditor(text: $codexPrompt)
+                .frame(minHeight: 72, maxHeight: 120)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.3)))
+                .overlay(alignment: .topLeading) {
+                    if codexPrompt.isEmpty {
+                        Text("Codex prompt")
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 8)
+                            .padding(.leading, 5)
+                            .allowsHitTesting(false)
+                    }
+                }
+            HStack(spacing: 6) {
+                Button("SEND TO CODEX") {
+                    let value = codexPrompt
+                    Task { if await session.sendCodexPrompt(value) { codexPrompt = "" } }
+                }
+                .disabled(codexPrompt.isEmpty)
+                Button("STOP") { Task { _ = await session.cancelCodex() } }
+                Button("NEW") { Task { _ = await session.newCodexSession() } }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
         }
     }
 

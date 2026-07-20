@@ -76,6 +76,16 @@ func TestProtocolAndSessionRejection(t *testing.T) {
 	}
 }
 
+func TestCodexMessagesAreBoundedAndSessionScoped(t *testing.T) {
+	msg, err := decodeClientMessage([]byte(`{"v":1,"type":"codex_prompt","session_id":"s","request_id":"r1","prompt":"BOOTMUX_READY"}`))
+	if err != nil || msg.Prompt != "BOOTMUX_READY" || msg.RequestID != "r1" {
+		t.Fatalf("codex prompt decode failed: %+v %v", msg, err)
+	}
+	if _, err := decodeClientMessage([]byte(`{"v":1,"type":"codex_prompt","session_id":"s","prompt":"x"}`)); err == nil {
+		t.Fatal("codex prompt without request id accepted")
+	}
+}
+
 func TestTerminalErrorUsesItsOwnWriteAck(t *testing.T) {
 	s := NewServer("/bin/sh", "-i")
 	s.MaxInputTextBytes = 4

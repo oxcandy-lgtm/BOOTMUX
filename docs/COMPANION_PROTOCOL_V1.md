@@ -8,6 +8,9 @@ Client messages are versioned JSON:
 {"v":1,"type":"input_text","session_id":"opaque","text":"..."}
 {"v":1,"type":"control","session_id":"opaque","control":"interrupt"}
 {"v":1,"type":"close","session_id":"opaque"}
+{"v":1,"type":"codex_prompt","session_id":"opaque","request_id":"r1","prompt":"..."}
+{"v":1,"type":"codex_cancel","session_id":"opaque","request_id":"r1"}
+{"v":1,"type":"codex_new_session","session_id":"opaque"}
 ```
 
 Server messages distinguish observed PTY output from input:
@@ -17,6 +20,10 @@ Server messages distinguish observed PTY output from input:
 {"v":1,"type":"output","session_id":"opaque","stream":"pty","text":"..."}
 {"v":1,"type":"exit","session_id":"opaque","exit_code":0}
 {"v":1,"type":"error","session_id":"opaque","code":"...","message":"public-safe"}
+{"v":1,"type":"codex_started","session_id":"opaque","request_id":"r1"}
+{"v":1,"type":"codex_output","session_id":"opaque","request_id":"r1","text":"..."}
+{"v":1,"type":"codex_exit","session_id":"opaque","request_id":"r1","exit_code":0}
+{"v":1,"type":"codex_error","session_id":"opaque","request_id":"r1","code":"...","message":"public-safe"}
 ```
 
 The implementation bounds WebSocket messages at 16 KiB, JSON messages at 12 KiB, and `input_text` at 8 KiB. PTY chunks, the chunk queue, accumulated output, and the outbound WebSocket queue are also bounded. Overflow is fail-closed and reports `output_overflow` when the outbound queue still permits that error; output is never silently trimmed.
@@ -28,3 +35,5 @@ Client input is handled by a fixed-capacity queue and dedicated PTY writer. Text
 Terminal errors carry a private per-message completion channel through the outbound writer. A previous nonterminal error cannot acknowledge a later terminal error. If the terminal error cannot be enqueued, its writer cannot complete, the client disconnects, or the bounded ACK wait expires, the session closes fail-closed. Only the aggregator closes the outbound queue, after client acceptance is stopped and the writer has drained.
 
 Origin-less native clients are allowed. A browser Origin is accepted only when its host matches the request host. The server binds loopback by default; non-loopback binding requires `-allow-remote` and an external network safety boundary.
+
+Codex messages are bounded one-shot adapter messages. The adapter requires a runtime `codex` executable, runs `codex exec <prompt>`, limits one process, 8 KiB prompts, 128 KiB output, and 180 seconds, and exposes timeout, cancel, start, exit, and error results. Authentication remains human-controlled and is never performed by the Companion.
