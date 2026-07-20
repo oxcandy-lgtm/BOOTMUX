@@ -10,7 +10,7 @@ submission_sprint:
   P2_iphone_proof: PHYSICAL_BOOTMUX_READY_OBSERVED_COPY_PENDING
   P3_hardware_bridge: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
   P4_codex_ready: GREEN_BOUNDED_LOCAL_RUN
-  P5_submission_package: READY
+  P5_submission_package: READY_FINAL_VIDEO_PENDING
 feature_development: REOPENED_ONLY_FOR_V1_PHYSICAL_GATE
 gates:
   BW0:
@@ -22,8 +22,9 @@ gates:
     primary_codex_thread: CONFIRMED
     majority_core_work: IN_PROGRESS
     gpt_5_6_evidence: IN_PROGRESS
+    feedback_receipt: CAPTURED_PRIVATELY
     evidence: docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md
-    remaining_gate: CONTINUE_PRIMARY_THREAD_THROUGH_V4_AND_RUN_FEEDBACK_LATER
+    remaining_gate: COMPLETE_FINAL_PUBLIC_SAFE_EVIDENCE_MAPPING
   BW2:
     status: IMPLEMENTED
     evidence: docs/submission/BUILD_WEEK_SCOPE_LEDGER.md
@@ -47,13 +48,13 @@ gates:
     evidence: LICENSE and submission README headings are present
     remaining_gate: human_final_readme_review
   BW6:
-    status: READY
-    evidence: Primary Codex Thread confirmed; /feedback has not been run
-    remaining_gate: OWNER_ACTION_RUN_FEEDBACK_AND_KEEP_SESSION_ID_PRIVATE
+    status: GREEN_PRIVATE_CAPTURED
+    evidence: owner-confirmed private /feedback receipt; Session ID intentionally excluded from the public repository
+    remaining_gate: preserve_private_session_id_for_submission
   BW7:
-    status: READY_SCRIPT_ONLY
-    evidence: docs/submission/DEMO_SCRIPT.md
-    remaining_gate: public_video_with_voice_narration
+    status: IN_PROGRESS_OPENING_SEGMENT_COMPLETE
+    evidence: docs/submission/DEMO_SCRIPT.md and owner-produced 17-second narrated opening segment
+    remaining_gate: remaining_demo_clips_final_edit_privacy_review_and_public_upload
   BW8:
     status: READY_FOR_HUMAN_REVIEW
     evidence: final Devpost draft, demo script, and checklist are present
@@ -75,7 +76,7 @@ pending. See
 
 The iOS client now includes the required local IP/CIDR ATS exceptions for
 iOS 17+, and its Settings actions are visually separated into CONNECT,
-DISCONNECT, CLEAR, and SEND rows. This does not upgrade the physical claim
+DISCONNECT, CLEAR, and SEND rows. This does not upgrade the physical claim.
 The physical claim is limited to the owner-observed bounded ASCII path and
 BOOTMUX_READY return; it does not claim repeatability or production readiness.
 
@@ -86,9 +87,13 @@ installed and launched. The subsequent fresh endpoint run reached Safari
 Judge, TERM ON, and physical BOOTMUX_READY through the VM Companion. Copy,
 CLEAR, and repeatability remain owner-confirmation gates.
 
+## Video production status
+
+The narrated 17-second opening segment is complete. It contains the dirty-display problem setup, the ESP32-S3 reveal, English narration and subtitles, and the `BOOT GPT-5.6` / BOOTMUX title treatment. This is an opening segment only, not the final public submission video. Remaining work is to record the product demonstration clips, assemble the final narrated master, complete privacy review, and upload the public video.
+
 ## Current technical boundary
 
-V0A Companion Core is locally verified. The short iPhone-to-BLE transport path and native USB HID ASCII path are observed; the complete V1 keyboard acceptance, mouse support, Codex installation, offline target operation, and continued post-boot operation are not proven by this repository state.
+V0A Companion Core is locally verified. The short iPhone-to-BLE transport path and native USB HID ASCII path are observed, and official Codex installation plus bounded `BOOTMUX_READY` probes are GREEN in the clean ARM64 Lima VM. The complete repeatable V1 keyboard acceptance, selectable physical copy, visible CLEAR acceptance, mouse support, offline target operation, and continued post-boot operation are not proven by this repository state.
 
 ## Explicit human and tool-use state
 
@@ -100,6 +105,11 @@ license:
 feedback:
   captured_privately: true
   public_session_id: false
+video:
+  opening_segment_complete: true
+  duration_seconds: 17
+  final_public_video_complete: false
+  public_upload_complete: false
 github_issues_accessed: false
 github_actions_used: false
 ```
