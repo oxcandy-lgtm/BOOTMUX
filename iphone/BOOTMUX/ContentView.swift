@@ -6,57 +6,175 @@ struct ContentView: View {
     @StateObject private var ble = BLEBridgeSession()
     @State private var endpoint = "ws://127.0.0.1:8765/v1/terminal"
     @State private var command = ""
+    @State private var showSettings = false
+    @State private var showDiagnostics = false
+    @FocusState private var focusedField: InputField?
+
+    private enum InputField { case command, endpoint }
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text("BOOTMUX").font(.headline)
+        GeometryReader { proxy in
+            VStack(spacing: 8) {
+                compactHeader
+                SelectableTerminalView(text: session.terminalText)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .layoutPriority(10)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.3)))
+                Text(session.statusMessage)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                commandComposer
+                essentialControls
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showSettings) { settingsSheet }
+        .sheet(isPresented: $showDiagnostics) { diagnosticsSheet }
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Text("TERMINAL: \(session.state.label)").font(.caption.monospaced())
-                Text("BLE: \(ble.statusMessage)").font(.caption2)
-            }.padding(.horizontal)
-            SelectableTerminalView(text: session.terminalText)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.3)))
-            Text(session.statusMessage).font(.caption).foregroundStyle(.secondary)
-            TextField("WebSocket endpoint", text: $endpoint)
-                .textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
-            TextField("Command input", text: $command, axis: .vertical)
-                .textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
-            HStack {
-                Button("CONNECT") { session.connect(endpoint: endpoint) }
-                Button("DISCONNECT") { session.disconnect() }
-                Button("SEND") {
-                    let value = command
-                    Task { if await session.sendInput(value) { command = "" } }
-                }
-                Button("SEND VIA HID") {
-                    let value = command
-                    ble.sendText(value) { success in if success { command = "" } }
-                }
-                Button("ENTER") { Task { _ = await session.sendInput("\n") } }
-                Button("BACKSPACE") { Task { _ = await session.sendInput("\u{7F}") } }
-            }
-            HStack {
-                Button("CTRL-C") { Task { _ = await session.sendInterrupt() } }
-                Button("CLEAR") { session.clearVisibleHistory() }
-            }
-            HStack {
-                Button("CONNECT BLE") { ble.connect() }
-                Button("DISCONNECT BLE") { ble.disconnect() }
-                Button("HID ENTER") { ble.send(.enter) }
-                Button("HID BACKSPACE") { ble.send(.backspace) }
-                Button("HID CTRL-C") { ble.send(.ctrlC) }
-                Button("STOP HID") { ble.send(.stop) }
-                Button("RESUME HID") { ble.send(.resume) }
+                Button("Done") { focusedField = nil }
             }
         }
-        .padding()
         .onChange(of: scenePhase) { _, phase in
+            ble.recordLifecycle(String(describing: phase))
             if phase == .inactive || phase == .background {
                 session.disconnect()
                 ble.disconnect()
             }
+        }
+    }
+
+    private var compactHeader: some View {
+        HStack(spacing: 8) {
+            Text("BOOTMUX")
+                .font(.headline)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Text("BLE \(ble.state.uiLabel)")
+                .font(.caption2.monospaced())
+                .lineLimit(1)
+            Text("TERM \(session.state.label)")
+                .font(.caption2.monospaced())
+                .lineLimit(1)
+            Button("SETTINGS") { showSettings = true }
+                .font(.caption2)
+                .lineLimit(1)
+            Button("LOG") { showDiagnostics = true }
+                .font(.caption2)
+                .lineLimit(1)
+        }
+        .frame(minHeight: 44)
+    }
+
+    private var commandComposer: some View {
+        TextField("Command input", text: $command, axis: .vertical)
+            .focused($focusedField, equals: .command)
+            .lineLimit(1...4)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .textFieldStyle(.roundedBorder)
+            .frame(minHeight: 44, maxHeight: 100)
+    }
+
+    private var essentialControls: some View {
+        let controls: [(String, () -> Void)] = focusedField == .command
+            ? [("HID SEND", sendHID), ("ENTER", sendHIDEnter)]
+            : [
+                ("HID SEND", sendHID),
+                ("ENTER", sendHIDEnter),
+                ("BKSP", { ble.send(.backspace) }),
+                ("CTRL-C", { ble.send(.ctrlC) }),
+                ("BLE ON", { ble.connect() }),
+                ("BLE OFF", { ble.disconnect() }),
+                ("STOP", { ble.send(.stop) }),
+                ("RESUME", { ble.send(.resume) })
+            ]
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+            ForEach(controls.indices, id: \.self) { index in
+                Button(controls[index].0, action: controls[index].1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private var settingsSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Terminal") {
+                    TextField("WebSocket endpoint", text: $endpoint)
+                        .focused($focusedField, equals: .endpoint)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    HStack {
+                        Button("CONNECT") { session.connect(endpoint: endpoint) }
+                        Button("DISCONNECT") { session.disconnect() }
+                    }
+                    Button("SEND") {
+                        let value = command
+                        Task { if await session.sendInput(value) { command = "" } }
+                    }
+                    Button("CLEAR") { session.clearVisibleHistory() }
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium])
+    }
+
+    private var diagnosticsSheet: some View {
+        NavigationStack {
+            VStack(spacing: 8) {
+                ScrollView {
+                    Text(ble.eventLog.joined(separator: "\n"))
+                        .font(.caption2.monospaced())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack {
+                    Button("COPY LOG") {
+                        UIPasteboard.general.string = ble.eventLog.joined(separator: "\n")
+                    }
+                    Button("CLEAR LOG") { ble.clearEventLog() }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding()
+            .navigationTitle("Diagnostics")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func sendHID() {
+        let value = command
+        ble.sendText(value) { success in if success { command = "" } }
+    }
+
+    private func sendHIDEnter() {
+        ble.send(.enter)
+    }
+}
+
+private extension BLEBridgeSession.State {
+    var uiLabel: String {
+        switch self {
+        case .off: return "OFF"
+        case .scanning: return "SCAN"
+        case .connecting: return "CONNECTING"
+        case .on: return "ON"
+        case .stopped: return "STOPPED"
+        case .error: return "ERROR"
         }
     }
 }
