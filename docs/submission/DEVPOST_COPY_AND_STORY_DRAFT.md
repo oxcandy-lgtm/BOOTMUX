@@ -6,9 +6,29 @@ This document contains public-safe copy only. Do not add the real `/feedback` Se
 
 ## Project summary — maximum 200 characters
 
-Character count: 171, including spaces and punctuation.
+Character count: 191, including spaces and punctuation.
 
-> Conceived and architected with GPT-5.6, BOOTMUX gives an iPhone a selectable terminal path into a target PC, backed by a Codex-built Companion and a no-rebuild Judge Mode.
+> Codex built BOOTMUX, a physical first mile for Codex: iPhone text crosses BLE and ESP32-S3 USB HID, while independently observed terminal output returns to the phone—architected with GPT-5.6.
+
+## Core positioning
+
+> **The physical first mile for Codex. Built by Codex. Architected and hardened with GPT-5.6.**
+
+BOOTMUX is not another remote-terminal frontend. It addresses the moment before the normal developer path is ready: bare-metal setup, recovery, a clean VM, a headless machine, or a broken SSH route.
+
+```text
+physical input:
+iPhone → BLE → ESP32-S3 → USB HID → target
+
+independently observed return:
+target PTY / Codex output → BOOTMUX Companion → WebSocket → iPhone
+```
+
+Codex built the major software, firmware, VM, testing, and repair layers. GPT-5.6 designed the asymmetric architecture, bounded contracts, adversarial reviews, and evidence boundaries. The human owner selected the problem and product direction, performed the physical setup and acceptance, and owns the final claims.
+
+The central Build Week story is:
+
+> Codex helped build the path that extends Codex itself into a computer before the normal AI workflow is ready.
 
 ## Story draft — original Japanese source
 
@@ -22,25 +42,40 @@ Character count: 171, including spaces and punctuation.
 
 はっきり言いますが、人類に今一番必要なツールです。OSにネイティブAIが搭載されるか、このBOOTMUXを使うかの二択です。そしてこの問いは非常に簡単で、あなたならすぐ解けるはずです。AIを使わずともね。
 
-## Final English story placeholders
+## Final English story requirements
 
 The final English version should preserve the personal voice and highway-median metaphor while accurately covering:
 
-- the real server-PC setup problem;
+- the real server-PC setup and recovery problem;
 - why photographing a dirty terminal display breaks the normal AI workflow;
-- how BOOTMUX keeps an iPhone, ESP32-S3, the target terminal, Codex, and GPT-5.6 connected;
-- which architecture and implementation decisions were conceived or accelerated by GPT-5.6;
-- the demonstrated BLE, USB HID, keyboard, mouse, terminal-return, offline-target, and post-boot capabilities;
-- the distinction between implemented capabilities and future roadmap claims.
+- why BOOTMUX differs from SSH and ordinary remote terminals;
+- the demonstrated iPhone, BLE, ESP32-S3 USB HID, VM, Companion, Codex, and terminal-return path;
+- how Codex implemented the major project layers;
+- how GPT-5.6 materially designed and hardened the architecture;
+- the human product and physical-acceptance decisions;
+- the distinction between observed capabilities and future roadmap claims.
 
-## Claim-safety notes before final submission
+## Current publishable claims
 
-Do not convert the following into final claims until corresponding evidence exists:
+```yaml
+publishable:
+  - Codex built the major Go, SwiftUI, firmware, VM, testing, and repair layers
+  - GPT-5.6 materially contributed to architecture, contracts, review, and claim safety
+  - bounded physical ASCII BLE and USB HID input was owner-observed
+  - Codex was installed and invoked in a clean ARM64 VM
+  - BOOTMUX_READY returned through the Companion to the physical iPhone
+  - Judge Mode is available without rebuilding
 
-- native USB HID enumeration on the real ESP32-S3 board;
-- real iPhone-to-BLE-to-ESP32-S3 input;
-- mouse support;
-- offline-target communication;
-- continued post-boot operation;
-- Codex installation and `BOOTMUX_READY` proof;
-- GPT-5.6 contribution connected to specific commits or implementation decisions.
+pending:
+  - selectable copy and exact paste owner confirmation
+  - visible CLEAR owner confirmation
+  - physical HID Mirror confirmation
+  - repeatability receipt
+
+not_claimed:
+  - Unicode HID
+  - mouse support
+  - fully offline target operation
+  - full terminal emulation
+  - production readiness
+```
