@@ -1,33 +1,88 @@
 # Codex and GPT-5.6 Evidence Ledger
 
-This ledger is public-safe. The primary Codex thread is intentionally private; no real Session ID, account information, private URL, screenshot, or transcript is stored here.
+This ledger is public-safe. The Primary Codex Thread is intentionally private; no real Session ID, account information, private URL, screenshot, or private transcript is stored here.
 
 ```yaml
 primary_codex_thread:
   identifier: PRIVATE
   designation_status: CONFIRMED_BY_OWNER
   confirmed_at: 2026-07-20_JST
-  majority_core_work: IN_PROGRESS
-  feedback_command_run: false
+  majority_core_work: COMPLETE
+  feedback_command_run: true
+  feedback_receipt: CAPTURED_PRIVATELY
   feedback_session_id: NOT_STORED_IN_REPOSITORY
+
+build_week_role:
+  codex: IMPLEMENTATION_ENGINE
+  gpt_5_6: ARCHITECTURE_AND_VERIFICATION_ENGINE
+  human: PRODUCT_OWNER_AND_FINAL_AUTHORITY
+```
+
+## Central Build Week narrative
+
+> Codex helped build BOOTMUX. BOOTMUX then created a physical first mile that can carry a real Codex workflow into a computer before its normal AI path is ready.
+
+The distinction is deliberate:
+
+```text
+Codex
+  wrote and repaired major implementation layers
+
+GPT-5.6
+  designed contracts, challenged failures, and protected evidence boundaries
+
+Human
+  chose the problem, product direction, hardware path, accepted repairs,
+  performed physical setup, and owns the final public claims
 ```
 
 ## Contribution record
 
-| Contributor / use | Task or decision | Resulting commit or files | Concrete result | Human decision boundary |
+| Contributor / use | Task or decision | Resulting commits or files | Concrete result | Human decision boundary |
 | --- | --- | --- | --- | --- |
-| GPT-5.6-assisted architecture | separated asymmetric transport roles: iPhone input, BLE transport, ESP32-S3 USB HID, target-side Companion, and terminal return | V0A implementation history; `README.md`; `docs/ARCHITECTURE.md` | kept the target-side return path independent from the future physical input path | human selected the product scope and hardware direction |
-| GPT-5.6-assisted implementation contract | defined the V0A versioned WebSocket/PTy/session contract and public-safe failure boundaries | `7854781a69d6bc0d93e7759ba8aa467e5b0e2a04`; `companion/` | produced the locally testable Companion Core | human approved the V0A gate and repository boundary |
-| GPT-5.6-assisted code review | reviewed V0A R1–R3 lifecycle, overflow, UTF-8, interrupt, input bounds, origin, and shutdown edge cases | `6099662d7e146ba250381df33b3aea14a995e3e7`; `9ff5766e17276df367f8a1219ebc992eab82765b`; `2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4` | tightened the production Companion contract and local verification evidence | human retained authority over which fixes were accepted and what remained unproven |
-| GPT-5.6-assisted claim review | established a public claim-safety boundary | `docs/submission/CLAIM_EVIDENCE_MATRIX.md`; `docs/PUBLICATION_SAFETY.md` | prevents unproven iPhone, BLE, USB HID, mouse, offline, Codex, and post-boot claims from being presented as complete | human must confirm final public claims |
-| GPT-5.6-assisted submission writing | structured Devpost short copy and story support around the actual architecture and evidence boundary | `bf74c4d5d30f41d0a7df69f93a0929d6588e0416`; `docs/submission/DEVPOST_COPY_AND_STORY_DRAFT.md` | created a working draft while retaining explicit placeholders for unproven capabilities | human owns final wording, attribution, registration, license, and submission |
-| GPT-5.6-assisted V0B implementation | defined the native one-screen SwiftUI scope, asymmetric transport boundary, bounded terminal history, UI coalescing, streaming ANSI sanitization, and session-isolated reconnect contract | `2d730a5a287166a889e26e0067f2d518327390d1`; `iphone/` | added the dependency-free iPhone terminal loop and production `URLSessionWebSocketTask` transport; physical proof remains pending | human confirmed this thread as Primary Codex Thread and must complete physical acceptance |
-| S81 submission closeout | narrowed the public submission slice, repaired launcher readiness and cleanup, prepared the 171-character description, owner-story working draft, and narrated video order | `41755062060c2aa3b828dd9d9eb675074ff941ef`; `README.md`; `docs/submission/` | submission package is ready for `/feedback`, video, and human review; Xcode and physical proof remain pending | owner must run `/feedback` and complete final submission review |
-| GPT-5.6-assisted V0B R1 repair | reviewed normal-exit termination, strict output bounds, CRLF streaming state, injected transport tests, background cleanup, typed close, CLEAR invalidation, and selectable-text updates | `d9746c818eabc31b8bc6bf50c44ecdcbd3dbf395`; `iphone/` | repaired the client runtime contract without changing the physical-proof claim | human must complete Xcode and physical iPhone acceptance |
-| GPT-5.6-assisted V0B R2 repair | reviewed the single protocol-limit contract, input/JSON/WebSocket bounds, bounded typed-close timeout, error finalization, selection clamping, deterministic fake transport tests, and Xcode-host inventory boundary | `f554b38a5e0c5218c98f0811b7b8667bd379a32e`; `iphone/` | completed the code-side contract repair; Xcode and physical proof remain unverified because Xcode is not installed on the validation host | human must provide Xcode/Simulator and physical iPhone acceptance |
-| GPT-5.6-assisted Submission Sprint | prioritized a no-rebuild Judge Mode, explicit MIT/readme boundary, honest claim matrix, Devpost final draft, demo script, and final checklist over deferred product completeness | current Submission Sprint docs and `judge/` | made the working terminal-and-copy path reviewable without claiming BLE, USB HID, or Codex completion | human owns final registration, feedback, video, and submission |
-| GPT-5.6-assisted V1 R7 transport repair | replaced the FreeRTOS queue's non-trivial `String` elements with bounded POD-owned frames, added overflow signaling and public-safe reset/event logging, and validated a short physical run | `0fed277`; `firmware/esp32s3-bridge/src/main.cpp`; `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md` | repaired the primary BLE queue ownership hazard; eight applied operations completed without an observed transport disconnect | human must complete the remaining V1 control, reconnect, duplicate, and stability acceptance |
+| Codex primary implementation | built the Go Companion, PTY/WebSocket protocol, bounded lifecycle, local Judge Mode, and tests | `companion/`; V0A through R3 commits | working non-trivial target-side terminal core | human selected the scope and accepted the implementation gates |
+| Codex native client implementation | built the dependency-free SwiftUI iPhone client, selectable output bridge, WebSocket transport, controls, reconnect logic, and tests | `iphone/`; V0B and repair commits | native iPhone terminal and CODEX/HID surfaces | human handled signing, device trust, physical installation, and acceptance |
+| Codex firmware implementation | built and repaired the BLE GATT to ESP32-S3 USB HID path, bounded frames, acknowledgements, duplicate handling, and safety controls | `firmware/esp32s3-bridge/`; V1 commits | bounded physical ASCII keyboard path | human selected the hardware direction and performed real-device wiring and observation |
+| Codex VM and bootstrap implementation | built the ARM64 Lima harness, Companion provisioning, official Codex installation path, forwarder, and bounded Codex adapter | `vm/`; `tools/bootmux_tcp_forward.py`; `companion/codex.go` | clean-VM Codex installation and `BOOTMUX_READY` probes | human performed authentication and approved the physical end-to-end run |
+| GPT-5.6-assisted architecture | separated physical input from independently observed target output | `README.md`; `docs/ARCHITECTURE.md`; protocol documents | asymmetric first-mile architecture that does not treat sent input as observed output | human chose BOOTMUX as the product and retained the hardware boundary |
+| GPT-5.6-assisted implementation contract | defined versioned messages, bounded history, queue limits, output batching, and fail-closed lifecycle expectations | V0A and V0B implementation history | converted the concept into testable implementation gates | human approved which contracts were required for the hackathon slice |
+| GPT-5.6-assisted adversarial review | reviewed PTY lifecycle, writer shutdown, overflow, UTF-8, interrupts, background behavior, reconnect isolation, and stale output risks | V0A R1–R3; V0B R1–R2 | repaired edge cases that a happy-path demo would not expose | human accepted fixes and preserved unresolved physical gates |
+| GPT-5.6-assisted BLE review | identified unsafe non-trivial `String` ownership inside the FreeRTOS queue and directed bounded POD-owned frames | `0fed277`; firmware and V1 evidence | removed the primary BLE queue ownership hazard; observed short transport became stable | human performed firmware upload and physical transport observation |
+| GPT-5.6-assisted evidence design | separated code-green, VM-observed, owner-observed, and still-unproven states | `docs/submission/CLAIM_EVIDENCE_MATRIX.md`; evidence receipts | prevented Judge Mode or sent input from becoming false physical proof | human remains responsible for all final public claims |
+| GPT-5.6-assisted submission design | selected the Developer Tools positioning, no-rebuild Judge Mode, three-minute narrative, and Codex/GPT-5.6 evidence spine | `README.md`; `judge/`; `docs/submission/` | made the project reviewable without requiring judges to own the hardware | human owns narration, video edit, registration, and submission |
+| GPT-5.6-assisted R4 physical-demo review | specified endpoint persistence, COPY ALL/CLEAR/FOLLOW, ASCII fail-fast, physical launcher, and read-only HID Mirror | `243806f04b58ed2f5716440f89b648e17cdd32d2` | strengthened the physical-demo and judge-facing usability paths | human must physically confirm Mirror, copy, CLEAR, and repeatability |
+| GPT-5.6-assisted R4R1 path audit | detected that the launcher and HID target could resolve different transcript paths and that replace-under-open-writer trimming was unsafe | `08b7d02a8a1e0309c71cb03db74bc6f1701c434c`; `vm/run-physical-demo.sh`; `vm/start-hid-target.sh` | unified the VM transcript path and changed the bound to explicit fail-closed behavior | human must run the final Lima and physical Mirror acceptance |
+| Human product and physical work | identified the dirty-display/bootstrap problem, selected iPhone + ESP32-S3, wired devices, signed and installed the app, authenticated Codex, recorded physical evidence, and directed final scope | physical receipts and owner confirmations | real iPhone → BLE/forwarder/VM → Codex → `BOOTMUX_READY` return | the owner retains final authority and responsibility |
 
-This record describes concrete work products and decisions; it is not a claim that every future capability is implemented.
+## Current evidenced outcome
 
-| GPT-5.6-assisted V1 R3 acceptance repair | repaired native USB descriptor initialization and iOS project SDK targeting; executed Xcode, USB, firmware, and physical-device checks within the available host boundary | `8fb241b`; `firmware/esp32s3-bridge/src/main.cpp`; `iphone/BOOTMUX.xcodeproj/project.pbxproj` | code-side repair is recorded; native HID enumeration and physical iPhone acceptance remain unproven | human must provide a usable COM flash path, iOS platform/device, and physical acceptance receipt |
+```yaml
+codex_built_layers:
+  companion: true
+  iphone_client: true
+  esp32_firmware: true
+  vm_harness: true
+  codex_adapter: true
+  judge_mode: true
+  tests_and_repairs: true
+
+gpt_5_6_material_contribution:
+  asymmetric_architecture: true
+  bounded_contracts: true
+  adversarial_review: true
+  ble_queue_repair: true
+  evidence_boundaries: true
+  hid_mirror_path_audit: true
+  submission_strategy: true
+
+physical_result:
+  bounded_ascii_hid: OWNER_OBSERVED
+  physical_codex_prompt: OWNER_OBSERVED
+  bootmux_ready_return_to_iphone: OWNER_OBSERVED
+  selectable_copy: PENDING
+  clear_feedback: PENDING
+  physical_hid_mirror: PENDING
+  repeatability: PENDING
+```
+
+This ledger records concrete work products and decisions. It does not claim that every roadmap capability is implemented, that GPT-5.6 autonomously owned the project, or that BOOTMUX is production-ready.
