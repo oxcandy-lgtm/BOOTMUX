@@ -97,7 +97,7 @@ The current Build Week delivery spine is documented in [Build Week Status](docs/
 
 ## How Codex Was Used
 
-Codex was used in V0A implementation work. The Primary Build Thread designation remains pending human confirmation. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
+Codex was used in V0A and V0B implementation work. The current Codex thread is the confirmed Primary Build Thread for the continuing core work. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
 
 ## How GPT-5.6 Was Used
 

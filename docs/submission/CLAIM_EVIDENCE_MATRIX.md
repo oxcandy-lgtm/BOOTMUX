@@ -5,7 +5,7 @@ Only claims with both evidence and an allowed public copy are publishable. This 
 | Claim key | Status | Evidence | Public copy allowed | Remaining gate |
 | --- | --- | --- | --- | --- |
 | V0A_companion_core | GREEN | `companion/`, local tests, and V0A R3 history | true | none for V0A target-side scope |
-| iphone_live_terminal | NOT_IMPLEMENTED | no iPhone implementation or live proof | false | implement and demonstrate V0B+ |
+| iphone_live_terminal | IMPLEMENTED_AWAITING_PHYSICAL_PROOF | `iphone/` and V0B implementation commit; no physical acceptance receipt | false | physical iPhone connection, observed marker, native copy/paste |
 | real_ble_input | NOT_PROVEN | no physical BLE evidence | false | real iPhone-to-BLE-to-device run |
 | real_usb_hid | NOT_PROVEN | no native USB HID enumeration evidence | false | board-level enumeration and input proof |
 | mouse_support | NOT_IMPLEMENTED | no mouse implementation or proof | false | implement and demonstrate |

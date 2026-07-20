@@ -12,6 +12,7 @@ scope:
     - OpenAI Build Week requirements and compliance documents
     - V0A Companion Core implementation
     - V0A R1-R3 repairs
+    - V0B iPhone Terminal Loop implementation
     - submission ledgers
     - Devpost copy and story draft
   unresolved_pending_owner_confirmation:
@@ -22,6 +23,7 @@ commits:
   V0A_R2: 9ff5766e17276df367f8a1219ebc992eab82765b
   V0A_R3: 2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4
   devpost_draft: bf74c4d5d30f41d0a7df69f93a0929d6588e0416
+  V0B_implementation: 2d730a5a287166a889e26e0067f2d518327390d1
 ```
 
 ## Evidence mapping
@@ -31,6 +33,7 @@ commits:
 | V0A Companion Core | `companion/` and V0A commits above | local target-side proof only |
 | V0A R1–R3 repairs | the R1, R2, and R3 commits above | lifecycle and contract repair evidence, not hardware proof |
 | Devpost draft | `docs/submission/DEVPOST_COPY_AND_STORY_DRAFT.md` at `devpost_draft` | working draft, not final submission copy |
-| iPhone/BLE/USB HID/Codex | no implementation commit recorded in this ledger | not claimed as complete |
+| BLE/USB HID/Codex | no implementation commit recorded in this ledger | not claimed as complete |
+| V0B iPhone Terminal Loop | `iphone/` at `V0B_implementation` | implementation is recorded; physical iPhone proof is not claimed |
 
 No private session transcript, account data, private path, hostname, device serial, or guessed date is part of this public ledger.

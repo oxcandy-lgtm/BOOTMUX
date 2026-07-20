@@ -11,18 +11,25 @@ gates:
     remaining_gate: REGISTRATION_CONFIRMATION_PENDING
   BW1:
     status: IN_PROGRESS
+    primary_codex_thread: CONFIRMED
+    majority_core_work: IN_PROGRESS
+    gpt_5_6_evidence: IN_PROGRESS
     evidence: docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md
-    remaining_gate: PRIMARY_CODEX_THREAD_CONFIRMATION_AND_CONTINUED_CORE_USE
+    remaining_gate: CONTINUE_PRIMARY_THREAD_THROUGH_V4_AND_RUN_FEEDBACK_LATER
   BW2:
     status: IMPLEMENTED
     evidence: docs/submission/BUILD_WEEK_SCOPE_LEDGER.md
     remaining_gate: PRIVATE_CONCEPT_DATE_OPTIONAL_OWNER_CONFIRMATION
   BW3:
-    status: OPEN
+    status: IN_PROGRESS
     V0A: GREEN
-    V0B_to_V4: OPEN
-    evidence: V0A is GREEN; V0B through V4 remain open
-    remaining_gate: V0B_to_V4_not_implemented_or_not_proven
+    V0B: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
+    V1: OPEN
+    V2: PARTIALLY_PROVEN_BY_V0B
+    V3: OPEN
+    V4: OPEN
+    evidence: V0A is GREEN; V0B implementation exists but physical proof is pending
+    remaining_gate: physical_iPhone_acceptance_and_copy_paste_proof
   BW4:
     status: OPEN
     evidence: no judge test path is complete
