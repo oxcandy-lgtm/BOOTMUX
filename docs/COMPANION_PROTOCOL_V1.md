@@ -25,4 +25,6 @@ Output is flushed on newline, the 35ms bounded interval, the 512-byte threshold,
 
 Client input is handled by a fixed-capacity queue and dedicated PTY writer. Text and interrupt controls retain arrival order; an interrupt is written as PTY byte `0x03` after earlier queued text. Queue overflow returns `input_overflow` when possible and closes the session fail-closed. PTY write blocking cannot prevent session cancellation because PTY close unblocks the writer.
 
+Terminal errors carry a private per-message completion channel through the outbound writer. A previous nonterminal error cannot acknowledge a later terminal error. If the terminal error cannot be enqueued, its writer cannot complete, the client disconnects, or the bounded ACK wait expires, the session closes fail-closed. Only the aggregator closes the outbound queue, after client acceptance is stopped and the writer has drained.
+
 Origin-less native clients are allowed. A browser Origin is accepted only when its host matches the request host. The server binds loopback by default; non-loopback binding requires `-allow-remote` and an external network safety boundary.

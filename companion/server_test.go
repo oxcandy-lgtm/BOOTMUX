@@ -3,10 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -70,6 +73,30 @@ func TestProtocolAndSessionRejection(t *testing.T) {
 	}
 	if _, err := decodeClientMessage([]byte("{")); err == nil {
 		t.Fatal("malformed JSON accepted")
+	}
+}
+
+func TestTerminalErrorUsesItsOwnWriteAck(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.MaxInputTextBytes = 4
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: "wrong", Text: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "error"); got.Code != "wrong_session" {
+		t.Fatalf("first error=%+v", got)
+	}
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "12345"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "error"); got.Code != "input_too_large" {
+		t.Fatalf("terminal error consumed wrong ACK: %+v", got)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	for {
+		if _, _, err := c.ReadMessage(); err != nil {
+			return
+		}
 	}
 }
 
@@ -306,12 +333,12 @@ func TestNewSessionIsolationAndChildCleanup(t *testing.T) {
 func TestChildCleanupLeavesNoSentinel(t *testing.T) {
 	dir := t.TempDir()
 	sentinel := fmt.Sprintf("%s/sentinel", dir)
-	s := NewServer("/bin/sh", "-c", fmt.Sprintf("sleep 2; printf stopped > %q", sentinel))
+	s := NewServer("/bin/sh", "-c", fmt.Sprintf("(sleep 2; printf survived > %q) & wait", sentinel))
 	c, _ := dialTest(t, s)
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(1 * time.Second)
+	deadline := time.Now().Add(2500 * time.Millisecond)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(sentinel); err == nil {
 			t.Fatal("child survived session close and wrote sentinel")
@@ -323,6 +350,10 @@ func TestChildCleanupLeavesNoSentinel(t *testing.T) {
 func TestInputQueueIsBoundedAndClosable(t *testing.T) {
 	s := NewServer("/bin/sh", "-c", "sleep 5")
 	s.InputQueueCapacity = 1
+	s.PTYWrite = func(writer io.ReadWriteCloser, data []byte) (int, error) {
+		time.Sleep(100 * time.Millisecond)
+		return writer.Write(data)
+	}
 	c, h := dialTest(t, s)
 	payload := strings.Repeat("i", s.MaxInputTextBytes)
 	for i := 0; i < 256; i++ {
@@ -331,9 +362,78 @@ func TestInputQueueIsBoundedAndClosable(t *testing.T) {
 		}
 	}
 	started := time.Now()
+	_ = c.SetReadDeadline(time.Now().Add(1 * time.Second))
+	sawOverflow := false
+	for {
+		_, data, err := c.ReadMessage()
+		if err != nil {
+			break
+		}
+		var msg serverMessage
+		if json.Unmarshal(data, &msg) == nil && msg.Type == "error" && msg.Code == "input_overflow" {
+			sawOverflow = true
+		}
+	}
 	_ = c.Close()
+	if !sawOverflow {
+		t.Fatal("input queue did not produce input_overflow before close")
+	}
 	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
 		t.Fatalf("client close blocked behind PTY input writer: %s", elapsed)
+	}
+}
+
+func TestOutboundCloseRaceWithTerminalAndNonTerminalErrors(t *testing.T) {
+	for iteration := 0; iteration < 500; iteration++ {
+		s := NewServer("/bin/sh", "-c", "printf race; exit 0")
+		c, h := dialTest(t, s)
+		for i := 0; i < 3; i++ {
+			_ = c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: "wrong", Text: "x"})
+			_ = c.WriteMessage(websocket.TextMessage, []byte("{"))
+		}
+		_ = c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: strings.Repeat("x", maxInputTextBytes+1)})
+		_ = c.SetReadDeadline(time.Now().Add(1 * time.Second))
+		for {
+			if _, _, err := c.ReadMessage(); err != nil {
+				break
+			}
+		}
+		_ = c.Close()
+	}
+}
+
+func TestTerminalErrorDisconnectStress(t *testing.T) {
+	for iteration := 0; iteration < 100; iteration++ {
+		s := NewServer("/bin/sh", "-i")
+		c, h := dialTest(t, s)
+		_ = c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: strings.Repeat("x", maxInputTextBytes+1)})
+		_ = c.Close()
+	}
+}
+
+type unexpectedPTY struct{}
+
+func (unexpectedPTY) Read([]byte) (int, error)  { return 0, errors.New("injected reader failure") }
+func (unexpectedPTY) Write([]byte) (int, error) { return 0, nil }
+func (unexpectedPTY) Close() error              { return nil }
+
+func TestUnexpectedPTYReaderErrorFailsClosed(t *testing.T) {
+	s := NewServer("/bin/sh", "-c", "sleep 5")
+	s.PTYStart = func(cmd *exec.Cmd) (io.ReadWriteCloser, error) {
+		if err := cmd.Start(); err != nil {
+			return nil, err
+		}
+		return unexpectedPTY{}, nil
+	}
+	c, _ := dialTest(t, s)
+	if got := readUntil(t, c, "error"); got.Code != "pty_read_failed" {
+		t.Fatalf("error=%+v", got)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(1 * time.Second))
+	for {
+		if _, _, err := c.ReadMessage(); err != nil {
+			return
+		}
 	}
 }
 
