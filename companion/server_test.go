@@ -1,0 +1,168 @@
+package main
+
+import (
+	"encoding/json"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+	"unicode/utf8"
+
+	"github.com/gorilla/websocket"
+)
+
+func dialTest(t *testing.T, s *Server) (*websocket.Conn, serverMessage) {
+	t.Helper()
+	h := httptest.NewServer(s.Handler())
+	t.Cleanup(h.Close)
+	u := "ws" + strings.TrimPrefix(h.URL, "http") + "/v1/terminal"
+	c, _, err := websocket.DefaultDialer.Dial(u, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	_, b, err := c.ReadMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hello serverMessage
+	if json.Unmarshal(b, &hello) != nil {
+		t.Fatal("bad hello")
+	}
+	return c, hello
+}
+
+func readUntil(t *testing.T, c *websocket.Conn, typ string) serverMessage {
+	t.Helper()
+	_ = c.SetReadDeadline(time.Now().Add(3 * time.Second))
+	for {
+		_, b, err := c.ReadMessage()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m serverMessage
+		if json.Unmarshal(b, &m) != nil {
+			t.Fatal("bad message")
+		}
+		if m.Type == typ {
+			return m
+		}
+	}
+}
+
+func TestProtocolAndSessionRejection(t *testing.T) {
+	c, h := dialTest(t, NewServer("/bin/sh", "-i"))
+	if err := c.WriteJSON(map[string]any{"v": 99, "type": "input_text", "session_id": h.SessionID, "text": "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "error"); got.Code != "unsupported_version" {
+		t.Fatalf("code=%s", got.Code)
+	}
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: "other", Text: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "error"); got.Code != "wrong_session" {
+		t.Fatalf("code=%s", got.Code)
+	}
+	if _, err := decodeClientMessage([]byte("{")); err == nil {
+		t.Fatal("malformed JSON accepted")
+	}
+}
+
+func TestPTYOutputExitAndBatching(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.FlushInterval = time.Millisecond
+	s.BatchBytes = 1024
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "printf 'BOOTMUX_V0A'; exit 7\n"}); err != nil {
+		t.Fatal(err)
+	}
+	out := readUntil(t, c, "output")
+	if !strings.Contains(out.Text, "BOOTMUX_V0A") || out.Stream != "pty" {
+		t.Fatalf("output=%+v", out)
+	}
+	exit := readUntil(t, c, "exit")
+	if exit.ExitCode == nil || *exit.ExitCode != 7 {
+		t.Fatalf("exit=%+v", exit)
+	}
+}
+
+func TestInterruptAndUTF8(t *testing.T) {
+	c, h := dialTest(t, NewServer("/bin/sh", "-i"))
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "printf 'あ\n'; sleep 5\n"}); err != nil {
+		t.Fatal(err)
+	}
+	out := readUntil(t, c, "output")
+	if !utf8.ValidString(out.Text) || !strings.Contains(out.Text, "あ") {
+		t.Fatalf("invalid UTF-8 output: %q", out.Text)
+	}
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "control", SessionID: h.SessionID, Control: "interrupt"}); err != nil {
+		t.Fatal(err)
+	}
+	_ = readUntil(t, c, "exit")
+}
+
+func TestNewSessionIsolationAndChildCleanup(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	first, h1 := dialTest(t, s)
+	second, h2 := dialTest(t, s)
+	if h1.SessionID == h2.SessionID {
+		t.Fatal("sessions reused an identifier")
+	}
+	if err := first.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h1.SessionID, Text: "sleep 10\n"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h2.SessionID, Text: "printf isolated; exit\n"}); err != nil {
+		t.Fatal(err)
+	}
+	out := readUntil(t, second, "output")
+	if !strings.Contains(out.Text, "isolated") || strings.Contains(out.Text, "sleep") {
+		t.Fatalf("session output mixed: %q", out.Text)
+	}
+}
+
+func TestSlowClientOutputIsBounded(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.BatchBytes = 64
+	s.MaxBufferBytes = 128
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "i=0; while [ $i -lt 10000 ]; do printf x; i=$((i+1)); done; exit\n"}); err != nil {
+		t.Fatal(err)
+	}
+	// Do not read output while the PTY produces data. Closing must remain bounded
+	// by the server's write deadline and cleanup path.
+	time.Sleep(75 * time.Millisecond)
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBatchingAndBound(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.FlushInterval = time.Millisecond
+	s.BatchBytes = 64
+	s.MaxBufferBytes = 128
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "i=0; while [ $i -lt 200 ]; do printf x; i=$((i+1)); done; exit\n"}); err != nil {
+		t.Fatal(err)
+	}
+	frames := 0
+	total := 0
+	for {
+		m := readUntil(t, c, "output")
+		frames++
+		total += len(m.Text)
+		if len(m.Text) > 128 {
+			t.Fatalf("frame bound exceeded: %d", len(m.Text))
+		}
+		if total >= 200 {
+			break
+		}
+	}
+	if frames >= total {
+		t.Fatalf("not batched: frames=%d bytes=%d", frames, total)
+	}
+}
