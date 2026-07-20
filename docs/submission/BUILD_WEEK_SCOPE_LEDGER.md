@@ -4,17 +4,18 @@ This ledger separates pre-existing project material from work attributed to the 
 
 ```yaml
 scope:
-  pre_existing:
-    - BOOTMUX concept and exploratory architecture
-    - exploratory ideas explicitly confirmed by the owner as predating the Submission Period
+  pre_existing_confirmed:
+    - none currently established by public repository evidence
   submission_period:
-    - repository architecture and roadmap documents committed during the Submission Period
+    - BOOTMUX repository initialization
+    - committed BOOTMUX architecture and roadmap
     - OpenAI Build Week requirements and compliance documents
-    - V0A Companion Core implementation and its repair iterations
-    - Build Week submission documentation and public-safe evidence ledgers
-    - Devpost draft copy and story structure
+    - V0A Companion Core implementation
+    - V0A R1-R3 repairs
+    - submission ledgers
+    - Devpost copy and story draft
   unresolved_pending_owner_confirmation:
-    - any architecture material whose exact creation boundary cannot be proven from repository history
+    - whether any private BOOTMUX concept existed before 2026-07-13 09:00 PDT
 commits:
   V0A_initial: 7854781a69d6bc0d93e7759ba8aa467e5b0e2a04
   V0A_R1_final: 6099662d7e146ba250381df33b3aea14a995e3e7
