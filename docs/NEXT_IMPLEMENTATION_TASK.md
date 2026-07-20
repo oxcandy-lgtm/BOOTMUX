@@ -19,7 +19,7 @@ pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```
 
-This task temporarily reopens feature development only for the bounded V1 physical keyboard gate. The Submission Closeout baseline remains preserved. V1 does not include Codex installation, terminal return, mouse/trackpad, arbitrary Unicode, Wi-Fi firmware, background operation, App Store distribution, or USB data return.
+This task temporarily reopens feature development only for the bounded V1 physical keyboard gate. The Submission Closeout baseline remains preserved. V1 does not include Codex installation, terminal return, mouse/trackpad, arbitrary Unicode, Wi-Fi firmware, background operation, App Store distribution, or USB data return. Firmware and iPhone bridge implementation are present; physical acceptance remains pending.
 
 ## Required artifacts
 
