@@ -113,3 +113,23 @@ The next action is environmental: place the Mac and iPhone on the same
 reachable LAN, confirm Local Network permission, and repeat the Safari Judge
 check. Swift client changes are intentionally paused until that prerequisite
 passes.
+
+## Physical return success receipt
+
+    physical_mac_lan_endpoint: PASS
+    iphone_safari_judge: PASS
+    iphone_to_mac_forwarder: PASS
+    forwarder_to_vm_companion: PASS
+    physical_term_on: PASS
+    physical_codex_prompt: PASS
+    physical_bootmux_ready_return: PASS
+    selectable_copy: OWNER_CONFIRMATION_PENDING
+    clear_feedback: OWNER_CONFIRMATION_PENDING
+    repeatability: PENDING
+    classification: YELLOW_INTEGRATED_DEMO_GREEN_REPEATABILITY_PENDING
+
+The owner supplied the exact Codex output containing BOOTMUX_READY after the
+fresh physical endpoint run. The forwarder emitted only accepted, target
+connected, and closed lifecycle markers; no peer address or payload was
+recorded. The Codex log also contained an unrelated MCP authentication
+warning, while the primary Codex process returned BOOTMUX_READY successfully.

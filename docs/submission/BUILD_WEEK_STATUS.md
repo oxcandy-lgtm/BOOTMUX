@@ -81,9 +81,9 @@ until a fresh signed install observes BOOTMUX_READY on the iPhone.
 R3 lifecycle repair is code-green locally: inactive no longer disconnects,
 failed sessions can reconnect directly, and CLEAR visibly resets output,
 sanitizer, pending publication, and failed state. The latest signed app was
-installed and launched, but Safari on the iPhone could not reach the Mac
-Judge endpoint while Safari on the Mac could. Physical return is therefore
-blocked at the network boundary and remains unclaimed.
+installed and launched. The subsequent fresh endpoint run reached Safari
+Judge, TERM ON, and physical BOOTMUX_READY through the VM Companion. Copy,
+CLEAR, and repeatability remain owner-confirmation gates.
 
 ## Current technical boundary
 

@@ -9,12 +9,12 @@ previous_task:
   final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
 current_task:
   task_id: BOOTMUX-V2-V6-R3-PHYSICAL-RETURN-CLIENT-LIFECYCLE-FIX
-  implementation_status: CODE_REPAIRED_PHYSICAL_NETWORK_REACHABILITY_BLOCKED
+  implementation_status: PHYSICAL_CODEX_RETURN_OBSERVED_COPY_CLEAR_REPEATABILITY_PENDING
   feature_development: REOPENED_ONLY_FOR_V1
   submission_baseline_preserved: true
 next_technical_task:
   task_id: BOOTMUX-V2-V6-PHYSICAL-INTEGRATED-DEMO-RUN
-  status: BLOCKED_PENDING_SAME_LAN_IPHONE_TO_MAC_REACHABILITY
+  status: BLOCKED_PENDING_OWNER_COPY_CLEAR_AND_REPEATABILITY_CONFIRMATION
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```
