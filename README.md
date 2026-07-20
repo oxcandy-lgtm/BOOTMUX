@@ -6,6 +6,25 @@ It combines an iPhone, an ESP32-S3, USB HID, BLE, a terminal bridge, and a targe
 
 > The first path for AI into any computer.
 
+## What BOOTMUX Does
+
+BOOTMUX provides a target-side PTY Companion and a native iPhone terminal client for bootstrapping work on a computer that is not ready to run AI. The current submission slice proves a local WebSocket terminal, selectable output, native copy behavior, and a no-rebuild Judge Mode.
+
+Working now:
+
+- Companion PTY and versioned WebSocket terminal;
+- dependency-free native SwiftUI iPhone terminal client implementation;
+- bounded, selectable terminal output with copy controls;
+- offline standalone Judge Replay Mode;
+- live local Judge Mode through the Companion.
+
+In progress or hardware-dependent:
+
+- physical BLE-to-ESP32-S3 path;
+- native USB HID proof;
+- automated Codex bootstrap;
+- complete `BOOTMUX_READY` hardware loop.
+
 ## Current build target — Hackathon V1
 
 The immediate target is intentionally narrow:
@@ -64,7 +83,7 @@ Mandatory submission evidence includes:
 - a public repository with relevant licensing, or the required private judge sharing;
 - explicit separation of pre-existing work and Submission Period work.
 
-Current submission blockers include implementation of V0–V4, selection of a public-repository license, capture of the private `/feedback` Session ID, creation of a no-rebuild judge test path, and production of the narrated demo video.
+Current submission blockers include physical iPhone and hardware proof, capture of the private `/feedback` Session ID, and production of the narrated demo video. The no-rebuild Judge Mode and MIT license are now present.
 
 ## V1 implementation strategy
 
@@ -95,6 +114,10 @@ No runtime, hardware, benchmark, novelty, or Build Week compliance claim is cons
 
 The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). V0A is complete; V0B through V4 and the human-confirmation submission gates remain open or blocked as recorded there.
 
+## Current Working Demo
+
+For a no-rebuild offline replay, open [`judge/index.html`](judge/index.html) directly and select **Replay BOOTMUX_READY**, then use native browser selection and copy. For a live local PTY demo, run the packaged [Judge Mode](judge/README.md) or open `http://127.0.0.1:8765/judge` after starting the Companion. These paths do not prove BLE or USB HID.
+
 ## How Codex Was Used
 
 Codex was used in V0A and V0B implementation work. The current Codex thread is the confirmed Primary Build Thread for the continuing core work. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
@@ -109,13 +132,13 @@ Human decisions set the product direction, selected the V0A scope, retained the 
 
 ## Third-Party and Pre-Existing Work
 
-Pre-existing concept and exploratory architecture are separated from submission-period implementation in the [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md). Third-party dependencies and their licenses are treated as implementation details until the repository owner selects the submission license. No repository license has been added yet.
+Pre-existing concept and exploratory architecture are separated from submission-period implementation in the [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md). The repository is now MIT licensed; third-party dependencies remain listed in their module metadata and no external iPhone runtime dependency is used.
 
 ## Installation
 
 V0A is a local development Companion proof and is not yet a packaged cross-platform installation. See `companion/README.md` for the current local build and probe commands.
 
-For the V0B app, open `iphone/BOOTMUX.xcodeproj` in Xcode with an iOS SDK. Start the Companion on a trusted local network with `go run . -addr 0.0.0.0:8765 -allow-remote`, then enter the resulting `ws://<trusted-local-host>:8765/v1/terminal` endpoint in the app. No signing material or external iPhone runtime dependency is committed.
+For the V0B app, open `iphone/BOOTMUX.xcodeproj` in Xcode with an iOS SDK. Start the Companion on a trusted local network with `go run . -addr 0.0.0.0:8765 -allow-remote`, then enter the resulting `ws://<trusted-local-host>:8765/v1/terminal` endpoint in the app. For Judge Mode, use the prebuilt package under `dist/bootmux-judge-macos-arm64/` or open `judge/index.html` directly. No signing material or external iPhone runtime dependency is committed.
 
 ## Supported Platforms
 
@@ -123,13 +146,17 @@ The verified V0A environment is the declared Unix-like local target used by the 
 
 ## Judge Test Mode
 
-No final judge test mode is available yet. The local probe demonstrates only the target-side Companion path, and the V0B app remains physical-device-unverified.
+Judge Mode is available without rebuilding: standalone replay works offline, and live mode is served at `/judge` by the loopback Companion. It demonstrates terminal, session, and native-copy behavior; it does not prove the physical BLE or USB HID path.
 
-## How to Run Hardware Demo
+## How to Run the iPhone Demo
+
+Open `iphone/BOOTMUX.xcodeproj` in Xcode, build for an available iOS Simulator or a locally signed device, start the Companion on a trusted local network, enter its versioned WebSocket endpoint, and run `echo BOOTMUX_V0`. Physical acceptance remains pending in the claim matrix.
+
+## How to Run the Hardware Demo
 
 There is no complete hardware demo to run yet. The future demo must separately prove iPhone input, BLE, ESP32-S3 USB HID, terminal return, and Codex bootstrap; the current claim boundary is maintained in the [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
 
-## Full architecture
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -172,7 +199,7 @@ These are documented research hypotheses, not completed V1 dependencies and not 
 
 Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) and the independent [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md). Research work begins after V1 or in isolated fixtures that cannot delay V0–V4 or BW0–BW9.
 
-## Safety model
+## Security and Privacy Notes
 
 BOOTMUX does not grant an AI unrestricted shell access.
 
@@ -190,10 +217,14 @@ For the full architecture, a deterministic policy gate, structured execution, ex
 
 See [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), [Roadmap](docs/ROADMAP.md), [OpenAI Build Week Requirements](docs/OPENAI_BUILD_WEEK.md), [Build Week Submission Roadmap](docs/BUILD_WEEK_SUBMISSION_ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
 
+## Known Limitations
+
+The current submission slice has no completed physical iPhone receipt, BLE transport, ESP32-S3 firmware, USB HID enumeration, mouse support, Codex installation proof, background operation, or full terminal emulator. Xcode and iOS SDK validation depends on a host with Xcode installed. These are tracked as claims rather than implied by Judge Mode.
+
 ## Repository policy
 
 This public repository must not contain credentials, personal contact information, private infrastructure names, local absolute paths, raw production logs, private network addresses, device identifiers, or private submission credentials. Use synthetic examples and placeholders in all documentation, tests, fixtures, screenshots, and demos.
 
 ## License
 
-No license has been selected yet. Until one is added, normal copyright restrictions apply. A relevant license is a mandatory blocker before using this public repository for the Build Week submission route.
+BOOTMUX is released under the [MIT License](LICENSE).
