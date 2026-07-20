@@ -5,6 +5,7 @@
 #include <BLEUtils.h>
 #include <USB.h>
 #include <USBHIDKeyboard.h>
+#include <esp_system.h>
 
 #include <algorithm>
 #include <array>
@@ -20,7 +21,15 @@ constexpr char kTxUUID[] = "7c1b0003-4b4f-4d55-9a01-42584d583101";
 constexpr size_t kMaxPayload = 512;
 constexpr size_t kMaxParts = 32;
 constexpr size_t kCompletedCache = 16;
-constexpr size_t kFrameQueueCapacity = 2;
+constexpr size_t kFrameQueueCapacity = 32;
+constexpr size_t kMaxFrameBytes = 520;
+
+struct QueuedFrame {
+  uint16_t length;
+  char bytes[kMaxFrameBytes];
+};
+
+static_assert(std::is_trivially_copyable<QueuedFrame>::value, "QueuedFrame must be POD-like");
 
 USBHIDKeyboard Keyboard;
 BLECharacteristic *txCharacteristic = nullptr;
@@ -35,11 +44,14 @@ std::array<String, kMaxParts> parts;
 std::array<bool, kMaxParts> received{};
 std::array<uint32_t, kCompletedCache> completed{};
 size_t completedIndex = 0;
-std::array<String, kFrameQueueCapacity> frameQueue;
+std::array<QueuedFrame, kFrameQueueCapacity> frameQueue{};
 size_t frameQueueHead = 0;
 size_t frameQueueTail = 0;
 size_t frameQueueCount = 0;
+bool frameQueueOverflowPending = false;
 portMUX_TYPE frameQueueMux = portMUX_INITIALIZER_UNLOCKED;
+
+void logEvent(const char *event);
 
 String escapeField(const String &value) {
   String result;
@@ -54,8 +66,10 @@ String escapeField(const String &value) {
 
 void notify(const String &message) {
   if (txCharacteristic != nullptr) {
+    logEvent("ACK_BEGIN");
     txCharacteristic->setValue(message.c_str());
     txCharacteristic->notify();
+    logEvent("ACK_END");
   }
 }
 
@@ -66,11 +80,17 @@ void logEvent(const char *event) {
 bool enqueueFrame(const String &frame) {
   bool accepted = false;
   portENTER_CRITICAL(&frameQueueMux);
-  if (frameQueueCount < kFrameQueueCapacity) {
-    frameQueue[frameQueueTail] = frame;
+  if (frame.length() < kMaxFrameBytes && frameQueueCount < kFrameQueueCapacity) {
+    QueuedFrame &slot = frameQueue[frameQueueTail];
+    slot.length = static_cast<uint16_t>(frame.length());
+    std::memset(slot.bytes, 0, sizeof(slot.bytes));
+    std::memcpy(slot.bytes, frame.c_str(), slot.length);
+    slot.bytes[slot.length] = '\0';
     frameQueueTail = (frameQueueTail + 1) % kFrameQueueCapacity;
     ++frameQueueCount;
     accepted = true;
+  } else {
+    frameQueueOverflowPending = true;
   }
   portEXIT_CRITICAL(&frameQueueMux);
   return accepted;
@@ -80,8 +100,9 @@ bool dequeueFrame(String &frame) {
   bool available = false;
   portENTER_CRITICAL(&frameQueueMux);
   if (frameQueueCount > 0) {
-    frame = frameQueue[frameQueueHead];
-    frameQueue[frameQueueHead] = "";
+    const QueuedFrame &slot = frameQueue[frameQueueHead];
+    frame = String(slot.bytes).substring(0, slot.length);
+    frameQueue[frameQueueHead] = QueuedFrame{};
     frameQueueHead = (frameQueueHead + 1) % kFrameQueueCapacity;
     --frameQueueCount;
     available = true;
@@ -90,8 +111,42 @@ bool dequeueFrame(String &frame) {
   return available;
 }
 
+bool takeFrameQueueOverflow() {
+  bool pending = false;
+  portENTER_CRITICAL(&frameQueueMux);
+  pending = frameQueueOverflowPending;
+  frameQueueOverflowPending = false;
+  portEXIT_CRITICAL(&frameQueueMux);
+  return pending;
+}
+
 void releaseAll() {
   Keyboard.releaseAll();
+}
+
+const char *resetReasonLabel(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_POWERON: return "POWERON";
+    case ESP_RST_SW: return "SOFTWARE";
+    case ESP_RST_PANIC: return "PANIC";
+    case ESP_RST_TASK_WDT: return "TASK_WDT";
+    case ESP_RST_INT_WDT: return "INT_WDT";
+    case ESP_RST_BROWNOUT: return "BROWNOUT";
+#ifdef ESP_RST_USB
+    case ESP_RST_USB: return "USB";
+#endif
+    default: return "UNKNOWN";
+  }
+}
+
+void clearFrameQueue() {
+  portENTER_CRITICAL(&frameQueueMux);
+  frameQueueHead = 0;
+  frameQueueTail = 0;
+  frameQueueCount = 0;
+  frameQueueOverflowPending = false;
+  for (QueuedFrame &slot : frameQueue) slot = QueuedFrame{};
+  portEXIT_CRITICAL(&frameQueueMux);
 }
 
 void clearReassembly() {
@@ -150,6 +205,7 @@ bool splitFrame(const String &frame, std::array<String, 7> &fields, size_t &coun
 
 void typeASCII(const String &text) {
   if (!outputEnabled) return;
+  logEvent("HID_BEGIN");
   for (size_t i = 0; i < text.length(); ++i) {
     uint8_t c = static_cast<uint8_t>(text[i]);
     if (c < 0x20 || c > 0x7e) continue;
@@ -158,6 +214,7 @@ void typeASCII(const String &text) {
   }
   releaseAll();
   delay(1);
+  logEvent("HID_END");
 }
 
 void applyControl(const String &session, uint32_t sequence, const String &control) {
@@ -247,15 +304,17 @@ void handleFrame(const String &frame) {
 
 class ServerCallbacks final : public BLEServerCallbacks {
   void onConnect(BLEServer *) override { connected = true; logEvent("BLE connected"); }
-  void onDisconnect(BLEServer *) override { connected = false; logEvent("BLE disconnected"); releaseAll(); clearReassembly(); activeSession = ""; outputEnabled = false; BLEDevice::startAdvertising(); }
+  void onDisconnect(BLEServer *) override { connected = false; logEvent("BLE disconnected"); releaseAll(); clearReassembly(); clearFrameQueue(); activeSession = ""; outputEnabled = false; BLEDevice::startAdvertising(); }
 };
 
 class RxCallbacks final : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *characteristic) override {
     String frame = characteristic->getValue().c_str();
     if (!enqueueFrame(frame)) {
-      logEvent("FRAME rejected: queue overflow");
+      logEvent("FRAME_QUEUE_OVERFLOW");
       releaseAll();
+    } else {
+      logEvent("FRAME_QUEUED");
     }
   }
 };
@@ -263,7 +322,9 @@ class RxCallbacks final : public BLECharacteristicCallbacks {
 
 void setup() {
   Serial.begin(115200);
-  logEvent("BOOTMUX firmware starting");
+  logEvent("BOOT");
+  Serial.printf("RESET_REASON: %s\n", resetReasonLabel(esp_reset_reason()));
+  clearFrameQueue();
   // Set the native USB descriptors before TinyUSB is started.  The BLE name
   // below is independent from the USB product string seen by the host.
   USB.manufacturerName("BOOTMUX");
@@ -288,7 +349,14 @@ void setup() {
 
 void loop() {
   String frame;
-  if (dequeueFrame(frame)) handleFrame(frame);
+  if (takeFrameQueueOverflow()) {
+    logEvent("FRAME_QUEUE_OVERFLOW");
+    notify("BMX1|ERR|||queue_full");
+  }
+  if (dequeueFrame(frame)) {
+    logEvent("FRAME_DEQUEUED");
+    handleFrame(frame);
+  }
   if (reassemblySeq != 0 && millis() - reassemblyStarted > 2000) { clearReassembly(); releaseAll(); }
   delay(10);
 }
