@@ -87,6 +87,8 @@ The public architecture names capabilities rather than optional third-party pack
 
 BOOTMUX has completed and locally verified the V0A target-side Companion core. The iPhone, BLE, native USB HID, Codex bootstrap, and full hardware loop remain under active development. The first test environment is a minimal ARM64 Linux virtual machine hosted on a single Apple Silicon Mac, alongside a physical iPhone and ESP32-S3.
 
+The V0B iPhone Terminal Loop implementation is now present under `iphone/`. It is a dependency-free SwiftUI app using `URLSessionWebSocketTask` and a selectable `UITextView` bridge. Physical iPhone, signing, and Simulator evidence remain pending because the current implementation environment has no Xcode/iOS SDK or connected test device.
+
 No runtime, hardware, benchmark, novelty, or Build Week compliance claim is considered complete until reproducible evidence exists.
 
 ## Build Week Scope
@@ -113,13 +115,15 @@ Pre-existing concept and exploratory architecture are separated from submission-
 
 V0A is a local development Companion proof and is not yet a packaged cross-platform installation. See `companion/README.md` for the current local build and probe commands.
 
+For the V0B app, open `iphone/BOOTMUX.xcodeproj` in Xcode with an iOS SDK. Start the Companion on a trusted local network with `go run . -addr 0.0.0.0:8765 -allow-remote`, then enter the resulting `ws://<trusted-local-host>:8765/v1/terminal` endpoint in the app. No signing material or external iPhone runtime dependency is committed.
+
 ## Supported Platforms
 
-The verified V0A environment is the declared Unix-like local target used by the Companion tests. iPhone, ESP32-S3 firmware, BLE, and native USB HID support are not yet implemented or proven.
+The verified V0A environment is the declared Unix-like local target used by the Companion tests. V0B targets iOS 17 or later but has not yet received Simulator or physical-device validation. ESP32-S3 firmware, BLE, and native USB HID support are not implemented or proven.
 
 ## Judge Test Mode
 
-No final judge test mode is available yet. The local probe demonstrates only the target-side Companion path and does not prove the physical hardware path.
+No final judge test mode is available yet. The local probe demonstrates only the target-side Companion path, and the V0B app remains physical-device-unverified.
 
 ## How to Run Hardware Demo
 
