@@ -4,24 +4,22 @@
 
 ```yaml
 previous_task:
-  task_id: BOOTMUX-V0A-R3-TERMINAL-ERROR-SHUTDOWN-REPAIR
-  status: GREEN
-  final_head_sha: 2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4
-current_task:
   task_id: BOOTMUX-S81-SUBMISSION-CLOSEOUT
-  implementation_status: COMPLETE
-  feature_development: FROZEN
-  gate_status: YELLOW_XCODE_PHYSICAL_FEEDBACK_VIDEO_OR_REGISTRATION_PENDING
-  xcode_validation: XCODE_NOT_INSTALLED_ON_APPLE_SILICON_HOST
-  physical_evidence: PENDING
+  status: YELLOW_SUBMISSION_READY
+  final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
+current_task:
+  task_id: BOOTMUX-V1-FASTLANE-PHYSICAL-KEYBOARD-PATH
+  implementation_status: IN_PROGRESS
+  feature_development: REOPENED_ONLY_FOR_V1
+  submission_baseline_preserved: true
 next_technical_task:
-  task_id: BOOTMUX-V1A-ESP32S3-BOARD-IDENTITY-NATIVE-USB-PROBE
-  status: BLOCKED_PENDING_SUBMISSION_CLOSEOUT_AND_V0B_PHYSICAL_GREEN
+  task_id: BOOTMUX-V0B-V2-PHYSICAL-IPHONE-RETURN-PROOF
+  status: BLOCKED_PENDING_V1_RESULT
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```
 
-This documentation-only task operationalizes the OpenAI Build Week submission requirements. It does not implement a new runtime feature. V0A Companion Core is complete and locally verified; V0B remains blocked until this submission spine is green.
+This task temporarily reopens feature development only for the bounded V1 physical keyboard gate. The Submission Closeout baseline remains preserved. V1 does not include Codex installation, terminal return, mouse/trackpad, arbitrary Unicode, Wi-Fi firmware, background operation, App Store distribution, or USB data return.
 
 ## Required artifacts
 

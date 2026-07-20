@@ -1,5 +1,22 @@
 # BOOTMUX Roadmap
 
+```yaml
+roadmap_status:
+  V0:
+    status: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
+  V1:
+    status: IN_PROGRESS
+    task: BOOTMUX-V1-FASTLANE-PHYSICAL-KEYBOARD-PATH
+  V2:
+    status: PARTIALLY_IMPLEMENTED
+  V3:
+    status: OPEN
+  V4:
+    status: PARTIAL_BOUNDED_LOCAL_CODEX_RUN_ONLY
+```
+
+Feature development is reopened only for the V1 physical keyboard gate. All other frozen scope remains unchanged.
+
 ## Roadmap policy
 
 BOOTMUX currently has one implementation priority:

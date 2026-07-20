@@ -5,13 +5,13 @@ This is the public-safe operational status for the OpenAI Build Week submission 
 ```yaml
 status_as_of: 2026-07-20 JST
 submission_sprint:
-  P0_toolchain: XCODE_NOT_INSTALLED_ON_APPLE_SILICON_HOST
+  P0_toolchain: IN_PROGRESS
   P1_judge_mode: GREEN
   P2_iphone_proof: PENDING
-  P3_hardware_bridge: OPEN
-  P4_codex_ready: NOT_PROVEN
-  P5_submission_package: READY_FOR_FEEDBACK_AND_VIDEO
-feature_development: FROZEN
+  P3_hardware_bridge: IN_PROGRESS
+  P4_codex_ready: GREEN_BOUNDED_LOCAL_RUN
+  P5_submission_package: READY
+feature_development: REOPENED_ONLY_FOR_V1_PHYSICAL_GATE
 gates:
   BW0:
     status: IN_PROGRESS
@@ -32,12 +32,12 @@ gates:
     status: IN_PROGRESS
     V0A: GREEN
     V0B: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
-    V1: OPEN
+    V1: IN_PROGRESS
     V2: PARTIALLY_PROVEN_BY_V0B
     V3: OPEN
     V4: OPEN
-    evidence: V0A is GREEN; V0B implementation exists but physical proof is pending
-    remaining_gate: physical_iPhone_acceptance_and_copy_paste_proof
+    evidence: V0A is GREEN; V1 physical keyboard gate is in progress
+    remaining_gate: physical_iPhone_BLE_ESP32S3_USB_HID_acceptance
   BW4:
     status: GREEN
     evidence: standalone offline replay and live Companion /judge mode
@@ -76,10 +76,8 @@ license:
   status: GREEN_MIT_APPROVED
   file_added: true
 feedback:
-  command_run: false
-  ready: true
-  owner_action: run /feedback in the Primary Codex Thread
-  session_id: PRIVATE_NOT_STORED_IN_REPOSITORY
+  captured_privately: true
+  public_session_id: false
 github_issues_accessed: false
 github_actions_used: false
 ```
