@@ -210,18 +210,29 @@ func TestNewSessionIsolationAndChildCleanup(t *testing.T) {
 }
 
 func TestSlowClientOutputIsBounded(t *testing.T) {
-	s := NewServer("/bin/sh", "-i")
+	s := NewServer("/bin/sh", "-c", "dd if=/dev/zero bs=1024 count=1024 2>/dev/null; sleep 1")
 	s.BatchBytes = 64
 	s.MaxBufferBytes = 128
-	c, h := dialTest(t, s)
-	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "i=0; while [ $i -lt 10000 ]; do printf x; i=$((i+1)); done; exit\n"}); err != nil {
-		t.Fatal(err)
+	s.ChunkBytes = 256
+	s.ChunkQueueCapacity = 1
+	s.OutboundQueueCapacity = 1
+	c, _ := dialTest(t, s)
+	// Hold the client read side while production output is being generated.
+	time.Sleep(100 * time.Millisecond)
+	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+	sawOverflow := false
+	for {
+		_, data, err := c.ReadMessage()
+		if err != nil {
+			break
+		}
+		var msg serverMessage
+		if json.Unmarshal(data, &msg) == nil && msg.Type == "error" && msg.Code == "output_overflow" {
+			sawOverflow = true
+		}
 	}
-	// Do not read output while the PTY produces data. Closing must remain bounded
-	// by the server's write deadline and cleanup path.
-	time.Sleep(75 * time.Millisecond)
-	if err := c.Close(); err != nil {
-		t.Fatal(err)
+	if !sawOverflow {
+		t.Fatal("slow client did not receive explicit overflow before session cleanup")
 	}
 }
 
