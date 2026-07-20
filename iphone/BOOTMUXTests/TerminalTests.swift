@@ -168,12 +168,14 @@ final class TerminalTests: XCTestCase {
     func testConnectBeforeHelloRejectedAndSendFailureFailsClosed() async throws {
         let fake = FakeTransport()
         let session = TerminalSession { _ in fake }
-        XCTAssertFalse(await session.sendInput("before hello"))
+        let beforeHelloAccepted = await session.sendInput("before hello")
+        XCTAssertFalse(beforeHelloAccepted)
         session.connect(endpoint: "ws://local/v1/terminal")
         fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
         try await Task.sleep(nanoseconds: 10_000_000)
         fake.failSends = true
-        XCTAssertFalse(await session.sendInput("x"))
+        let failedSendAccepted = await session.sendInput("x")
+        XCTAssertFalse(failedSendAccepted)
         XCTAssertTrue({ if case .failed = session.state { return true }; return false }())
     }
 
@@ -183,7 +185,8 @@ final class TerminalTests: XCTestCase {
         session.connect(endpoint: "ws://local/v1/terminal")
         fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
         try await waitUntil { if case .connected = session.state { return true }; return false }
-        XCTAssertFalse(await session.sendInput(String(repeating: "x", count: TerminalProtocolLimits.inputTextBytes + 1)))
+        let oversizedInputAccepted = await session.sendInput(String(repeating: "x", count: TerminalProtocolLimits.inputTextBytes + 1))
+        XCTAssertFalse(oversizedInputAccepted)
         XCTAssertTrue({ if case .connected = session.state { return true }; return false }())
         XCTAssertTrue(fake.sent.isEmpty)
     }
