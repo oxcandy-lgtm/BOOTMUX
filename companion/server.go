@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -24,6 +25,7 @@ const (
 	defaultChunkBytes    = 256
 	defaultChunkQueue    = 8
 	defaultOutboundQueue = 8
+	defaultInputQueue    = 8
 	maxWebSocketMessage  = 16 * 1024
 	maxJSONMessage       = 12 * 1024
 	maxInputTextBytes    = 8 * 1024
@@ -39,6 +41,7 @@ type Server struct {
 	ChunkBytes              int
 	ChunkQueueCapacity      int
 	OutboundQueueCapacity   int
+	InputQueueCapacity      int
 	MaxWebSocketMessageSize int64
 	MaxJSONMessageBytes     int
 	MaxInputTextBytes       int
@@ -55,6 +58,7 @@ func NewServer(shell string, args ...string) *Server {
 		ChunkBytes:              defaultChunkBytes,
 		ChunkQueueCapacity:      defaultChunkQueue,
 		OutboundQueueCapacity:   defaultOutboundQueue,
+		InputQueueCapacity:      defaultInputQueue,
 		MaxWebSocketMessageSize: maxWebSocketMessage,
 		MaxJSONMessageBytes:     maxJSONMessage,
 		MaxInputTextBytes:       maxInputTextBytes,
@@ -104,26 +108,38 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cmd := exec.Command(s.Shell, s.ShellArgs...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
-		sessionError(conn, "pty_start_failed", "shell unavailable")
-		return
+		// Some restricted Unix environments reject Setpgid. Keep the PTY contract
+		// usable there; normal Unix targets retain process-group cleanup.
+		cmd = exec.Command(s.Shell, s.ShellArgs...)
+		ptmx, err = pty.Start(cmd)
+		if err != nil {
+			sessionError(conn, "pty_start_failed", "shell unavailable")
+			return
+		}
 	}
-	sess := newSession(s, conn, id, ptmx, cmd)
-	sess.run()
+	newSession(s, conn, id, ptmx, cmd).run()
 }
 
-type ptyChunk struct {
-	data []byte
-}
+type ptyChunk struct{ data []byte }
 
-type processResult struct {
-	exitCode int
+type processResult struct{ exitCode int }
+
+type readerResult struct {
+	kind string
+	err  error
 }
 
 type clientEvent struct {
 	data []byte
 	err  error
+}
+
+type inputRequest struct {
+	text      []byte
+	interrupt bool
 }
 
 type session struct {
@@ -138,42 +154,60 @@ type session struct {
 	maxJSON    int
 	maxInput   int
 
-	chunks     chan ptyChunk
-	process    chan processResult
-	client     chan clientEvent
-	outbound   chan serverMessage
-	finished   chan struct{}
-	writerDone chan struct{}
-	overflow   chan struct{}
-	cancel     chan struct{}
+	chunks       chan ptyChunk
+	reader       chan readerResult
+	readerDone   chan struct{}
+	process      chan processResult
+	processDone  chan struct{}
+	client       chan clientEvent
+	input        chan inputRequest
+	inputDone    chan struct{}
+	inputFailure chan struct{}
+	outbound     chan serverMessage
+	finished     chan struct{}
+	writerDone   chan struct{}
+	errorWritten chan struct{}
+	overflow     chan struct{}
+	cancel       chan struct{}
 
-	stopOnce     sync.Once
-	overflowOnce sync.Once
-	finishOnce   sync.Once
-	mu           sync.Mutex
-	closed       bool
+	stopOnce      sync.Once
+	processOnce   sync.Once
+	overflowOnce  sync.Once
+	failureOnce   sync.Once
+	finishOnce    sync.Once
+	mu            sync.Mutex
+	closed        bool
+	errorExpected bool
+	stopped       bool
 }
 
 func newSession(s *Server, conn *websocket.Conn, id string, ptmx io.ReadWriteCloser, cmd *exec.Cmd) *session {
 	return &session{
-		conn:       conn,
-		id:         id,
-		ptmx:       ptmx,
-		cmd:        cmd,
-		flush:      s.FlushInterval,
-		batch:      s.BatchBytes,
-		max:        s.MaxBufferBytes,
-		chunkBytes: s.ChunkBytes,
-		maxJSON:    s.MaxJSONMessageBytes,
-		maxInput:   s.MaxInputTextBytes,
-		chunks:     make(chan ptyChunk, s.ChunkQueueCapacity),
-		process:    make(chan processResult, 1),
-		client:     make(chan clientEvent, 1),
-		outbound:   make(chan serverMessage, s.OutboundQueueCapacity),
-		finished:   make(chan struct{}),
-		writerDone: make(chan struct{}),
-		overflow:   make(chan struct{}),
-		cancel:     make(chan struct{}),
+		conn:         conn,
+		id:           id,
+		ptmx:         ptmx,
+		cmd:          cmd,
+		flush:        s.FlushInterval,
+		batch:        s.BatchBytes,
+		max:          s.MaxBufferBytes,
+		chunkBytes:   s.ChunkBytes,
+		maxJSON:      s.MaxJSONMessageBytes,
+		maxInput:     s.MaxInputTextBytes,
+		chunks:       make(chan ptyChunk, s.ChunkQueueCapacity),
+		reader:       make(chan readerResult, 1),
+		readerDone:   make(chan struct{}),
+		process:      make(chan processResult, 1),
+		processDone:  make(chan struct{}),
+		client:       make(chan clientEvent, 1),
+		input:        make(chan inputRequest, s.InputQueueCapacity),
+		inputDone:    make(chan struct{}),
+		inputFailure: make(chan struct{}),
+		outbound:     make(chan serverMessage, s.OutboundQueueCapacity),
+		finished:     make(chan struct{}),
+		writerDone:   make(chan struct{}),
+		errorWritten: make(chan struct{}, 1),
+		overflow:     make(chan struct{}),
+		cancel:       make(chan struct{}),
 	}
 }
 
@@ -182,30 +216,36 @@ func (s *session) run() {
 	go s.readClient()
 	go s.readPTY()
 	go s.waitProcess()
+	go s.writePTY()
 	if !s.enqueue(serverMessage{Version: protocolVersion, Type: "hello", SessionID: s.id}) {
 		s.stop()
 	}
-
 	go s.aggregate()
+
+selectLoop:
 	for {
 		select {
 		case event := <-s.client:
 			if event.err != nil {
 				s.stop()
-				goto wait
+				break selectLoop
 			}
 			if s.handleClientMessage(event.data) {
-				goto wait
+				if s.errorExpected {
+					<-s.errorWritten
+				}
+				break selectLoop
 			}
 		case <-s.finished:
-			goto wait
+			break selectLoop
 		}
 	}
-
-wait:
 	s.stop()
 	<-s.finished
 	<-s.writerDone
+	<-s.inputDone
+	<-s.readerDone
+	<-s.processDone
 }
 
 func (s *session) readClient() {
@@ -224,30 +264,39 @@ func (s *session) readClient() {
 
 func (s *session) handleClientMessage(data []byte) bool {
 	if len(data) > s.maxJSONBytes() {
-		return !s.enqueueError("json_too_large", "request exceeds JSON message limit")
+		return s.terminateWithError("json_too_large", "request exceeds JSON message limit")
 	}
 	msg, err := decodeClientMessage(data)
 	if err != nil {
-		return !s.enqueueError(err.Error(), "request rejected")
+		if !s.enqueueError(err.Error(), "request rejected") {
+			s.stopProcess()
+			return true
+		}
+		return false
 	}
 	if len(msg.Text) > s.maxInputBytes() {
-		return !s.enqueueError("input_too_large", "input text exceeds limit")
+		return s.terminateWithError("input_too_large", "input text exceeds limit")
 	}
 	if msg.SessionID != s.id {
-		return !s.enqueueError("wrong_session", "session rejected")
+		if !s.enqueueError("wrong_session", "session rejected") {
+			s.stopProcess()
+			return true
+		}
+		return false
 	}
-	switch msg.Type {
-	case "input_text":
-		_, err = s.ptmx.Write([]byte(msg.Text))
-	case "control":
-		err = s.interrupt()
-	case "close":
+	request := inputRequest{interrupt: msg.Type == "control"}
+	if msg.Type == "input_text" {
+		request.text = []byte(msg.Text)
+	}
+	if msg.Type == "close" {
 		return true
 	}
-	if err != nil {
-		return !s.enqueueError("input_failed", "terminal input unavailable")
+	select {
+	case s.input <- request:
+		return false
+	default:
+		return s.terminateWithError("input_overflow", "terminal input queue limit exceeded")
 	}
-	return false
 }
 
 func (s *session) maxJSONBytes() int {
@@ -265,42 +314,96 @@ func (s *session) maxInputBytes() int {
 }
 
 func (s *session) readPTY() {
+	defer close(s.readerDone)
 	buf := make([]byte, s.chunkBytes)
+	result := readerResult{kind: "eof"}
+	defer func() {
+		s.reader <- result
+	}()
 	for {
 		n, err := s.ptmx.Read(buf)
 		if n > 0 {
-			chunk := append([]byte(nil), buf[:n]...)
+			chunk := ptyChunk{data: append([]byte(nil), buf[:n]...)}
 			select {
-			case s.chunks <- ptyChunk{data: chunk}:
+			case s.chunks <- chunk:
 			case <-s.cancel:
+				result.kind = "cancel"
 				return
 			default:
 				signalOverflow(s.overflow, &s.overflowOnce)
+				result.kind = "overflow"
 				return
 			}
 		}
 		if err != nil {
+			result.err = err
+			if errors.Is(err, syscall.EIO) {
+				result.kind = "eio"
+			} else if errors.Is(err, io.EOF) {
+				result.kind = "eof"
+			} else {
+				result.kind = "error"
+			}
 			return
 		}
 	}
 }
 
 func (s *session) waitProcess() {
+	defer close(s.processDone)
 	err := s.cmd.Wait()
 	code := -1
 	if err == nil || s.cmd.ProcessState != nil {
 		code = exitCode(s.cmd)
 	}
-	select {
-	case s.process <- processResult{exitCode: code}:
-	case <-s.cancel:
+	s.process <- processResult{exitCode: code}
+}
+
+func (s *session) writePTY() {
+	defer close(s.inputDone)
+	for {
+		select {
+		case request := <-s.input:
+			var err error
+			if request.interrupt {
+				_, err = s.ptmx.Write([]byte{3})
+			} else {
+				_, err = s.ptmx.Write(request.text)
+			}
+			if err != nil {
+				s.failureOnce.Do(func() { close(s.inputFailure) })
+				return
+			}
+		case <-s.cancel:
+			return
+		}
 	}
 }
 
 func (s *session) aggregate() {
 	timer := time.NewTimer(s.flush)
+	if !timer.Stop() {
+		<-timer.C
+	}
 	defer timer.Stop()
 	pending := make([]byte, 0, s.max)
+	processExited := false
+	ptyReaderFinished := false
+	canceled := false
+	failed := false
+	readerFault := false
+	lastExitCode := -1
+	var cancelCh <-chan struct{} = s.cancel
+
+	stopTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}
+	armTimer := func() { stopTimer(); timer.Reset(s.flush) }
 	flush := func(final bool) bool {
 		text, rest := utf8Prefix(pending, final)
 		pending = rest
@@ -309,71 +412,96 @@ func (s *session) aggregate() {
 		}
 		return s.enqueue(serverMessage{Version: protocolVersion, Type: "output", SessionID: s.id, Stream: "pty", Text: text})
 	}
-	resetTimer := func() {
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
+	finish := func() {
+		if s.wasStopped() {
+			canceled = true
 		}
-		timer.Reset(s.flush)
-	}
-	finish := func(code int, sendExit bool) {
-		if sendExit {
-			_ = flush(true)
-			_ = s.enqueue(serverMessage{Version: protocolVersion, Type: "exit", SessionID: s.id, ExitCode: &code})
+		if !canceled && !failed {
+			if !flush(true) {
+				failed = true
+			} else if !s.enqueue(serverMessage{Version: protocolVersion, Type: "exit", SessionID: s.id, ExitCode: &lastExitCode}) {
+				failed = true
+			}
 		}
 		close(s.outbound)
 		<-s.writerDone
 		s.finishOnce.Do(func() { close(s.finished) })
 	}
-	for {
+	for !(processExited && ptyReaderFinished) {
 		select {
+		case <-cancelCh:
+			canceled = true
+			cancelCh = nil
+		case <-s.inputFailure:
+			if !failed {
+				_ = s.enqueueError("input_failed", "terminal input unavailable")
+			}
+			failed = true
+			s.stopProcess()
 		case <-s.overflow:
-			_ = s.enqueueError("output_overflow", "terminal output limit exceeded")
-			finish(-1, false)
-			return
-		case result := <-s.process:
-			for {
-				select {
-				case chunk := <-s.chunks:
-					pending = append(pending, chunk.data...)
-				default:
-					goto drained
-				}
-			}
-		drained:
-			if len(pending) > s.max {
+			if !failed {
 				_ = s.enqueueError("output_overflow", "terminal output limit exceeded")
-				finish(result.exitCode, false)
-				return
 			}
-			finish(result.exitCode, true)
-			return
+			failed = true
+			s.stopProcess()
+		case result := <-s.process:
+			processExited = true
+			lastExitCode = result.exitCode
+		case result := <-s.reader:
+			ptyReaderFinished = true
+			if result.kind == "error" || result.kind == "overflow" {
+				readerFault = true
+			}
 		case chunk := <-s.chunks:
+			wasEmpty := len(pending) == 0
 			pending = append(pending, chunk.data...)
 			if len(pending) > s.max {
-				_ = s.enqueueError("output_overflow", "terminal output limit exceeded")
-				finish(-1, false)
-				return
+				if !failed {
+					_ = s.enqueueError("output_overflow", "terminal output limit exceeded")
+				}
+				failed = true
+				s.stopProcess()
+				continue
 			}
 			if containsNewline(pending) || len(pending) >= s.batch {
 				if !flush(false) {
-					finish(-1, false)
-					return
+					failed = true
+					s.stopProcess()
+					continue
 				}
-				resetTimer()
-			} else {
-				resetTimer()
+				if len(pending) == 0 {
+					stopTimer()
+				} else {
+					armTimer()
+				}
+			} else if wasEmpty {
+				armTimer()
 			}
 		case <-timer.C:
 			if !flush(false) {
-				finish(-1, false)
-				return
+				failed = true
+				s.stopProcess()
+				continue
 			}
-			resetTimer()
-		case <-s.cancel:
-			finish(-1, false)
+			if len(pending) == 0 {
+				stopTimer()
+			} else {
+				armTimer()
+			}
+		}
+	}
+	for {
+		select {
+		case chunk := <-s.chunks:
+			pending = append(pending, chunk.data...)
+		default:
+			if readerFault && !processExited {
+				failed = true
+			}
+			if len(pending) > s.max {
+				failed = true
+			}
+			finish()
 			return
 		}
 	}
@@ -413,11 +541,6 @@ func exitCode(cmd *exec.Cmd) int {
 	return -1
 }
 
-func (s *session) interrupt() error {
-	_, err := s.ptmx.Write([]byte{3})
-	return err
-}
-
 func signalOverflow(ch chan struct{}, once *sync.Once) { once.Do(func() { close(ch) }) }
 
 func (s *session) enqueue(msg serverMessage) bool {
@@ -440,6 +563,12 @@ func (s *session) writeMessages() {
 			s.stop()
 			return
 		}
+		if msg.Type == "error" {
+			select {
+			case s.errorWritten <- struct{}{}:
+			default:
+			}
+		}
 	}
 }
 
@@ -455,16 +584,40 @@ func (s *session) write(msg serverMessage) bool {
 
 func (s *session) stop() {
 	s.stopOnce.Do(func() {
-		close(s.cancel)
-		_ = s.ptmx.Close()
-		if s.cmd.Process != nil {
-			_ = s.cmd.Process.Kill()
-		}
+		s.stopProcess()
 		_ = s.conn.Close()
 		s.mu.Lock()
 		s.closed = true
 		s.mu.Unlock()
 	})
+}
+
+func (s *session) stopProcess() {
+	s.processOnce.Do(func() {
+		s.mu.Lock()
+		s.stopped = true
+		s.mu.Unlock()
+		close(s.cancel)
+		_ = s.ptmx.Close()
+		if s.cmd.Process != nil {
+			_ = syscall.Kill(-s.cmd.Process.Pid, syscall.SIGKILL)
+			_ = s.cmd.Process.Kill()
+		}
+	})
+}
+
+func (s *session) wasStopped() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stopped
+}
+
+func (s *session) terminateWithError(code, message string) bool {
+	if !s.enqueueError(code, message) {
+		return false
+	}
+	s.errorExpected = true
+	return true
 }
 
 func sessionError(conn *websocket.Conn, code, message string) {

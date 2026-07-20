@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -103,6 +106,23 @@ func TestTimerOnlyFlush(t *testing.T) {
 	}
 }
 
+func TestFlushIntervalIsMaximumLatencyNotDebounce(t *testing.T) {
+	s := NewServer("/bin/sh", "-c", "for i in $(seq 1 20); do printf x; sleep .005; done; sleep 1")
+	s.FlushInterval = 50 * time.Millisecond
+	s.BatchBytes = 1024
+	started := time.Now()
+	c, _ := dialTest(t, s)
+	out := readUntil(t, c, "output")
+	if elapsed := time.Since(started); elapsed < 35*time.Millisecond || elapsed > 300*time.Millisecond {
+		t.Fatalf("first output arrived outside maximum-latency window: %s", elapsed)
+	}
+	if out.Text == "" {
+		t.Fatal("timer produced empty output")
+	}
+	// The producer is still sleeping when the first timer-driven frame arrives.
+	_ = c.Close()
+}
+
 func TestProcessExitClosesSessionAfterSingleExit(t *testing.T) {
 	c, h := dialTest(t, NewServer("/bin/sh", "-c", "printf done; exit 3"))
 	if err := c.WriteJSON(clientMessage{Version: 1, Type: "close", SessionID: h.SessionID}); err == nil {
@@ -119,6 +139,52 @@ func TestProcessExitClosesSessionAfterSingleExit(t *testing.T) {
 	_ = c.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	if _, _, err := c.ReadMessage(); err == nil {
 		t.Fatal("session remained open after exit")
+	}
+}
+
+func TestTailOutputIsCompleteBeforeExitRepeated(t *testing.T) {
+	const marker = "R2_TAIL_MARKER"
+	for iteration := 0; iteration < 100; iteration++ {
+		s := NewServer("/bin/sh", "-c", fmt.Sprintf("dd if=/dev/zero bs=65536 count=1 2>/dev/null; printf '%s'", marker))
+		s.MaxBufferBytes = 128 * 1024
+		s.BatchBytes = 2048
+		s.ChunkBytes = 1024
+		s.ChunkQueueCapacity = 1024
+		s.OutboundQueueCapacity = 128
+		c, _ := dialTest(t, s)
+		var output strings.Builder
+		exits := 0
+		_ = c.SetReadDeadline(time.Now().Add(5 * time.Second))
+		for {
+			_, data, err := c.ReadMessage()
+			if err != nil {
+				t.Fatalf("iteration %d read: %v", iteration, err)
+			}
+			var msg serverMessage
+			if err := json.Unmarshal(data, &msg); err != nil {
+				t.Fatal(err)
+			}
+			switch msg.Type {
+			case "output":
+				output.WriteString(msg.Text)
+			case "exit":
+				exits++
+				if msg.ExitCode == nil || *msg.ExitCode != 0 {
+					t.Fatalf("iteration %d exit=%+v", iteration, msg)
+				}
+				goto receivedExit
+			case "error":
+				t.Fatalf("iteration %d error=%+v", iteration, msg)
+			}
+		}
+	receivedExit:
+		if exits != 1 || output.Len() != 65536+len(marker) || !strings.HasSuffix(output.String(), marker) {
+			t.Fatalf("iteration %d output_len=%d exits=%d tail=%q", iteration, output.Len(), exits, output.String()[max(0, output.Len()-len(marker)):])
+		}
+		_ = c.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+		if _, _, err := c.ReadMessage(); err == nil {
+			t.Fatalf("iteration %d session remained open", iteration)
+		}
 	}
 }
 
@@ -187,6 +253,34 @@ func TestInputLimitsAndOriginPolicy(t *testing.T) {
 	}
 }
 
+func TestJSONAndWebSocketMessageLimits(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	c, h := dialTest(t, s)
+	jsonPayload := append([]byte(`{"v":1,"type":"input_text","session_id":"`+h.SessionID+`","text":"`), bytes.Repeat([]byte("x"), 12*1024)...)
+	jsonPayload = append(jsonPayload, []byte(`"}`)...)
+	if err := c.WriteMessage(websocket.TextMessage, jsonPayload); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "error"); got.Code != "json_too_large" {
+		t.Fatalf("error=%+v", got)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	for {
+		if _, _, err := c.ReadMessage(); err != nil {
+			break
+		}
+	}
+
+	c, _ = dialTest(t, NewServer("/bin/sh", "-i"))
+	if err := c.WriteMessage(websocket.TextMessage, bytes.Repeat([]byte("x"), maxWebSocketMessage+1)); err != nil {
+		t.Fatal(err)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(1 * time.Second))
+	if _, _, err := c.ReadMessage(); err == nil {
+		t.Fatal("WebSocket message limit did not close connection")
+	}
+}
+
 func TestNewSessionIsolationAndChildCleanup(t *testing.T) {
 	s := NewServer("/bin/sh", "-i")
 	first, h1 := dialTest(t, s)
@@ -206,6 +300,40 @@ func TestNewSessionIsolationAndChildCleanup(t *testing.T) {
 	out := readUntil(t, second, "output")
 	if !strings.Contains(out.Text, "isolated") || strings.Contains(out.Text, "sleep") {
 		t.Fatalf("session output mixed: %q", out.Text)
+	}
+}
+
+func TestChildCleanupLeavesNoSentinel(t *testing.T) {
+	dir := t.TempDir()
+	sentinel := fmt.Sprintf("%s/sentinel", dir)
+	s := NewServer("/bin/sh", "-c", fmt.Sprintf("sleep 2; printf stopped > %q", sentinel))
+	c, _ := dialTest(t, s)
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(1 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(sentinel); err == nil {
+			t.Fatal("child survived session close and wrote sentinel")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestInputQueueIsBoundedAndClosable(t *testing.T) {
+	s := NewServer("/bin/sh", "-c", "sleep 5")
+	s.InputQueueCapacity = 1
+	c, h := dialTest(t, s)
+	payload := strings.Repeat("i", s.MaxInputTextBytes)
+	for i := 0; i < 256; i++ {
+		if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: payload}); err != nil {
+			break
+		}
+	}
+	started := time.Now()
+	_ = c.Close()
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Fatalf("client close blocked behind PTY input writer: %s", elapsed)
 	}
 }
 
@@ -261,4 +389,11 @@ func TestBatchingAndBound(t *testing.T) {
 	if frames >= total {
 		t.Fatalf("not batched: frames=%d bytes=%d", frames, total)
 	}
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
