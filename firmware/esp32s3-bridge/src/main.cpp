@@ -215,6 +215,10 @@ class RxCallbacks final : public BLECharacteristicCallbacks {
 
 void setup() {
   Serial.begin(115200);
+  // Set the native USB descriptors before TinyUSB is started.  The BLE name
+  // below is independent from the USB product string seen by the host.
+  USB.manufacturerName("BOOTMUX");
+  USB.productName("BOOTMUX Keyboard");
   Keyboard.begin();
   USB.begin();
   BLEDevice::init("BOOTMUX Keyboard");

@@ -32,12 +32,12 @@ gates:
     status: IN_PROGRESS
     V0A: GREEN
     V0B: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
-    V1: IN_PROGRESS_CONTROL_ACK_REPAIR_PHYSICAL_PENDING
+    V1: R3_CODE_REPAIRED_PHYSICAL_ACCEPTANCE_PENDING
     V2: PARTIALLY_PROVEN_BY_V0B
     V3: OPEN
     V4: OPEN
-    evidence: V0A is GREEN; V1 firmware builds and COM upload pass
-    remaining_gate: native_USB_connector_enumeration_and_native_iPhone_BLE_acceptance
+    evidence: V0A is GREEN; R3 firmware clean build passes; native USB inventory is composite Espressif USB without confirmed HID; Xcode is installed but has no iOS platform/runtime or connected device
+    remaining_gate: native_USB_HID_enumeration_and_physical_iPhone_BLE_acceptance
   BW4:
     status: GREEN
     evidence: standalone offline replay and live Companion /judge mode

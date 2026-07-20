@@ -104,9 +104,9 @@ The public architecture names capabilities rather than optional third-party pack
 
 ## Project status
 
-V0A is GREEN. V0B is implemented and awaiting Xcode and physical proof. V1 through V4 are open or partial. Judge Mode is GREEN; BLE, native USB HID, and Codex bootstrap remain high-value evidence work rather than absolute submission blockers. Feature development is frozen for Submission Closeout.
+V0A is GREEN. V0B is implemented and awaiting physical proof. V1 code is present with the R3 USB descriptor repair, but physical iPhone/BLE/native-HID acceptance is not proven. V2 through V4 are open or partial. Judge Mode is GREEN; BLE, native USB HID, and Codex bootstrap remain high-value evidence work rather than absolute submission blockers. Feature development is frozen except for the bounded V1 physical gate.
 
-The V0B iPhone Terminal Loop implementation is now present under `iphone/`. It is a dependency-free SwiftUI app using `URLSessionWebSocketTask` and a selectable `UITextView` bridge. Physical iPhone, signing, and Simulator evidence remain pending because the current implementation environment has no Xcode/iOS SDK or connected test device.
+The V0B iPhone Terminal Loop implementation is now present under `iphone/`. It is a dependency-free SwiftUI app using `URLSessionWebSocketTask` and a selectable `UITextView` bridge. Xcode 26.6 is installed and the project now declares its iOS SDK target, but iOS platform/runtime components and a connected test device are still unavailable on the validation host.
 
 No runtime, hardware, benchmark, novelty, or Build Week compliance claim is considered complete until reproducible evidence exists.
 
@@ -144,7 +144,7 @@ For the V0B app, open `iphone/BOOTMUX.xcodeproj` in Xcode with an iOS SDK. Start
 
 ## Supported Platforms
 
-The verified V0A environment is the declared Unix-like local target used by the Companion tests. V0B targets iOS 17 or later but has not yet received Simulator or physical-device validation. ESP32-S3 firmware, BLE, and native USB HID support are not implemented or proven.
+The verified V0A environment is the declared Unix-like local target used by the Companion tests. V0B targets iOS 17 or later but has not yet received Simulator or physical-device validation. ESP32-S3 firmware and BLE protocol support are implemented; native USB HID enumeration and the complete physical path remain unproven.
 
 ## Judge Test Mode
 

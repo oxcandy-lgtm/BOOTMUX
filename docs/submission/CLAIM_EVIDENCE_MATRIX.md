@@ -8,7 +8,7 @@ Only claims with both evidence and an allowed public copy are publishable. This 
 | judge_mode_terminal_copy | GREEN | `judge/index.html`, packaged local Companion `/judge`, and offline replay | true | final human/demo review |
 | iphone_live_terminal | IMPLEMENTED_AWAITING_PHYSICAL_PROOF | `iphone/` and V0B implementation commit; no physical acceptance receipt | false | physical iPhone connection, observed marker, native copy/paste |
 | real_ble_input | NOT_PROVEN | no physical BLE evidence | false | real iPhone-to-BLE-to-device run |
-| real_usb_hid | NOT_PROVEN | no native USB HID enumeration evidence | false | board-level enumeration and input proof |
+| real_usb_hid | NOT_PROVEN | public-safe USB inventory sees the Espressif composite device but no confirmed HID keyboard interface; R3 firmware descriptor fix builds but could not be uploaded because no COM port was present | false | board-level HID enumeration and input proof |
 | mouse_support | NOT_IMPLEMENTED | no mouse implementation or proof | false | implement and demonstrate |
 | offline_target_operation | NOT_PROVEN | no offline target run evidence | false | reproducible offline demonstration |
 | codex_installation | NOT_IMPLEMENTED | no Codex installation proof | false | clean-target installation evidence |
