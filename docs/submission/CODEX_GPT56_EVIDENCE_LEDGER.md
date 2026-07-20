@@ -28,3 +28,5 @@ primary_codex_thread:
 | GPT-5.6-assisted Submission Sprint | prioritized a no-rebuild Judge Mode, explicit MIT/readme boundary, honest claim matrix, Devpost final draft, demo script, and final checklist over deferred product completeness | current Submission Sprint docs and `judge/` | made the working terminal-and-copy path reviewable without claiming BLE, USB HID, or Codex completion | human owns final registration, feedback, video, and submission |
 
 This record describes concrete work products and decisions; it is not a claim that every future capability is implemented.
+
+| GPT-5.6-assisted V1 R3 acceptance repair | repaired native USB descriptor initialization and iOS project SDK targeting; executed Xcode, USB, firmware, and physical-device checks within the available host boundary | `8fb241b`; `firmware/esp32s3-bridge/src/main.cpp`; `iphone/BOOTMUX.xcodeproj/project.pbxproj` | code-side repair is recorded; native HID enumeration and physical iPhone acceptance remain unproven | human must provide a usable COM flash path, iOS platform/device, and physical acceptance receipt |
