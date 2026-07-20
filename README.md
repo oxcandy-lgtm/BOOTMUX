@@ -85,9 +85,45 @@ The public architecture names capabilities rather than optional third-party pack
 
 ## Project status
 
-BOOTMUX is in the architecture and proof-of-concept stage. The first test environment is a minimal ARM64 Linux virtual machine hosted on a single Apple Silicon Mac, alongside a physical iPhone and ESP32-S3.
+BOOTMUX has completed and locally verified the V0A target-side Companion core. The iPhone, BLE, native USB HID, Codex bootstrap, and full hardware loop remain under active development. The first test environment is a minimal ARM64 Linux virtual machine hosted on a single Apple Silicon Mac, alongside a physical iPhone and ESP32-S3.
 
 No runtime, hardware, benchmark, novelty, or Build Week compliance claim is considered complete until reproducible evidence exists.
+
+## Build Week Scope
+
+The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). V0A is complete; V0B through V4 and the human-confirmation submission gates remain open or blocked as recorded there.
+
+## How Codex Was Used
+
+Codex was used in the primary build work to implement and locally verify the V0A target-side Companion contract. The public repository records the resulting code, tests, repair history, and claim boundary; the private primary thread and any real `/feedback` Session ID are not published here.
+
+## How GPT-5.6 Was Used
+
+GPT-5.6 contributed to the asymmetric transport architecture, the V0A implementation contract, V0A R1–R3 edge-case review, public claim-safety boundary, and Devpost short-copy/story structure. Concrete results and commit mappings are recorded in [Codex and GPT-5.6 Evidence Ledger](docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md).
+
+## Human Decisions
+
+Human decisions set the product direction, selected the V0A scope, retained the iPhone/BLE/ESP32-S3 roadmap boundary, accepted implementation fixes, and remain responsible for registration, license selection, final claims, video, and submission.
+
+## Third-Party and Pre-Existing Work
+
+Pre-existing concept and exploratory architecture are separated from submission-period implementation in the [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md). Third-party dependencies and their licenses are treated as implementation details until the repository owner selects the submission license. No repository license has been added yet.
+
+## Installation
+
+V0A is a local development Companion proof and is not yet a packaged cross-platform installation. See `companion/README.md` for the current local build and probe commands.
+
+## Supported Platforms
+
+The verified V0A environment is the declared Unix-like local target used by the Companion tests. iPhone, ESP32-S3 firmware, BLE, and native USB HID support are not yet implemented or proven.
+
+## Judge Test Mode
+
+No final judge test mode is available yet. The local probe demonstrates only the target-side Companion path and does not prove the physical hardware path.
+
+## How to Run Hardware Demo
+
+There is no complete hardware demo to run yet. The future demo must separately prove iPhone input, BLE, ESP32-S3 USB HID, terminal return, and Codex bootstrap; the current claim boundary is maintained in the [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
 
 ## Full architecture
 
