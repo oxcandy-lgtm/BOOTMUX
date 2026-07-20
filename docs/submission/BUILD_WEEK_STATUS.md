@@ -32,12 +32,12 @@ gates:
     status: IN_PROGRESS
     V0A: GREEN
     V0B: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
-    V1: IN_PROGRESS
+    V1: IN_PROGRESS_FIRMWARE_UPLOADED_PHYSICAL_BLE_USB_PENDING
     V2: PARTIALLY_PROVEN_BY_V0B
     V3: OPEN
     V4: OPEN
-    evidence: V0A is GREEN; V1 physical keyboard gate is in progress
-    remaining_gate: physical_iPhone_BLE_ESP32S3_USB_HID_acceptance
+    evidence: V0A is GREEN; V1 firmware builds and COM upload pass
+    remaining_gate: native_USB_connector_enumeration_and_native_iPhone_BLE_acceptance
   BW4:
     status: GREEN
     evidence: standalone offline replay and live Companion /judge mode

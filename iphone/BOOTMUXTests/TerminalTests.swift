@@ -40,6 +40,19 @@ final class FakeTransport: TerminalTransport {
 
 @MainActor
 final class TerminalTests: XCTestCase {
+    func testBLEChunkerBatchesCommittedASCIIAndUsesFewerWritesThanCharacters() throws {
+        let frames = try BLEChunker(maximumWriteBytes: 64).frames(session: "s", sequence: 1, text: "echo BOOTMUX_HID")
+        XCTAssertLessThan(frames.count, "echo BOOTMUX_HID".utf8.count)
+        XCTAssertTrue(frames.allSatisfy { $0.count <= 64 })
+    }
+
+    func testBLEProtocolControlsAndDuplicateAck() throws {
+        let frame = try BLEProtocol.control(session: "s", sequence: 7, control: .ctrlC)
+        XCTAssertEqual(String(decoding: frame, as: UTF8.self), "BMX1|CTRL|s|7|CTRL_C")
+        let ack = BLEProtocol.parseAck(Data("BMX1|ACK|s|7|DUPLICATE".utf8))
+        XCTAssertEqual(ack?.result, "DUPLICATE")
+    }
+
     func testObservedOutputIsNotSynthesizedFromInput() throws {
         let data = Data("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"BOOTMUX_V0\"}".utf8)
         guard case let .output(_, text) = try TerminalProtocol.decodeServer(data, expectedSession: "s") else { return XCTFail("expected output") }

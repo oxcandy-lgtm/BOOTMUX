@@ -34,6 +34,8 @@ build/
 sdkconfig
 sdkconfig.old
 managed_components/
+.tools/
+.local-backups/
 
 # Node, Python, and general build output
 node_modules/

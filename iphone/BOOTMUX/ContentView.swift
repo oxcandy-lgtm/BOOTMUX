@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var session = TerminalSession()
+    @StateObject private var ble = BLEBridgeSession()
     @State private var endpoint = "ws://127.0.0.1:8765/v1/terminal"
     @State private var command = ""
 
@@ -12,6 +13,7 @@ struct ContentView: View {
                 Text("BOOTMUX").font(.headline)
                 Spacer()
                 Text("TERMINAL: \(session.state.label)").font(.caption.monospaced())
+                Text("BLE: \(ble.statusMessage)").font(.caption2)
             }.padding(.horizontal)
             SelectableTerminalView(text: session.terminalText)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -28,12 +30,19 @@ struct ContentView: View {
                     let value = command
                     Task { if await session.sendInput(value) { command = "" } }
                 }
+                Button("SEND VIA HID") { ble.sendText(command) }
                 Button("ENTER") { Task { _ = await session.sendInput("\n") } }
                 Button("BACKSPACE") { Task { _ = await session.sendInput("\u{7F}") } }
             }
             HStack {
                 Button("CTRL-C") { Task { _ = await session.sendInterrupt() } }
                 Button("CLEAR") { session.clearVisibleHistory() }
+            }
+            HStack {
+                Button("CONNECT BLE") { ble.connect() }
+                Button("DISCONNECT BLE") { ble.disconnect() }
+                Button("STOP HID") { ble.send(.stop) }
+                Button("RESUME HID") { ble.send(.resume) }
             }
         }
         .padding()

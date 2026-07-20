@@ -1,12 +1,14 @@
 # BOOTMUX V0B iPhone Terminal Loop
 
-This dependency-free SwiftUI application implements the V0 software terminal loop:
+This dependency-free SwiftUI application implements the V0 software terminal loop and the bounded V1 BLE input bridge:
 
 ```text
 iPhone native input → local WebSocket → BOOTMUX Companion → PTY → observed output → selectable copyable text
 ```
 
-It deliberately does not implement BLE, ESP32-S3, USB HID, mouse input, Codex installation, cloud services, background operation, or a full terminal emulator. Production transport is `URLSessionWebSocketTask`; there are no external packages or runtime dependencies.
+It deliberately does not implement mouse input, Codex installation, cloud services, background operation, or a full terminal emulator. Production terminal transport is `URLSessionWebSocketTask`; the BLE bridge uses system CoreBluetooth and there are no external runtime packages.
+
+The V1 bridge is now implemented with CoreBluetooth and the pinned `BMX1` protocol, but physical iPhone-to-BLE-to-ESP32-S3-to-USB-HID proof remains pending. The WebSocket terminal path remains separate from `SEND VIA HID`.
 
 ## Build
 
