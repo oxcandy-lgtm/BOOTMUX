@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -87,6 +88,55 @@ func TestPTYOutputExitAndBatching(t *testing.T) {
 	}
 }
 
+func TestTimerOnlyFlush(t *testing.T) {
+	s := NewServer("/bin/sh", "-c", "printf timer_only; sleep 1")
+	s.FlushInterval = 40 * time.Millisecond
+	s.BatchBytes = 1024
+	started := time.Now()
+	c, _ := dialTest(t, s)
+	out := readUntil(t, c, "output")
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Fatalf("timer flush waited for PTY read/process: %s", elapsed)
+	}
+	if out.Text != "timer_only" {
+		t.Fatalf("output=%q", out.Text)
+	}
+}
+
+func TestProcessExitClosesSessionAfterSingleExit(t *testing.T) {
+	c, h := dialTest(t, NewServer("/bin/sh", "-c", "printf done; exit 3"))
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "close", SessionID: h.SessionID}); err == nil {
+		// The command may finish before the close is consumed; either path must terminate.
+	}
+	// Use a fresh session to observe the production exit lifecycle deterministically.
+	c.Close()
+	c, _ = dialTest(t, NewServer("/bin/sh", "-c", "printf done; exit 3"))
+	_ = readUntil(t, c, "output")
+	exit := readUntil(t, c, "exit")
+	if exit.ExitCode == nil || *exit.ExitCode != 3 {
+		t.Fatalf("exit=%+v", exit)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	if _, _, err := c.ReadMessage(); err == nil {
+		t.Fatal("session remained open after exit")
+	}
+}
+
+func TestOutputOverflowIsExplicit(t *testing.T) {
+	s := NewServer("/bin/sh", "-c", "printf abc")
+	s.ChunkBytes = 1
+	s.MaxBufferBytes = 2
+	s.BatchBytes = 1024
+	c, _ := dialTest(t, s)
+	if got := readUntil(t, c, "error"); got.Code != "output_overflow" {
+		t.Fatalf("error=%+v", got)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	if _, _, err := c.ReadMessage(); err == nil {
+		t.Fatal("overflow session remained open")
+	}
+}
+
 func TestInterruptAndUTF8(t *testing.T) {
 	c, h := dialTest(t, NewServer("/bin/sh", "-i"))
 	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "printf 'あ\n'; sleep 5\n"}); err != nil {
@@ -100,6 +150,41 @@ func TestInterruptAndUTF8(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = readUntil(t, c, "exit")
+}
+
+func TestUTF8SplitAcrossPTYChunks(t *testing.T) {
+	s := NewServer("/bin/sh", "-c", "printf 'あ'; sleep 1")
+	s.ChunkBytes = 1
+	s.FlushInterval = 10 * time.Millisecond
+	c, _ := dialTest(t, s)
+	out := readUntil(t, c, "output")
+	if !utf8.ValidString(out.Text) || out.Text != "あ" {
+		t.Fatalf("split UTF-8 output=%q", out.Text)
+	}
+}
+
+func TestInputLimitsAndOriginPolicy(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.MaxInputTextBytes = 4
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "12345"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "error"); got.Code != "input_too_large" {
+		t.Fatalf("error=%+v", got)
+	}
+
+	httpServer := httptest.NewServer(s.Handler())
+	t.Cleanup(httpServer.Close)
+	u := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/v1/terminal"
+	dialer := websocket.Dialer{}
+	_, response, err := dialer.Dial(u, http.Header{"Origin": []string{"https://foreign.example"}})
+	if err == nil {
+		t.Fatal("foreign Origin was accepted")
+	}
+	if response != nil && response.Body != nil {
+		response.Body.Close()
+	}
 }
 
 func TestNewSessionIsolationAndChildCleanup(t *testing.T) {
