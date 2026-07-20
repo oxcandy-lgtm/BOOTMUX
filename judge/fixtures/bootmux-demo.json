@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "title": "BOOTMUX terminal and copy replay",
+  "output": [
+    "$ echo BOOTMUX_READY\n",
+    "BOOTMUX_READY\n"
+  ],
+  "disclaimer": "This replay demonstrates terminal, session, and native-copy behavior. It does not prove physical BLE or USB HID."
+}

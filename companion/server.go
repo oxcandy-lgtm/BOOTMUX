@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	_ "embed"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -17,6 +18,9 @@ import (
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
+
+//go:embed judge/index.html
+var judgeHTML []byte
 
 const (
 	defaultFlushInterval = 35 * time.Millisecond
@@ -81,7 +85,17 @@ func sameHostOrNativeOrigin(r *http.Request) bool {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/terminal", s.handleTerminal)
+	mux.HandleFunc("/judge", s.handleJudge)
 	return mux
+}
+
+func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/judge" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(judgeHTML)
 }
 
 func newSessionID() (string, error) {
