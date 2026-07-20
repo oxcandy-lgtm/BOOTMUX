@@ -82,7 +82,7 @@ Mandatory submission evidence includes:
 - a public repository with relevant licensing, or the required private judge sharing;
 - explicit separation of pre-existing work and Submission Period work.
 
-Remaining submission blockers are registration confirmation, the private `/feedback` Session ID, the public narrated video, and final human submission review. Physical hardware proof remains high-value remaining evidence, not a prerequisite for the software submission slice. The no-rebuild Judge Mode and MIT license are GREEN.
+The `/feedback` Session ID has been captured privately and is intentionally not published in this repository. Remaining submission blockers are registration confirmation, completion and public upload of the narrated video, and final human submission review. The 17-second narrated opening segment is complete, but it is not the final submission video. Physical hardware proof remains high-value remaining evidence, not a prerequisite for the software submission slice. The no-rebuild Judge Mode and MIT license are GREEN.
 
 ## V1 implementation strategy
 
@@ -111,7 +111,7 @@ No runtime, hardware, benchmark, novelty, or Build Week compliance claim is cons
 
 ## Build Week Scope
 
-The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). The integrated demo is ready for repeatability and owner usability confirmation, then `/feedback`, video, and final human review.
+The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). The integrated demo is ready for repeatability and owner usability confirmation. The private `/feedback` receipt is captured; the remaining submission work is the rest of the demo recording, final narrated edit and upload, registration confirmation, and final human review.
 
 ## Current Working Demo
 
@@ -121,7 +121,7 @@ If macOS Gatekeeper blocks the packaged launcher, first try right-click → Open
 
 ## How Codex Was Used
 
-Codex was used in V0A and V0B implementation work. The Primary Build Thread designation and `/feedback` result remain human-controlled submission metadata. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
+Codex was used in V0A and V0B implementation work. The Primary Build Thread is confirmed and its `/feedback` Session ID has been captured privately. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
 
 ## How GPT-5.6 Was Used
 
@@ -129,7 +129,7 @@ GPT-5.6 contributed to the asymmetric transport architecture, the V0A implementa
 
 ## Human Decisions
 
-Human decisions set the product direction, selected the V0A scope, retained the iPhone/BLE/ESP32-S3 roadmap boundary, accepted implementation fixes, and remain responsible for registration, license selection, final claims, video, and submission.
+Human decisions set the product direction, selected the V0A scope, retained the iPhone/BLE/ESP32-S3 roadmap boundary, accepted implementation fixes, and remain responsible for registration, final claims, the completed submission video, and final submission.
 
 ## Third-Party and Pre-Existing Work
 
