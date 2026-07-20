@@ -61,11 +61,11 @@ gates:
     remaining_gate: ENTER_PRIVATE_SESSION_ID_IN_DEVPOST
 
   BW7:
-    status: IN_PROGRESS_TWO_EDITED_SEGMENTS_COMPLETE
-    evidence: docs/submission/DEMO_SCRIPT.md; narrated 17.233-second opening; narrated 36.700-second HID SEND function test
-    completed_duration_seconds: 53.933
+    status: IN_PROGRESS_THREE_EDITED_SEGMENTS_COMPLETE
+    evidence: docs/submission/DEMO_SCRIPT.md; narrated 17.233-second opening; narrated 28.233-second app-design and agent-loop introduction; narrated 36.700-second HID SEND function test
+    completed_duration_seconds: 82.166
     recommended_final_duration_seconds: 125
-    remaining_recommended_seconds: 71.067
+    remaining_recommended_seconds: 42.834
     remaining_gate: integrated_codex_return_copy_clear_architecture_judge_closeout_final_edit_privacy_review_and_public_upload
 
   BW8:
@@ -127,23 +127,25 @@ Selectable copy, visible CLEAR feedback, physical HID Mirror, and repeatability 
 
 ## Video production status
 
-Two narrated 16:9 segments are complete locally:
+Three narrated 16:9 segments are complete locally:
 
 1. **17.233 seconds — opening:** dirty-display problem setup, ESP32-S3 reveal, English narration and subtitles, screen treatment, and `BOOT GPT-5.6` / BOOTMUX title.
-2. **36.700 seconds — HID SEND function test:** BLE connection, ENTER twice, `hello`, HID SEND, observed physical terminal reflection, separate operation callouts, public-safe redaction, and a BLE batch → ESP32-S3 → USB HID technical card.
+2. **28.233 seconds — app design and agent loop:** subliminal dog flash, app launch, terminal and Codex tab switching, diagnostics/log controls, input UI, and the `CODEX BUILDS → GPT-5.6 REVIEWS → HUMAN TASTE → REPEAT` convergence explanation.
+3. **36.700 seconds — HID SEND function test:** BLE connection, ENTER twice, `hello`, HID SEND, observed physical terminal reflection, separate operation callouts, public-safe redaction, and a BLE batch → ESP32-S3 → USB HID technical card.
 
-Completed duration is **53.933 seconds**. The hard three-minute allowance leaves **126.067 seconds**, but the recommended final master is approximately **125 seconds**, leaving **71.067 seconds** of useful remaining footage.
+The app-design segment is placed directly after the opening, before the HID SEND proof.
 
-The next required footage is:
+Completed duration is **82.166 seconds**. The hard three-minute allowance leaves **97.834 seconds**, but the recommended final master remains approximately **125 seconds**, leaving only **42.834 seconds** of useful remaining footage.
+
+The remaining required footage is:
 
 1. integrated physical Codex `BOOTMUX_READY` return to the iPhone;
 2. COPY/CLEAR acceptance when available;
 3. the asymmetric transport explanation;
-4. explicit Codex and GPT-5.6 attribution;
-5. short Judge Mode proof;
-6. honest limitations and closing claim.
+4. short Judge Mode proof;
+5. honest limitations and closing claim.
 
-The final video must specifically explain how Codex built the major layers and how GPT-5.6 designed and hardened the architecture. Showing the model names without concrete contributions is insufficient.
+The explicit Codex / GPT-5.6 / human development-loop explanation is now covered by the completed app-design segment and must survive the final assembly.
 
 ## Current technical boundary
 
@@ -175,11 +177,14 @@ feedback:
 video:
   opening_segment_complete: true
   opening_duration_seconds: 17.233
+  app_design_agent_loop_segment_complete: true
+  app_design_agent_loop_duration_seconds: 28.233
   hid_send_segment_complete: true
   hid_send_duration_seconds: 36.700
-  completed_duration_seconds: 53.933
+  completed_segments: 3
+  completed_duration_seconds: 82.166
   recommended_final_duration_seconds: 125
-  remaining_recommended_seconds: 71.067
+  remaining_recommended_seconds: 42.834
   final_public_video_complete: false
   public_upload_complete: false
 github_issues_accessed: false
