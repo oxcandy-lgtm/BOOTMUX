@@ -4,6 +4,13 @@ This is the public-safe operational status for the OpenAI Build Week submission 
 
 ```yaml
 status_as_of: 2026-07-20 JST
+submission_sprint:
+  P0_toolchain: XCODE_NOT_INSTALLED_ON_APPLE_SILICON_HOST
+  P1_judge_mode: GREEN
+  P2_iphone_proof: PENDING
+  P3_hardware_bridge: OPEN
+  P4_codex_ready: OPEN
+  P5_submission_package: IN_PROGRESS
 gates:
   BW0:
     status: IN_PROGRESS
@@ -31,13 +38,13 @@ gates:
     evidence: V0A is GREEN; V0B implementation exists but physical proof is pending
     remaining_gate: physical_iPhone_acceptance_and_copy_paste_proof
   BW4:
-    status: OPEN
-    evidence: no judge test path is complete
-    remaining_gate: judge_accessible_test_mode
+    status: GREEN
+    evidence: standalone offline replay and live Companion /judge mode
+    remaining_gate: none_for_no_rebuild_terminal_demo
   BW5:
-    status: BLOCKED
-    evidence: README and repository are public; no license file is present
-    remaining_gate: license_not_selected_and_readme_incomplete
+    status: GREEN
+    evidence: LICENSE and submission README headings are present
+    remaining_gate: human_final_readme_review
   BW6:
     status: BLOCKED
     evidence: /feedback has not been run
@@ -47,9 +54,9 @@ gates:
     evidence: no public narrated video has been created
     remaining_gate: public_video_with_voice_narration
   BW8:
-    status: OPEN
-    evidence: final Devpost submission package is not complete
-    remaining_gate: final_submission_preparation
+    status: IN_PROGRESS
+    evidence: final Devpost draft, demo script, and checklist are present
+    remaining_gate: final_human_review_and_video_upload
   BW9:
     status: OPEN
     evidence: final submission has not been made
@@ -65,8 +72,8 @@ V0A Companion Core is locally verified. The claim boundary remains: no real iPho
 ```yaml
 registration: HUMAN_CONFIRMATION_PENDING
 license:
-  status: BLOCKED_PENDING_OWNER_DECISION
-  file_added: false
+  status: GREEN_MIT_APPROVED
+  file_added: true
 feedback:
   command_run: false
   reason: V0B_to_V4_not_complete

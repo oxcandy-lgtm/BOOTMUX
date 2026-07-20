@@ -15,6 +15,9 @@ scope:
     - V0B iPhone Terminal Loop implementation
     - V0B R1 client runtime contract repairs
     - V0B R2 protocol-limit and Xcode-host repairs
+    - standalone and live Judge Mode
+    - MIT license and submission README
+    - Devpost final draft, demo script, and final checklist
     - submission ledgers
     - Devpost copy and story draft
   unresolved_pending_owner_confirmation:
@@ -28,6 +31,9 @@ commits:
   V0B_implementation: 2d730a5a287166a889e26e0067f2d518327390d1
   V0B_R1_repair: d9746c818eabc31b8bc6bf50c44ecdcbd3dbf395
   V0B_R2_repair: f554b38a5e0c5218c98f0811b7b8667bd379a32e
+  judge_mode: 88a9f75f46976940408f084b768593c6770f8073
+  mit_readme: 1131d4c180779db9527103fb3ab16654eedf908d
+  judge_package: d1dd4f19ad6322a384fcae0774d31b331840b483
 ```
 
 ## Evidence mapping
