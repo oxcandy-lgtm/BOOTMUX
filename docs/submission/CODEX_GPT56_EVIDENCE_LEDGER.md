@@ -3,9 +3,11 @@
 This ledger is public-safe. The primary Codex thread is intentionally private; no real Session ID, account information, private URL, screenshot, or transcript is stored here.
 
 ```yaml
-primary_codex_thread: PRIVATE
-feedback_session_id: NOT_STORED
-feedback_command_run: false
+primary_codex_thread:
+  identifier: PRIVATE
+  designation_status: PENDING_HUMAN_CONFIRMATION
+  feedback_command_run: false
+  feedback_session_id: NOT_STORED_IN_REPOSITORY
 ```
 
 ## Contribution record

@@ -9,10 +9,11 @@ previous_task:
   final_head_sha: 2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4
 current_task:
   task_id: BOOTMUX-BW0-BW2-SUBMISSION-SPINE
-  status: IN_PROGRESS
+  implementation_status: COMPLETE
+  gate_status: YELLOW_HUMAN_CONFIRMATION_PENDING
 next_technical_task:
   task_id: BOOTMUX-V0B-IPHONE-TERMINAL-LOOP
-  status: BLOCKED_UNTIL_CURRENT_TASK_GREEN
+  status: BLOCKED_PENDING_REGISTRATION_AND_PRIMARY_THREAD_CONFIRMATION
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```

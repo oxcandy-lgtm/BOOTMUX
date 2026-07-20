@@ -8,15 +8,15 @@ gates:
   BW0:
     status: IN_PROGRESS
     evidence: docs/submission/BUILD_WEEK_STATUS.md
-    remaining_gate: HUMAN_CONFIRMATION_PENDING
+    remaining_gate: REGISTRATION_CONFIRMATION_PENDING
   BW1:
     status: IN_PROGRESS
     evidence: docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md
-    remaining_gate: HUMAN_CONFIRMATION_PENDING
+    remaining_gate: PRIMARY_CODEX_THREAD_CONFIRMATION_AND_CONTINUED_CORE_USE
   BW2:
-    status: IN_PROGRESS
+    status: IMPLEMENTED_AWAITING_OWNER_SCOPE_CONFIRMATION
     evidence: docs/submission/BUILD_WEEK_SCOPE_LEDGER.md
-    remaining_gate: HUMAN_CONFIRMATION_PENDING
+    remaining_gate: OWNER_SCOPE_BOUNDARY_CONFIRMATION
   BW3:
     status: OPEN
     V0A: GREEN

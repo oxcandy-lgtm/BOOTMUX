@@ -6,14 +6,15 @@ This ledger separates pre-existing project material from work attributed to the 
 scope:
   pre_existing:
     - BOOTMUX concept and exploratory architecture
-    - architecture and roadmap documents created before the submission-period implementation history
+    - exploratory ideas explicitly confirmed by the owner as predating the Submission Period
   submission_period:
+    - repository architecture and roadmap documents committed during the Submission Period
+    - OpenAI Build Week requirements and compliance documents
     - V0A Companion Core implementation and its repair iterations
     - Build Week submission documentation and public-safe evidence ledgers
     - Devpost draft copy and story structure
-  unknown_or_not_claimed:
-    - exact calendar dates for individual pre-existing materials
-    - unrecorded hardware, iPhone, BLE, USB HID, or Codex implementation work
+  unresolved_pending_owner_confirmation:
+    - any architecture material whose exact creation boundary cannot be proven from repository history
 commits:
   V0A_initial: 7854781a69d6bc0d93e7759ba8aa467e5b0e2a04
   V0A_R1_final: 6099662d7e146ba250381df33b3aea14a995e3e7
