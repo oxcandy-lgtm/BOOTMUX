@@ -20,6 +20,7 @@ constexpr char kTxUUID[] = "7c1b0003-4b4f-4d55-9a01-42584d583101";
 constexpr size_t kMaxPayload = 512;
 constexpr size_t kMaxParts = 32;
 constexpr size_t kCompletedCache = 16;
+constexpr size_t kFrameQueueCapacity = 2;
 
 USBHIDKeyboard Keyboard;
 BLECharacteristic *txCharacteristic = nullptr;
@@ -34,6 +35,11 @@ std::array<String, kMaxParts> parts;
 std::array<bool, kMaxParts> received{};
 std::array<uint32_t, kCompletedCache> completed{};
 size_t completedIndex = 0;
+std::array<String, kFrameQueueCapacity> frameQueue;
+size_t frameQueueHead = 0;
+size_t frameQueueTail = 0;
+size_t frameQueueCount = 0;
+portMUX_TYPE frameQueueMux = portMUX_INITIALIZER_UNLOCKED;
 
 String escapeField(const String &value) {
   String result;
@@ -51,6 +57,37 @@ void notify(const String &message) {
     txCharacteristic->setValue(message.c_str());
     txCharacteristic->notify();
   }
+}
+
+void logEvent(const char *event) {
+  Serial.println(event);
+}
+
+bool enqueueFrame(const String &frame) {
+  bool accepted = false;
+  portENTER_CRITICAL(&frameQueueMux);
+  if (frameQueueCount < kFrameQueueCapacity) {
+    frameQueue[frameQueueTail] = frame;
+    frameQueueTail = (frameQueueTail + 1) % kFrameQueueCapacity;
+    ++frameQueueCount;
+    accepted = true;
+  }
+  portEXIT_CRITICAL(&frameQueueMux);
+  return accepted;
+}
+
+bool dequeueFrame(String &frame) {
+  bool available = false;
+  portENTER_CRITICAL(&frameQueueMux);
+  if (frameQueueCount > 0) {
+    frame = frameQueue[frameQueueHead];
+    frameQueue[frameQueueHead] = "";
+    frameQueueHead = (frameQueueHead + 1) % kFrameQueueCapacity;
+    --frameQueueCount;
+    available = true;
+  }
+  portEXIT_CRITICAL(&frameQueueMux);
+  return available;
 }
 
 void releaseAll() {
@@ -117,12 +154,15 @@ void typeASCII(const String &text) {
     uint8_t c = static_cast<uint8_t>(text[i]);
     if (c < 0x20 || c > 0x7e) continue;
     Keyboard.write(c);
+    if ((i + 1) % 8 == 0) delay(1);
   }
   releaseAll();
+  delay(1);
 }
 
 void applyControl(const String &session, uint32_t sequence, const String &control) {
   if (session != activeSession) return;
+  Serial.printf("CTRL received: seq=%lu, kind=%s\n", static_cast<unsigned long>(sequence), control.c_str());
   if (seenCompleted(sequence)) {
     notify("BMX1|ACK|" + session + "|" + String(sequence) + "|DUPLICATE");
     return;
@@ -158,6 +198,7 @@ void applyControl(const String &session, uint32_t sequence, const String &contro
 }
 
 void finishText(const String &session, uint32_t sequence) {
+  Serial.printf("TEXT complete: seq=%lu\n", static_cast<unsigned long>(sequence));
   if (seenCompleted(sequence)) {
     notify("BMX1|ACK|" + session + "|" + String(sequence) + "|DUPLICATE");
     return;
@@ -180,8 +221,9 @@ void finishText(const String &session, uint32_t sequence) {
 void handleFrame(const String &frame) {
   std::array<String, 7> fields;
   size_t count = 0;
-  if (!splitFrame(frame, fields, count) || count < 3 || fields[0] != "BMX1") { releaseAll(); return; }
+  if (!splitFrame(frame, fields, count) || count < 3 || fields[0] != "BMX1") { logEvent("FRAME rejected: malformed"); releaseAll(); return; }
   if (fields[1] == "OPEN" && count == 3) {
+    logEvent("OPEN received");
     releaseAll(); clearReassembly(); clearCompleted(); activeSession = fields[2];
     outputEnabled = !stoppedLatch;
     notify("BMX1|ACK|" + activeSession + "|0|OPENED");
@@ -204,17 +246,24 @@ void handleFrame(const String &frame) {
 }
 
 class ServerCallbacks final : public BLEServerCallbacks {
-  void onConnect(BLEServer *) override { connected = true; }
-  void onDisconnect(BLEServer *) override { connected = false; releaseAll(); clearReassembly(); activeSession = ""; outputEnabled = false; BLEDevice::startAdvertising(); }
+  void onConnect(BLEServer *) override { connected = true; logEvent("BLE connected"); }
+  void onDisconnect(BLEServer *) override { connected = false; logEvent("BLE disconnected"); releaseAll(); clearReassembly(); activeSession = ""; outputEnabled = false; BLEDevice::startAdvertising(); }
 };
 
 class RxCallbacks final : public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic *characteristic) override { handleFrame(characteristic->getValue().c_str()); }
+  void onWrite(BLECharacteristic *characteristic) override {
+    String frame = characteristic->getValue().c_str();
+    if (!enqueueFrame(frame)) {
+      logEvent("FRAME rejected: queue overflow");
+      releaseAll();
+    }
+  }
 };
 }
 
 void setup() {
   Serial.begin(115200);
+  logEvent("BOOTMUX firmware starting");
   // Set the native USB descriptors before TinyUSB is started.  The BLE name
   // below is independent from the USB product string seen by the host.
   USB.manufacturerName("BOOTMUX");
@@ -234,9 +283,12 @@ void setup() {
   advertising->addServiceUUID(kServiceUUID);
   advertising->setScanResponse(true);
   advertising->start();
+  logEvent("BLE advertising started");
 }
 
 void loop() {
+  String frame;
+  if (dequeueFrame(frame)) handleFrame(frame);
   if (reassemblySeq != 0 && millis() - reassemblyStarted > 2000) { clearReassembly(); releaseAll(); }
   delay(10);
 }
