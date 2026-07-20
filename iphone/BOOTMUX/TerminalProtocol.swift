@@ -1,5 +1,17 @@
 import Foundation
 
+enum TerminalProtocolLimits {
+    static let webSocketMessageBytes = 16 * 1024
+    static let jsonMessageBytes = 12 * 1024
+    static let inputTextBytes = 8 * 1024
+    static let terminalHistoryBytes = 128 * 1024
+}
+
+enum TerminalCloseCode {
+    case normal
+    case goingAway
+}
+
 struct ClientMessage: Encodable {
     let v: Int
     let type: String

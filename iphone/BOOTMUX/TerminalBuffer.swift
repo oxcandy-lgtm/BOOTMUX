@@ -4,7 +4,7 @@ struct TerminalBuffer {
     let maxBytes: Int
     private(set) var text = ""
 
-    init(maxBytes: Int = 131_072) {
+    init(maxBytes: Int = TerminalProtocolLimits.terminalHistoryBytes) {
         precondition(maxBytes > 0)
         self.maxBytes = maxBytes
     }

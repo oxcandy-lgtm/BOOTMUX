@@ -10,7 +10,7 @@ protocol TerminalTransport: AnyObject {
     func resume()
     func receive() async throws -> TerminalTransportMessage
     func send(_ text: String) async throws
-    func close()
+    func close(code: TerminalCloseCode)
 }
 
 final class URLSessionTerminalTransport: TerminalTransport {
@@ -31,7 +31,10 @@ final class URLSessionTerminalTransport: TerminalTransport {
     }
 
     func send(_ text: String) async throws { try await socket.send(.string(text)) }
-    func close() { socket.cancel(with: .goingAway, reason: nil) }
+    func close(code: TerminalCloseCode) {
+        let code: URLSessionWebSocketTask.CloseCode = code == .normal ? .normalClosure : .goingAway
+        socket.cancel(with: code, reason: nil)
+    }
 }
 
 @MainActor
@@ -61,7 +64,6 @@ final class TerminalSession: ObservableObject {
     @Published private(set) var statusMessage = "Disconnected."
 
     private let transportFactory: (URL) -> any TerminalTransport
-    private let maxFrameBytes = 131_072
     private var transport: (any TerminalTransport)?
     private var generation = 0
     private var publishToken = 0
@@ -113,7 +115,7 @@ final class TerminalSession: ObservableObject {
         if let oldTransport, let sessionID {
             Task { [weak self] in await self?.bestEffortClose(oldTransport, sessionID: sessionID) }
         } else {
-            oldTransport?.close()
+            oldTransport?.close(code: .goingAway)
         }
         state = .disconnected
         statusMessage = "Disconnected."
@@ -124,8 +126,17 @@ final class TerminalSession: ObservableObject {
             statusMessage = "Connect before sending input."
             return false
         }
+        guard text.utf8.count <= TerminalProtocolLimits.inputTextBytes else {
+            statusMessage = "Input exceeds the 8 KiB limit."
+            return false
+        }
         do {
-            try await transport.send(TerminalProtocol.encode(.input(sessionID: sessionID, text: text)))
+            let payload = try TerminalProtocol.encode(.input(sessionID: sessionID, text: text))
+            guard payload.utf8.count <= TerminalProtocolLimits.jsonMessageBytes else {
+                statusMessage = "Input message exceeds the 12 KiB JSON limit."
+                return false
+            }
+            try await transport.send(payload)
             return true
         } catch {
             failClosed("Input send failed.")
@@ -139,7 +150,9 @@ final class TerminalSession: ObservableObject {
             return false
         }
         do {
-            try await transport.send(TerminalProtocol.encode(.interrupt(sessionID: sessionID)))
+            let payload = try TerminalProtocol.encode(.interrupt(sessionID: sessionID))
+            guard payload.utf8.count <= TerminalProtocolLimits.jsonMessageBytes else { return false }
+            try await transport.send(payload)
             return true
         } catch {
             failClosed("Interrupt send failed.")
@@ -179,8 +192,12 @@ final class TerminalSession: ObservableObject {
         case .string(let value): data = Data(value.utf8)
         case .data(let value): data = value
         }
-        guard data.count <= maxFrameBytes else {
+        guard data.count <= TerminalProtocolLimits.webSocketMessageBytes else {
             failClosed("Terminal output frame exceeded the client limit.")
+            return .terminal
+        }
+        guard data.count <= TerminalProtocolLimits.jsonMessageBytes else {
+            failClosed("Terminal JSON message exceeded the client limit.")
             return .terminal
         }
         let decoded = try TerminalProtocol.decodeServer(data, expectedSession: currentSessionID)
@@ -203,7 +220,7 @@ final class TerminalSession: ObservableObject {
             generation += 1
             let closingTransport = transport
             transport = nil
-            closingTransport?.close()
+            closingTransport?.close(code: .normal)
             state = .disconnected
             return .terminal
         case .error(let sessionID, let code, let message):
@@ -241,26 +258,30 @@ final class TerminalSession: ObservableObject {
 
     private func bestEffortClose(_ socket: any TerminalTransport, sessionID: String) async {
         let payload = try? TerminalProtocol.encode(.close(sessionID: sessionID))
-        await withTaskGroup(of: Void.self) { group in
-            if let payload {
-                group.addTask { try? await socket.send(payload) }
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 150_000_000)
-            }
-            _ = await group.next()
-            group.cancelAll()
+        let signal = AsyncStream<Void>.makeStream()
+        let sendTask = Task {
+            if let payload { try? await socket.send(payload) }
+            signal.continuation.yield(())
         }
-        socket.close()
+        let timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            signal.continuation.yield(())
+        }
+        for await _ in signal.stream { break }
+        timeoutTask.cancel()
+        socket.close(code: .goingAway)
+        sendTask.cancel()
+        signal.continuation.finish()
     }
 
     private func failClosed(_ message: String) {
+        buffer.append(sanitizer.finish())
         publishImmediately()
         generation += 1
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
-        transport?.close()
+        transport?.close(code: .goingAway)
         transport = nil
         state = .failed(message)
         statusMessage = message
