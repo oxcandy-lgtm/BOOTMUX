@@ -16,6 +16,11 @@ struct SelectableTerminalView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
-        if view.text != text { view.text = text }
+        guard view.text != text else { return }
+        let selected = view.selectedRange
+        let offset = view.contentOffset
+        view.text = text
+        view.selectedRange = NSRange(location: min(selected.location, view.text.utf16.count), length: 0)
+        view.setContentOffset(offset, animated: false)
     }
 }

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var session = TerminalSession()
     @State private var endpoint = "ws://127.0.0.1:8765/v1/terminal"
     @State private var command = ""
@@ -34,6 +35,10 @@ struct ContentView: View {
                 Button("CTRL-C") { Task { _ = await session.sendInterrupt() } }
                 Button("CLEAR") { session.clearVisibleHistory() }
             }
-        }.padding()
+        }
+        .padding()
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .inactive || phase == .background { session.disconnect() }
+        }
     }
 }

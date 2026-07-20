@@ -12,6 +12,8 @@ It deliberately does not implement BLE, ESP32-S3, USB HID, mouse input, Codex in
 
 Open `BOOTMUX.xcodeproj` in Xcode with an iOS SDK. Signing settings are not committed and `DEVELOPMENT_TEAM` is empty.
 
+Unsigned validation, when Xcode is available, must set the override on the command line, for example `xcodebuild -project BOOTMUX.xcodeproj -scheme BOOTMUX -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build`.
+
 ## Local run
 
 Start the Companion on a trusted local network:
@@ -30,4 +32,6 @@ In the app, enter `ws://<trusted-local-host>:8765/v1/terminal`, tap CONNECT, the
 - CSI, OSC, and simple control sequences are removed by a streaming sanitizer;
 - stale generations and session IDs are rejected;
 - disconnect cancels the WebSocket receive loop and pending UI flush;
+- connected disconnect sends a best-effort protocol `close` with a 150ms bound;
+- inactive/background scene phases disconnect without automatic reconnect;
 - local-network ATS is enabled without `NSAllowsArbitraryLoads`.

@@ -20,6 +20,10 @@ struct ClientMessage: Encodable {
     static func interrupt(sessionID: String) -> ClientMessage {
         ClientMessage(v: 1, type: "control", sessionID: sessionID, text: nil, control: "interrupt")
     }
+
+    static func close(sessionID: String) -> ClientMessage {
+        ClientMessage(v: 1, type: "close", sessionID: sessionID, text: nil, control: nil)
+    }
 }
 
 enum ServerMessage {

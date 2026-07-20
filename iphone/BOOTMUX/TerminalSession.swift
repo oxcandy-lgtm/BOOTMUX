@@ -1,8 +1,43 @@
 import Foundation
 import SwiftUI
 
+enum TerminalTransportMessage {
+    case string(String)
+    case data(Data)
+}
+
+protocol TerminalTransport: AnyObject {
+    func resume()
+    func receive() async throws -> TerminalTransportMessage
+    func send(_ text: String) async throws
+    func close()
+}
+
+final class URLSessionTerminalTransport: TerminalTransport {
+    private let socket: URLSessionWebSocketTask
+
+    init(url: URL) {
+        socket = URLSession.shared.webSocketTask(with: url)
+    }
+
+    func resume() { socket.resume() }
+
+    func receive() async throws -> TerminalTransportMessage {
+        switch try await socket.receive() {
+        case .string(let value): return .string(value)
+        case .data(let value): return .data(value)
+        @unknown default: throw ProtocolError.malformed
+        }
+    }
+
+    func send(_ text: String) async throws { try await socket.send(.string(text)) }
+    func close() { socket.cancel(with: .goingAway, reason: nil) }
+}
+
 @MainActor
 final class TerminalSession: ObservableObject {
+    enum HandleResult { case continueReceiving, terminal }
+
     enum State: Equatable {
         case disconnected
         case connecting
@@ -25,12 +60,18 @@ final class TerminalSession: ObservableObject {
     @Published private(set) var terminalText = ""
     @Published private(set) var statusMessage = "Disconnected."
 
-    private var task: URLSessionWebSocketTask?
+    private let transportFactory: (URL) -> any TerminalTransport
+    private let maxFrameBytes = 131_072
+    private var transport: (any TerminalTransport)?
     private var generation = 0
+    private var publishToken = 0
     private var buffer = TerminalBuffer()
     private var sanitizer = ANSISanitizer()
-    private var pendingOutput = ""
-    private var flushTask: Task<Void, Never>?
+    private var publishTask: Task<Void, Never>?
+
+    init(transportFactory: @escaping (URL) -> any TerminalTransport = { URLSessionTerminalTransport(url: $0) }) {
+        self.transportFactory = transportFactory
+    }
 
     func connect(endpoint: String) {
         guard case .disconnected = state else {
@@ -43,14 +84,16 @@ final class TerminalSession: ObservableObject {
         }
         generation += 1
         let currentGeneration = generation
+        publishToken += 1
+        publishTask?.cancel()
+        publishTask = nil
         buffer.clear()
         terminalText = ""
-        pendingOutput = ""
         sanitizer = ANSISanitizer()
         state = .connecting
         statusMessage = "Connecting."
-        let socket = URLSession.shared.webSocketTask(with: url)
-        task = socket
+        let socket = transportFactory(url)
+        transport = socket
         socket.resume()
         Task { [weak self, weak socket] in
             guard let self, let socket else { return }
@@ -59,25 +102,30 @@ final class TerminalSession: ObservableObject {
     }
 
     func disconnect() {
-        guard task != nil else { state = .disconnected; return }
+        let oldTransport = transport
+        let sessionID = currentSessionID
         generation += 1
+        publishToken += 1
+        publishTask?.cancel()
+        publishTask = nil
+        transport = nil
         state = .closing
-        flushTask?.cancel()
-        flushTask = nil
-        task?.cancel(with: .goingAway, reason: nil)
-        task = nil
-        pendingOutput = ""
+        if let oldTransport, let sessionID {
+            Task { [weak self] in await self?.bestEffortClose(oldTransport, sessionID: sessionID) }
+        } else {
+            oldTransport?.close()
+        }
         state = .disconnected
         statusMessage = "Disconnected."
     }
 
     func sendInput(_ text: String) async -> Bool {
-        guard case let .connected(sessionID) = state, let task else {
+        guard case let .connected(sessionID) = state, let transport else {
             statusMessage = "Connect before sending input."
             return false
         }
         do {
-            try await task.send(.string(TerminalProtocol.encode(.input(sessionID: sessionID, text: text))))
+            try await transport.send(TerminalProtocol.encode(.input(sessionID: sessionID, text: text)))
             return true
         } catch {
             failClosed("Input send failed.")
@@ -86,12 +134,12 @@ final class TerminalSession: ObservableObject {
     }
 
     func sendInterrupt() async -> Bool {
-        guard case let .connected(sessionID) = state, let task else {
+        guard case let .connected(sessionID) = state, let transport else {
             statusMessage = "Connect before interrupting."
             return false
         }
         do {
-            try await task.send(.string(TerminalProtocol.encode(.interrupt(sessionID: sessionID))))
+            try await transport.send(TerminalProtocol.encode(.interrupt(sessionID: sessionID)))
             return true
         } catch {
             failClosed("Interrupt send failed.")
@@ -102,20 +150,20 @@ final class TerminalSession: ObservableObject {
     func clearVisibleHistory() {
         buffer.clear()
         terminalText = ""
+        publishToken += 1
+        publishTask?.cancel()
+        publishTask = nil
     }
 
-    private func receiveLoop(socket: URLSessionWebSocketTask, generation loopGeneration: Int) async {
+    private func receiveLoop(socket: any TerminalTransport, generation loopGeneration: Int) async {
         do {
             while generation == loopGeneration {
                 let message = try await socket.receive()
                 guard generation == loopGeneration else { return }
-                let data: Data
-                switch message {
-                case .string(let value): data = Data(value.utf8)
-                case .data(let value): data = value
-                @unknown default: throw ProtocolError.malformed
+                switch try handle(message: message, generation: loopGeneration) {
+                case .continueReceiving: continue
+                case .terminal: return
                 }
-                try handle(data: data, generation: loopGeneration)
             }
         } catch is CancellationError {
             return
@@ -125,27 +173,43 @@ final class TerminalSession: ObservableObject {
         }
     }
 
-    private func handle(data: Data, generation messageGeneration: Int) throws {
-        let message = try TerminalProtocol.decodeServer(data, expectedSession: currentSessionID)
+    private func handle(message: TerminalTransportMessage, generation messageGeneration: Int) throws -> HandleResult {
+        let data: Data
         switch message {
+        case .string(let value): data = Data(value.utf8)
+        case .data(let value): data = value
+        }
+        guard data.count <= maxFrameBytes else {
+            failClosed("Terminal output frame exceeded the client limit.")
+            return .terminal
+        }
+        let decoded = try TerminalProtocol.decodeServer(data, expectedSession: currentSessionID)
+        switch decoded {
         case .hello(let sessionID):
-            guard currentSessionID == nil, task != nil else { throw ProtocolError.wrongSession }
+            guard currentSessionID == nil, transport != nil else { throw ProtocolError.wrongSession }
             state = .connected(sessionID)
             statusMessage = "Connected."
+            return .continueReceiving
         case .output(let sessionID, let text):
             guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
-            pendingOutput += sanitizer.consume(text)
-            scheduleFlush(for: messageGeneration)
+            buffer.append(sanitizer.consume(text))
+            schedulePublish(for: messageGeneration)
+            return .continueReceiving
         case .exit(let sessionID, let code):
             guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
-            flushPending()
+            buffer.append(sanitizer.finish())
+            publishImmediately()
             statusMessage = "Process exited with code \(code)."
-            task?.cancel(with: .normalClosure, reason: nil)
-            task = nil
+            generation += 1
+            let closingTransport = transport
+            transport = nil
+            closingTransport?.close()
             state = .disconnected
+            return .terminal
         case .error(let sessionID, let code, let message):
             if let currentSessionID, currentSessionID != sessionID { throw ProtocolError.wrongSession }
             failClosed("\(code): \(message)")
+            return .terminal
         }
     }
 
@@ -154,33 +218,50 @@ final class TerminalSession: ObservableObject {
         return nil
     }
 
-    private func scheduleFlush(for loopGeneration: Int) {
-        guard flushTask == nil else { return }
-        flushTask = Task { [weak self] in
+    private func schedulePublish(for loopGeneration: Int) {
+        guard publishTask == nil else { return }
+        let token = publishToken
+        publishTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 50_000_000)
             guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let self, self.generation == loopGeneration else { return }
-                self.flushPending()
-            }
+            await self?.publishIfCurrent(generation: loopGeneration, token: token)
         }
     }
 
-    private func flushPending() {
-        flushTask = nil
-        guard !pendingOutput.isEmpty else { return }
-        buffer.append(pendingOutput)
-        pendingOutput = ""
+    private func publishIfCurrent(generation: Int, token: Int) {
+        guard self.generation == generation, publishToken == token else { return }
+        publishImmediately()
+    }
+
+    private func publishImmediately() {
+        publishTask?.cancel()
+        publishTask = nil
         terminalText = buffer.text
     }
 
+    private func bestEffortClose(_ socket: any TerminalTransport, sessionID: String) async {
+        let payload = try? TerminalProtocol.encode(.close(sessionID: sessionID))
+        await withTaskGroup(of: Void.self) { group in
+            if let payload {
+                group.addTask { try? await socket.send(payload) }
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 150_000_000)
+            }
+            _ = await group.next()
+            group.cancelAll()
+        }
+        socket.close()
+    }
+
     private func failClosed(_ message: String) {
+        publishImmediately()
         generation += 1
-        flushTask?.cancel()
-        flushTask = nil
-        task?.cancel(with: .goingAway, reason: nil)
-        task = nil
-        pendingOutput = ""
+        publishToken += 1
+        publishTask?.cancel()
+        publishTask = nil
+        transport?.close()
+        transport = nil
         state = .failed(message)
         statusMessage = message
     }

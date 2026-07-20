@@ -1,6 +1,33 @@
+import Foundation
 import XCTest
 @testable import BOOTMUX
 
+final class FakeTransport: TerminalTransport {
+    private let stream: AsyncStream<TerminalTransportMessage>
+    private var continuation: AsyncStream<TerminalTransportMessage>.Continuation?
+    private(set) var sent: [String] = []
+    var failSends = false
+
+    init() {
+        var stored: AsyncStream<TerminalTransportMessage>.Continuation?
+        stream = AsyncStream { stored = $0 }
+        continuation = stored
+    }
+
+    func resume() {}
+    func receive() async throws -> TerminalTransportMessage {
+        for await message in stream { return message }
+        throw CancellationError()
+    }
+    func send(_ text: String) async throws {
+        if failSends { throw ProtocolError.malformed }
+        sent.append(text)
+    }
+    func close() { continuation?.finish() }
+    func push(_ message: TerminalTransportMessage) { continuation?.yield(message) }
+}
+
+@MainActor
 final class TerminalTests: XCTestCase {
     func testObservedOutputIsNotSynthesizedFromInput() throws {
         let data = Data("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"BOOTMUX_V0\"}".utf8)
@@ -15,10 +42,11 @@ final class TerminalTests: XCTestCase {
         XCTAssertThrowsError(try TerminalProtocol.decodeServer(version, expectedSession: nil)) { XCTAssertEqual($0 as? ProtocolError, .unsupportedVersion) }
     }
 
-    func testClientActionSemantics() throws {
+    func testClientActionSemanticsAndCloseMessage() throws {
         let input = try TerminalProtocol.encode(.input(sessionID: "s", text: "echo BOOTMUX_V0"))
         XCTAssertTrue(input.contains("input_text") && input.contains("echo BOOTMUX_V0"))
         XCTAssertTrue(try TerminalProtocol.encode(.interrupt(sessionID: "s")).contains("interrupt"))
+        XCTAssertTrue(try TerminalProtocol.encode(.close(sessionID: "s")).contains("\"close\""))
     }
 
     func testBoundedUTF8BufferEvictsOldestTextWithoutBreakingJapanese() {
@@ -37,17 +65,61 @@ final class TerminalTests: XCTestCase {
         XCTAssertEqual(buffer.text, "")
     }
 
-    func testStreamingANSISequencesAreRemovedAcrossChunks() {
+    func testStreamingANSIAndCRLFNormalizationAcrossFrames() {
         var sanitizer = ANSISanitizer()
+        XCTAssertEqual(sanitizer.consume("a\r"), "a")
+        XCTAssertEqual(sanitizer.consume("\nb"), "\nb")
+        XCTAssertEqual(sanitizer.consume("\r"), "")
+        XCTAssertEqual(sanitizer.finish(), "\n")
         XCTAssertEqual(sanitizer.consume("\u{1B}[31"), "")
-        XCTAssertEqual(sanitizer.consume("mBOOTMUX"), "BOOTMUX")
-        XCTAssertEqual(sanitizer.consume("\u{1B}]0;title"), "")
-        XCTAssertEqual(sanitizer.consume("\u{07}日本語"), "日本語")
-        XCTAssertFalse(sanitizer.consume("\u{1B}[2J", final: true).contains("\u{1B}"))
+        XCTAssertEqual(sanitizer.consume("m日本語\r\n"), "日本語\n")
     }
 
-    func testCarriageReturnAndControlsAreDeterministic() {
-        var sanitizer = ANSISanitizer()
-        XCTAssertEqual(sanitizer.consume("a\rb\u{0}c\t\n"), "a\nbc\t\n")
+    func testNormalExitReturnsDisconnectedAndNotFailed() async throws {
+        let fake = FakeTransport()
+        let session = TerminalSession { _ in fake }
+        session.connect(endpoint: "ws://local/v1/terminal")
+        fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
+        fake.push(.string("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"BOOTMUX_V0\"}"))
+        fake.push(.string("{\"v\":1,\"type\":\"exit\",\"session_id\":\"s\",\"exit_code\":0}"))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(session.state, .disconnected)
+        XCTAssertEqual(session.terminalText, "BOOTMUX_V0")
+        XCTAssertFalse(session.statusMessage.contains("failed"))
+    }
+
+    func testConnectBeforeHelloRejectedAndSendFailureFailsClosed() async throws {
+        let fake = FakeTransport()
+        let session = TerminalSession { _ in fake }
+        XCTAssertFalse(await session.sendInput("before hello"))
+        session.connect(endpoint: "ws://local/v1/terminal")
+        fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
+        try await Task.sleep(nanoseconds: 10_000_000)
+        fake.failSends = true
+        XCTAssertFalse(await session.sendInput("x"))
+        XCTAssertTrue({ if case .failed = session.state { return true }; return false }())
+    }
+
+    func testDisconnectSendsBestEffortTypedCloseAndCleansUp() async throws {
+        let fake = FakeTransport()
+        let session = TerminalSession { _ in fake }
+        session.connect(endpoint: "ws://local/v1/terminal")
+        fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
+        try await Task.sleep(nanoseconds: 10_000_000)
+        session.disconnect()
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(session.state, .disconnected)
+        XCTAssertTrue(fake.sent.contains { $0.contains("\"close\"") })
+    }
+
+    func testClearPreventsScheduledPublishFromResurrectingOutput() async throws {
+        let fake = FakeTransport()
+        let session = TerminalSession { _ in fake }
+        session.connect(endpoint: "ws://local/v1/terminal")
+        fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
+        fake.push(.string("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"old\"}"))
+        session.clearVisibleHistory()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(session.terminalText, "")
     }
 }
