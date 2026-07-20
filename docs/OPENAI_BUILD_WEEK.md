@@ -3,351 +3,291 @@
 ## Verification status
 
 ```yaml
-verified_at: 2026-07-19 JST
+verified_at: 2026-07-21_JST
 competition: OpenAI Build Week
 recommended_track: Developer Tools
-source_priority:
-  1: Official Rules
-  2: Hackathon website and official updates
-  3: Official FAQ and Resources
-  4: Optional plugin output and community discussion
+source_of_truth: https://openai.devpost.com/rules
+supporting_faq: https://openai.devpost.com/details/faqs
+submission_deadline:
+  pacific: 2026-07-21T17:00:00-07:00
+  japan: 2026-07-22T09:00:00+09:00
 ```
 
-This page is a source-backed operational summary for BOOTMUX. It is not a substitute for the Official Rules. When sources conflict, the [Official Rules](https://openai.devpost.com/rules) control.
+This page is an operational summary for BOOTMUX. The Official Rules control whenever any project document, FAQ, plugin output, or community post conflicts with them.
 
-## Critical dates
+## Purpose of the competition
 
-| Event | Official Pacific time | Japan time |
-|---|---|---|
-| Registration closes | July 21, 2026 at 5:00 PM PDT | July 22, 2026 at 9:00 AM JST |
-| Submission closes | July 21, 2026 at 5:00 PM PDT | July 22, 2026 at 9:00 AM JST |
-| Winners announced | On or around August 12, 2026 at 2:00 PM PT | On or around August 13, 2026 at 6:00 AM JST |
+OpenAI Build Week asks entrants to create a real, working project with **Codex and GPT-5.6**. The project may be an application, agent, workflow, game, backend system, plugin, or developer tool, but it must go beyond a decorative AI reference: the implementation must be non-trivial, runnable, and clearly demonstrate how Codex and GPT-5.6 contributed.
 
-The Official Rules list the judging period as July 22 through August 5. A separate schedule page has displayed a different judging end date. BOOTMUX therefore treats the Official Rules as authoritative and does not depend on the judging end date for any submission action.
+Operationally, the event is testing whether builders can use Codex and GPT-5.6 as serious collaborators to turn an idea into a coherent product during the Submission Period, while preserving human ownership of the problem, product choices, engineering decisions, and final claims.
 
 Sources:
 
-- [Official Rules — dates and timing](https://openai.devpost.com/rules)
-- [Devpost schedule page](https://openai.devpost.com/details/dates)
+- [Official Rules — Project Requirements and Judging](https://openai.devpost.com/rules)
+- [Official FAQ — required tools and submission package](https://openai.devpost.com/details/faqs)
+- [Official Build Week update — what to build](https://openai.devpost.com/updates/45282-openai-build-week-submissions-are-open-plugin-launch)
 
-## BOOTMUX category
+## Main regulations
 
-BOOTMUX should enter the **Developer Tools** track because its primary user and use case are developers bootstrapping Codex and terminal access on a target computer.
+### 1. Required technology
 
-The official track description includes developer testing, DevOps, agentic workflows, and security. A submission may enter only one track.
+- The project must be built with **Codex and GPT-5.6**.
+- Codex use must be visible in the text description, README, and narrated demo.
+- GPT-5.6 use must be meaningful rather than incidental or decorative.
+- GPT-5.6 does not need to be used for every task, and the runtime is not required to call the OpenAI API merely to satisfy the build requirement.
+- The entrant must provide the `/feedback` Codex Session ID from the primary thread where the majority of core functionality was built.
 
-Sources:
-
-- [Official Rules — Project Requirements and tracks](https://openai.devpost.com/rules)
-- [Official FAQ — category selection](https://openai.devpost.com/details/faqs)
-
-## Mandatory technology use
-
-### Codex
-
-Codex usage is mandatory. It must be demonstrated in:
-
-- the Devpost text description;
-- the public demo video with audio;
-- the repository README;
-- the `/feedback` Codex Session ID from the primary build thread.
-
-Accepted Codex surfaces include the ChatGPT app, Codex CLI, an IDE extension, or the SDK. The official FAQ recommends Codex inside the ChatGPT desktop app but does not require that specific surface.
-
-### GPT-5.6
-
-GPT-5.6 usage is mandatory and must be meaningful rather than incidental or decorative. It does not need to be used for every task, but its contribution must be visible in the repository and explained in the demo video.
-
-The rules do not explicitly require the BOOTMUX runtime to call the OpenAI API. BOOTMUX must nevertheless preserve clear evidence that GPT-5.6 contributed materially to the submitted project.
-
-Sources:
-
-- [Official FAQ — required Codex and GPT-5.6 use](https://openai.devpost.com/details/faqs)
-- [Official Rules — project must be built with Codex and GPT-5.6](https://openai.devpost.com/rules)
-
-## Primary Codex thread and `/feedback`
-
-BOOTMUX must designate one Codex thread as the **Primary Build Thread**.
-
-That thread should contain the majority of core implementation work for:
+BOOTMUX mapping:
 
 ```text
-V0 software terminal loop
-→ V1 physical keyboard path
-→ V2 terminal return
-→ V3 Codex installation
-→ V4 Codex connectivity and copy
+Codex
+  implementation engine
+  → Go Companion
+  → SwiftUI client
+  → ESP32-S3 firmware
+  → VM harness
+  → tests and repair cycles
+
+GPT-5.6
+  architecture and verification engine
+  → asymmetric input/output design
+  → protocol and bounded-runtime contracts
+  → adversarial lifecycle and overflow review
+  → evidence and public-claim boundaries
+
+Human
+  product owner and final authority
+  → selected the problem and hardware direction
+  → performed physical setup and acceptance
+  → accepted or rejected repairs
+  → owns final narration, claims, and submission
 ```
 
-When the majority of core functionality has been built, run:
+### 2. Track
+
+BOOTMUX should enter **Developer Tools**. The primary audience is developers and operators bootstrapping terminal and Codex access on a machine whose normal development or AI path is not ready.
+
+A project may enter only one track.
+
+### 3. Working-project requirement
+
+The project must install and run consistently on its declared platform and must function as shown in the video and description.
+
+BOOTMUX must therefore avoid claiming a general production product. Its submission claim is a bounded working path:
 
 ```text
-/feedback
+physical input:
+iPhone → BLE → ESP32-S3 → USB HID → target
+
+independently observed return:
+target PTY / Codex output → BOOTMUX Companion → WebSocket → iPhone
 ```
 
-Codex returns a Session ID for that thread. Copy the ID into the Devpost submission form.
+The physical input and observed output must not be represented as the same evidence source. Sent input must never be synthesized into fake terminal output.
 
-Rules:
+### 4. Existing-project boundary
 
-- use the main implementation thread, not a planning-only, test, or side thread;
-- if work spans several threads, select the most representative thread;
-- document the other meaningful Codex contributions in the README;
-- do not commit the real Session ID to the public repository by default;
-- store it in the private submission register and verify it before final submission.
+Pre-existing projects are allowed, but only work added during the Submission Period is evaluated. The repository must distinguish earlier concept work from Build Week implementation and preserve dated evidence such as commits, Codex sessions, artifacts, or public-safe receipts.
 
-Source:
+BOOTMUX records this boundary in:
 
-- [Official FAQ — `/feedback` Session ID](https://openai.devpost.com/details/faqs)
+- `docs/submission/BUILD_WEEK_SCOPE_LEDGER.md`
+- repository commit history
+- `docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md`
+- physical and VM evidence documents
 
-## Existing-project boundary
-
-Projects created before the Submission Period are allowed, but only work added during the Submission Period is evaluated.
-
-BOOTMUX must distinguish:
-
-```yaml
-pre_existing:
-  - initial concept
-  - exploratory architecture
-  - pre-period materials, if any
-
-build_week_work:
-  - V0 through V4 implementation
-  - firmware and application code created during the period
-  - Companion implementation
-  - Codex installation and test flow
-  - demo, judge test path, and submission material
-```
-
-Evidence should include dated commits, timestamped Codex sessions, or equivalent records showing that Codex and GPT-5.6 were used during the Submission Period.
-
-Source:
-
-- [Official Rules — New & Existing Projects](https://openai.devpost.com/rules)
-
-## Required submission package
+### 5. Submission package
 
 A complete submission requires:
 
 1. a working project built with Codex and GPT-5.6;
 2. one selected track;
-3. a text description of the project and its operation;
-4. a public YouTube demo video;
-5. a code repository URL;
-6. a README with setup, test, and tool-usage evidence;
-7. the `/feedback` Session ID from the primary build thread.
+3. a text description explaining the project and how it works;
+4. a public YouTube demonstration video under three minutes;
+5. clear audio narration covering the project, Codex use, and GPT-5.6 use;
+6. a repository URL for judging and testing;
+7. a public repository with relevant licensing, or a private repository shared with the required judge addresses;
+8. the `/feedback` Session ID from the Primary Build Thread;
+9. English submission material or an English translation.
 
-For a Developer Tool, also include:
+The video must not rely on unlicensed music, third-party trademarks, or copyrighted material without permission. Judges are not required to watch beyond three minutes.
+
+### 6. Additional Developer Tools requirements
+
+A Developer Tools submission must include:
 
 - installation instructions;
 - supported platforms;
 - a way for judges to test without rebuilding from source.
 
-Source:
-
-- [Official FAQ — submission requirements](https://openai.devpost.com/details/faqs)
-- [Official Rules — Submission Requirements](https://openai.devpost.com/rules)
-
-## Repository and licensing requirements
-
-The repository must be either:
-
-- public with relevant licensing; or
-- private and shared with `testing@devpost.com` and `build-week-event@openai.com`.
-
-For the public BOOTMUX route, selecting and committing an appropriate license is a submission blocker. The repository currently must not be submitted while it still states that no license has been selected.
-
-The README must explain:
-
-- setup instructions;
-- supported platforms;
-- how to test the project;
-- required sample data, when applicable;
-- how Codex accelerated development;
-- where human product, engineering, and design decisions were made;
-- how GPT-5.6 and Codex contributed;
-- which work existed before Build Week and which work was added during it.
-
-Open-source components are allowed when their licenses are followed and pre-existing or third-party work is disclosed.
-
-Sources:
-
-- [Official Rules — repository, README, licensing, and open source](https://openai.devpost.com/rules)
-- [Official FAQ — README expectations](https://openai.devpost.com/details/faqs)
-
-## Demo video requirements
-
-The demo video must:
-
-- be three minutes or less;
-- be uploaded as a public YouTube video;
-- clearly demonstrate a working project;
-- include voice narration;
-- explain what was built;
-- explain how Codex was used;
-- explain how GPT-5.6 was used;
-- avoid unlicensed music, trademarks, or other copyrighted material.
-
-The video may use AI-assisted narration. It must be in English or be accompanied by an English translation.
-
-BOOTMUX should show, in one continuous or honestly edited narrative:
-
-```text
-clean target state
-→ iPhone BLE input
-→ ESP32-S3 USB HID entry
-→ Codex installation or presence verification
-→ one-shot Codex execution
-→ terminal output returned to iPhone
-→ native copy and paste of BOOTMUX_READY
-```
-
-Sources:
-
-- [Official Rules — demo video and language requirements](https://openai.devpost.com/rules)
-- [Official FAQ — demo video details](https://openai.devpost.com/details/faqs)
-
-## Judge-accessible test path
-
-Judges are not required to build or test the project. If they test it, they may use the supplied demo, test build, sandbox, or test account.
-
-Because BOOTMUX uses an ESP32-S3 hardware bridge, the submission must not assume that judges own the same hardware. The project should provide both:
+BOOTMUX satisfies the no-rebuild direction with:
 
 ```text
 Real Hardware Proof
   recorded iPhone → BLE → ESP32-S3 → USB HID demonstration
 
 Judge Test Path
-  prebuilt or easily launched software-only mode
-  synthetic public-safe terminal fixture or replay
-  copyable BOOTMUX_READY proof
+  standalone offline Judge Replay Mode
+  packaged live local Judge Mode
+  public-safe BOOTMUX_READY fixture
 ```
 
-The judge path must be labeled honestly and must not be presented as proof of the physical HID route. The Sponsor may request access to unusual hardware.
+Judge Mode is a software review path and must not be presented as physical HID proof.
 
-Source:
+### 7. Testing and access
 
-- [Official Rules — Testing and hardware access](https://openai.devpost.com/rules)
-- [Official FAQ — judges are not required to rebuild](https://openai.devpost.com/details/faqs)
+Judges may test the project, but they are not required to. The working project or test path must remain available free of charge through the judging period. Because BOOTMUX uses unusual hardware, the Sponsor may request physical access at its discretion.
 
-## Required and optional tools
+### 8. Post-deadline changes
 
-| Tool or account | Status | BOOTMUX use |
-|---|---|---|
-| Devpost account and Build Week registration | Required | registration and submission |
-| OpenAI account | Required | Codex and GPT-5.6 access |
-| Codex | Required | primary implementation workflow and Session ID |
-| GPT-5.6 | Required | meaningful project contribution |
-| Git repository | Required | code, README, setup, evidence |
-| Relevant repository license or private judge sharing | Required | repository eligibility |
-| YouTube account | Required | public demo video |
-| Physical iPhone | BOOTMUX V1 requirement | native input and copy proof |
-| ESP32-S3 | BOOTMUX V1 requirement | BLE-to-USB HID bridge |
-| Apple Silicon Mac and ARM64 Linux VM | BOOTMUX development plan | single-machine development and clean target reset |
-| Devpost Hackathons Plugin | Optional | rules, resources, preparation, and submission assistance |
-| OpenAI Discord and office hours | Optional | support and announcements |
-
-## Devpost Hackathons Plugin
-
-The plugin is optional and does not affect eligibility or judging. It is a helper, not the source of truth. The Official Rules and hackathon website always override plugin output.
-
-Officially documented commands include:
-
-```text
-$find-hackathons
-$start-hackathon
-$resources
-$prepare-submission
-$submit
-```
-
-Recommended BOOTMUX use:
-
-```text
-$start-hackathon
-  confirm registration and rules
-
-$resources
-  locate current official resources
-
-$prepare-submission
-  run the final security and eligibility audit
-
-$submit
-  assist with Devpost form completion
-```
-
-Do not treat a plugin checklist or planning conversation as proof that the project was built with Codex.
-
-Sources:
-
-- [Official Rules — optional plugin and source-of-truth warning](https://openai.devpost.com/rules)
-- [Official FAQ — plugin commands](https://openai.devpost.com/details/faqs)
-
-## Credits and API assumptions
-
-The Resources page currently states that all available event credits have been distributed. BOOTMUX must proceed using the available plan or free tier and must not make completion depend on receiving additional promotional credits.
-
-The event distributes Codex credits, not separate OpenAI API credits. Any API usage must use separately available billing or credits. API integration is optional unless BOOTMUX deliberately chooses it as part of the product.
-
-Sources:
-
-- [Official Resources — current credit availability](https://openai.devpost.com/resources)
-- [Official FAQ — Codex credits and API credits](https://openai.devpost.com/details/faqs)
+The submitted entry cannot be substantively changed after the Submission Period closes, except for narrow changes explicitly permitted by the Sponsor or Devpost.
 
 ## Judging criteria
 
-Projects that pass the initial eligibility and theme check are evaluated on equally weighted criteria:
+After the baseline eligibility and theme check, projects are scored on four equally weighted criteria:
 
-1. Technological Implementation;
-2. Design;
-3. Potential Impact;
-4. Quality of the Idea.
+1. **Technological Implementation** — how thoroughly and skillfully Codex was used, and whether the implementation reflects genuine effort and works;
+2. **Design** — whether it is a coherent runnable product experience rather than only a technical proof;
+3. **Potential Impact** — whether it solves a credible, specific problem for a real audience;
+4. **Quality of the Idea** — creativity, novelty, and differentiation from existing concepts.
 
-For BOOTMUX:
+The criteria are also used in that order for tie-breaking.
 
-- **Technological Implementation:** prove the real BLE and USB HID path, Codex workflow, and working integration;
-- **Design:** make the one-screen V1 coherent and reliable rather than exposing unfinished subsystems;
-- **Potential Impact:** explain the target user who needs to bootstrap AI access on an unprepared machine;
-- **Quality of the Idea:** show why a physical first path differs from ordinary remote terminals and agent frontends.
+## What BOOTMUX must become for this competition
 
-Source:
+BOOTMUX is not required to become a complete remote-administration product. It is required to become the smallest credible, demonstrable **physical first mile for Codex**.
 
-- [Official Rules — judging criteria](https://openai.devpost.com/rules)
+### Core competition claim
 
-## Current BOOTMUX submission blockers
+> **The physical first mile for Codex. Built by Codex. Architected and hardened with GPT-5.6.**
+
+The submission should prove five things clearly:
+
+### A. Real problem
+
+There is a gap before SSH, remote tooling, a normal terminal workflow, or an on-device AI environment is ready. During bare-metal setup, recovery, clean-VM provisioning, or broken remote access, the user may have no practical way to ask AI for help or return terminal output to it.
+
+### B. Real physical action
+
+An iPhone sends committed text over BLE to an ESP32-S3, which appears to the target as a USB HID keyboard. This is not only a simulated WebSocket terminal.
+
+### C. Independent observed return
+
+The target-side Companion returns actual observed PTY or Codex output to the iPhone. BOOTMUX distinguishes input acknowledgement from independently observed output.
+
+### D. Codex-centered result
+
+Codex is both:
+
+1. the implementation engine that built the major BOOTMUX layers; and
+2. the target agent reached through the resulting path.
+
+This creates the central Build Week narrative:
+
+> Codex helped build the path that extends Codex itself into a machine before the normal AI workflow is ready.
+
+### E. GPT-5.6-centered result
+
+GPT-5.6 must be shown as a concrete architecture and verification collaborator, not a decorative model name. The strongest evidence is its role in:
+
+- separating physical input from independently observed output;
+- defining bounded queues, lifecycle rules, fail-closed behavior, and protocol limits;
+- identifying BLE queue ownership hazards;
+- reviewing VM transcript path binding and bounded Mirror behavior;
+- maintaining the distinction between code-green, owner-observed, and still-unproven claims.
+
+## BOOTMUX scoring strategy
 
 ```yaml
-blockers:
-  - V0 through V4 are not yet implemented and evidenced
-  - primary Codex build thread must be designated
-  - meaningful GPT-5.6 contribution must be recorded
-  - public repository license must be selected
-  - README Build Week scope and Codex/GPT-5.6 sections must be completed
-  - judge-accessible no-rebuild test path must be created
-  - feedback Session ID must be captured privately
-  - public three-minute voice-narrated YouTube demo must be produced
-  - Devpost fields must be completed before the deadline
+technological_implementation:
+  show:
+    - Codex-built Go, SwiftUI, firmware, VM, and test layers
+    - physical BLE and USB HID path
+    - real Codex invocation and BOOTMUX_READY return
+    - bounded and fail-closed engineering
+
+design:
+  show:
+    - one understandable end-to-end flow
+    - clear iPhone controls and visible state
+    - no-rebuild Judge Mode
+    - honest separation of real hardware and replay
+
+potential_impact:
+  audience:
+    - bare-metal setup
+    - recovery shell users
+    - headless-machine operators
+    - clean VM and field provisioning workflows
+  message: normal AI access can disappear exactly when it is most needed
+
+quality_of_idea:
+  differentiation:
+    - not another LLM web form
+    - not merely SSH
+    - physical input plus independent observed return
+    - Codex building its own physical first mile
 ```
 
-## Source index
+## Current verified BOOTMUX state
 
-Authoritative and official pages checked for this document:
+```yaml
+primary_codex_thread: CONFIRMED
+feedback_receipt: CAPTURED_PRIVATELY
+codex_majority_core_work: COMPLETE
+meaningful_gpt_5_6_evidence: RECORDED_PUBLICLY
+license: MIT_GREEN
+judge_mode: GREEN
+iphone_to_ble_to_usb_hid: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
+codex_installation_clean_arm64_vm: GREEN
+bootmux_ready:
+  direct_vm: PASS
+  companion_codex_prompt: PASS
+  physical_iphone_return: PASS
+hid_mirror: CODE_GREEN_PHYSICAL_CONFIRMATION_PENDING
+selectable_copy: PENDING_OWNER_CONFIRMATION
+clear_visible_feedback: PENDING_OWNER_CONFIRMATION
+repeatability: PENDING
+registration: HUMAN_CONFIRMATION_PENDING
+final_public_video: IN_PROGRESS
+final_submission: NOT_CONFIRMED
+production_ready: false
+```
 
-- [OpenAI Build Week Official Rules](https://openai.devpost.com/rules)
-- [OpenAI Build Week FAQ](https://openai.devpost.com/details/faqs)
-- [OpenAI Build Week Resources](https://openai.devpost.com/resources)
-- [OpenAI Build Week Overview](https://openai.devpost.com/)
-- [OpenAI Build Week Schedule](https://openai.devpost.com/details/dates)
-- [OpenAI Build Week submission and plugin update](https://openai.devpost.com/updates/45282-openai-build-week-submissions-are-open-plugin-launch)
-- [OpenAI supported countries and territories](https://platform.openai.com/docs/supported-countries)
+## Remaining blockers
+
+```yaml
+submission_blockers:
+  - registration confirmation
+  - final narrated video edit
+  - privacy review
+  - public YouTube upload and signed-out link check
+  - final Devpost field review
+  - final submission confirmation
+
+high_value_physical_evidence:
+  - selectable copy and exact paste
+  - visible CLEAR acceptance
+  - physical HID Mirror
+  - repeatability receipt
+```
+
+The additional physical evidence improves judging strength, but must not be marked passed unless it is actually observed.
+
+## Final source index
+
+- [Official Rules](https://openai.devpost.com/rules)
+- [Official FAQ](https://openai.devpost.com/details/faqs)
+- [Hackathon overview](https://openai.devpost.com/)
+- [Submissions-open update](https://openai.devpost.com/updates/45282-openai-build-week-submissions-are-open-plugin-launch)
+- [Build Week guidance update](https://openai.devpost.com/updates/45362-openai-build-week-halfway-there-where-are-you)
 
 ## Change-control rule
 
-This document is time-sensitive. Before final submission:
+Before final submission:
 
-1. reopen the Official Rules;
-2. reopen the FAQ and Resources pages;
-3. compare deadlines and submission fields;
-4. update this document when any requirement changed;
-5. record the final verification date in the private submission register.
+1. reopen the Official Rules and FAQ;
+2. confirm the exact Devpost form fields and deadline;
+3. verify every public link in a signed-out browser;
+4. preserve the private `/feedback` Session ID outside the repository;
+5. update this document only when the official sources or verified BOOTMUX state changes.
