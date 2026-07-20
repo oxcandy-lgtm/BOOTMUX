@@ -82,7 +82,7 @@ Mandatory submission evidence includes:
 - a public repository with relevant licensing, or the required private judge sharing;
 - explicit separation of pre-existing work and Submission Period work.
 
-The `/feedback` Session ID has been captured privately and is intentionally not published in this repository. Remaining submission blockers are registration confirmation, completion and public upload of the narrated video, and final human submission review. The 17-second narrated opening segment is complete, but it is not the final submission video. Physical hardware proof remains high-value remaining evidence, not a prerequisite for the software submission slice. The no-rebuild Judge Mode and MIT license are GREEN.
+The `/feedback` Session ID has been captured privately and is intentionally not published in this repository. Remaining submission blockers are registration confirmation, completion and public upload of the narrated video, and final human submission review. Two narrated segments totaling 53.933 seconds are complete locally, but the final public master is not complete. The no-rebuild Judge Mode and MIT license are GREEN.
 
 ## V1 implementation strategy
 
@@ -103,7 +103,7 @@ The public architecture names capabilities rather than optional third-party pack
 
 ## Project status
 
-V0A is GREEN. The V0B UI launch canvas is physically confirmed. The bounded physical ASCII BLE/USB-HID path and physical `BOOTMUX_READY` return are owner-observed; selectable copy, visible CLEAR feedback, and repeatability remain pending. The VM harness and bounded Codex adapter are implemented and locally verified in a real ARM64 Lima VM: clean recreation, network egress, Companion tests/race/vet/build, live Judge Mode, and official Codex CLI installation pass. Judge Mode is GREEN; production readiness is not claimed.
+V0A is GREEN. The V0B UI launch canvas is physically confirmed. The bounded physical ASCII BLE/USB-HID path and physical `BOOTMUX_READY` return are owner-observed; selectable copy, visible CLEAR feedback, physical HID Mirror, and repeatability remain pending. The VM harness and bounded Codex adapter are implemented and locally verified in a real ARM64 Lima VM: clean recreation, network egress, Companion tests/race/vet/build, live Judge Mode, and official Codex CLI installation pass. Judge Mode is GREEN; production readiness is not claimed.
 
 The V0B iPhone implementation is present under `iphone/`. Its launch canvas and full-screen safe-area behavior were physically confirmed on the validation iPhone. The BLE transport receipt is recorded separately from the remaining V1 acceptance cases.
 
@@ -121,15 +121,47 @@ If macOS Gatekeeper blocks the packaged launcher, first try right-click → Open
 
 ## How Codex Was Used
 
-Codex was used in V0A and V0B implementation work. The Primary Build Thread is confirmed and its `/feedback` Session ID has been captured privately. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
+Codex was the implementation and execution engine for the Go Companion, native SwiftUI client, ESP32-S3 firmware, ARM64 VM harness, bounded Codex adapter, Judge Mode, tests, and repair cycles. It read and modified the repository, ran builds and probes, and returned concrete outputs for review.
+
+The Primary Build Thread is confirmed and its `/feedback` Session ID has been captured privately. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
 
 ## How GPT-5.6 Was Used
 
-GPT-5.6 contributed to the asymmetric transport architecture, the V0A implementation contract, V0A R1–R3 edge-case review, public claim-safety boundary, and Devpost short-copy/story structure. Concrete results and commit mappings are recorded in [Codex and GPT-5.6 Evidence Ledger](docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md).
+GPT-5.6 was the architecture, adversarial review, and convergence layer. It converted human product intent into bounded contracts, separated physical input from independently observed output, constrained scope, reviewed lifecycle and overflow behavior, identified the BLE queue ownership hazard, audited the HID Mirror path binding, and protected the distinction between code-green and physically proven claims.
+
+Concrete results and commit mappings are recorded in [Codex and GPT-5.6 Evidence Ledger](docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md).
+
+## Rapid Codex + GPT-5.6 Development Loop
+
+BOOTMUX was not generated in one prompt. It was developed through a repeated loop aimed at a declared END condition:
+
+```text
+Human product goal and END condition
+↓
+GPT-5.6 decomposition, contracts, risk analysis, and scope control
+↓
+Codex implementation, execution, tests, and evidence return
+↓
+GPT-5.6 review of code, failures, and proof boundaries
+↓
+Bounded FIX instructions returned to Codex
+↓
+Codex repair and re-validation
+↓
+Human physical acceptance or an explicit unresolved gate
+```
+
+This loop helped one human builder coordinate Go, SwiftUI, CoreBluetooth, ESP32-S3 firmware, BLE, USB HID, PTY/WebSocket behavior, an ARM64 VM, the official Codex CLI, Judge Mode, evidence, and video preparation inside the Build Week period.
+
+The acceleration claim is not that AI generated the most code or that an exact number of hours was independently measured. The claim is that Codex implementation velocity, GPT-5.6 review pressure, and human scope control repeatedly reduced the distance from an ambiguous idea to a working, evidenced, submit-ready product.
+
+The loop continued past the first successful demo into lifecycle repair, physical acceptance, Judge Mode, licensing, README evidence, privacy review, narration, and submission closeout. This directly addresses the common AI-development failure mode where a project reaches a convincing first 80 percent but never closes packaging, proof, and delivery.
+
+Read [Codex + GPT-5.6 Development Loop](docs/submission/CODEX_GPT56_DEVELOPMENT_LOOP.md) for the full public-safe method and concrete repair examples.
 
 ## Human Decisions
 
-Human decisions set the product direction, selected the V0A scope, retained the iPhone/BLE/ESP32-S3 roadmap boundary, accepted implementation fixes, and remain responsible for registration, final claims, the completed submission video, and final submission.
+Human decisions set the product direction, selected the V0A scope, retained the iPhone/BLE/ESP32-S3 roadmap boundary, declared the END condition, accepted or rejected implementation fixes, performed physical setup and observation, and remain responsible for registration, final claims, the completed submission video, and final submission.
 
 ## Third-Party and Pre-Existing Work
 
@@ -151,7 +183,7 @@ Judge Mode is available without rebuilding: standalone replay works offline, and
 
 ## How to Run the iPhone Demo
 
-Open `iphone/BOOTMUX.xcodeproj` in Xcode, build for an available iOS Simulator or a locally signed device, start the Companion on a trusted local network, enter its versioned WebSocket endpoint, and run `echo BOOTMUX_V0`. The physical `BOOTMUX_READY` return is owner-observed; selectable copy, CLEAR feedback, and repeatability remain pending in the claim matrix.
+Open `iphone/BOOTMUX.xcodeproj` in Xcode, build for an available iOS Simulator or a locally signed device, start the Companion on a trusted local network, enter its versioned WebSocket endpoint, and run `echo BOOTMUX_V0`. The physical `BOOTMUX_READY` return is owner-observed; selectable copy, CLEAR feedback, physical HID Mirror, and repeatability remain pending in the claim matrix.
 
 ## How to Run the Hardware Demo
 
@@ -220,7 +252,7 @@ See [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), 
 
 ## Known Limitations
 
-The current submission slice does not claim repeatable physical operation, complete Unicode HID, mouse support, background operation, a full terminal emulator, or production readiness. Codex installation is GREEN in the clean ARM64 VM, while continued post-bootstrap operation and owner confirmation of copy/CLEAR/repeatability remain open. These are tracked as claims rather than implied by Judge Mode.
+The current submission slice does not claim repeatable physical operation, complete Unicode HID, mouse support, background operation, a full terminal emulator, or production readiness. Codex installation is GREEN in the clean ARM64 VM, while continued post-bootstrap operation and owner confirmation of copy/CLEAR/HID-Mirror/repeatability remain open. These are tracked as claims rather than implied by Judge Mode.
 
 ## Repository policy
 
