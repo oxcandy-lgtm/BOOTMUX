@@ -212,6 +212,7 @@ type session struct {
 	codexCancel  context.CancelFunc
 	codexCmd     *exec.Cmd
 	codexActive  bool
+	codexRun     *codexRun
 	outbound     chan outboundMessage
 	finished     chan struct{}
 	writerDone   chan struct{}
@@ -346,7 +347,7 @@ func (s *session) handleClientMessage(data []byte) (bool, <-chan error) {
 	}
 	if msg.Type == "codex_prompt" {
 		if !s.startCodex(msg.Prompt, msg.RequestID) {
-			return s.terminateWithError("codex_busy", "only one Codex process is allowed")
+			_ = s.enqueueCodexError(msg.RequestID, "codex_busy", "only one Codex process is allowed")
 		}
 		return false, nil
 	}
@@ -500,6 +501,28 @@ func (s *session) aggregate() {
 		<-s.writerDone
 		s.finishOnce.Do(func() { close(s.finished) })
 	}
+	consumeChunk := func(chunk ptyChunk) {
+		wasEmpty := len(pending) == 0
+		pending = append(pending, chunk.data...)
+		if len(pending) > s.max {
+			s.failTerminal("output_overflow", "terminal output limit exceeded", &failed)
+			return
+		}
+		if containsNewline(pending) || len(pending) >= s.batch {
+			if !flush(false) {
+				failed = true
+				s.stopProcess()
+				return
+			}
+			if len(pending) == 0 {
+				stopTimer()
+			} else {
+				armTimer()
+			}
+		} else if wasEmpty {
+			armTimer()
+		}
+	}
 	for !(processExited && ptyReaderFinished) {
 		select {
 		case <-cancelCh:
@@ -520,26 +543,7 @@ func (s *session) aggregate() {
 				s.failTerminal("output_overflow", "terminal output limit exceeded", &failed)
 			}
 		case chunk := <-s.chunks:
-			wasEmpty := len(pending) == 0
-			pending = append(pending, chunk.data...)
-			if len(pending) > s.max {
-				s.failTerminal("output_overflow", "terminal output limit exceeded", &failed)
-				continue
-			}
-			if containsNewline(pending) || len(pending) >= s.batch {
-				if !flush(false) {
-					failed = true
-					s.stopProcess()
-					continue
-				}
-				if len(pending) == 0 {
-					stopTimer()
-				} else {
-					armTimer()
-				}
-			} else if wasEmpty {
-				armTimer()
-			}
+			consumeChunk(chunk)
 		case <-timer.C:
 			if !flush(false) {
 				failed = true
@@ -556,11 +560,8 @@ func (s *session) aggregate() {
 	for {
 		select {
 		case chunk := <-s.chunks:
-			pending = append(pending, chunk.data...)
+			consumeChunk(chunk)
 		default:
-			if len(pending) > s.max {
-				failed = true
-			}
 			finish()
 			return
 		}

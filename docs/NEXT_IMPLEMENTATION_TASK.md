@@ -9,12 +9,12 @@ previous_task:
   final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
 current_task:
   task_id: BOOTMUX-V2-V6-INTEGRATED-VM-CODEX-DEMO
-  implementation_status: HARNESS_AND_ADAPTER_IMPLEMENTED_VM_PROVIDER_PENDING
+  implementation_status: VM_AND_ADAPTER_LOCALLY_VERIFIED_HUMAN_AUTH_AND_PHYSICAL_RETURN_PENDING
   feature_development: REOPENED_ONLY_FOR_V1
   submission_baseline_preserved: true
 next_technical_task:
   task_id: BOOTMUX-V2-V6-PHYSICAL-INTEGRATED-DEMO-RUN
-  status: BLOCKED_PENDING_ARM64_VM_PROVIDER_AND_HUMAN_CODEX_AUTH
+  status: BLOCKED_PENDING_HUMAN_CODEX_AUTH_AND_PHYSICAL_IPHONE_RETURN
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```

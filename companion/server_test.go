@@ -86,6 +86,139 @@ func TestCodexMessagesAreBoundedAndSessionScoped(t *testing.T) {
 	}
 }
 
+func fakeCodex(t *testing.T) string {
+	t.Helper()
+	path := t.TempDir() + "/codex"
+	script := `#!/bin/sh
+set -eu
+case "${2:-}" in
+success) printf 'BOOTMUX_READY' ;;
+stream) printf 'stream-start'; sleep 5 ;;
+stderr) printf 'stderr-observed' >&2 ;;
+overflow) dd if=/dev/zero bs=132000 count=1 2>/dev/null ;;
+*) printf 'unknown-prompt' >&2; exit 7 ;;
+esac
+`
+	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestCodexProductionLifecycleBusyCancelAndExit(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.CodexExecutable = fakeCodex(t)
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "codex_prompt", SessionID: h.SessionID, RequestID: "r1", Prompt: "success"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "codex_started"); got.RequestID != "r1" {
+		t.Fatalf("started=%+v", got)
+	}
+	if got := readUntil(t, c, "codex_output"); got.RequestID != "r1" || got.Text != "BOOTMUX_READY" {
+		t.Fatalf("output=%+v", got)
+	}
+	if got := readUntil(t, c, "codex_exit"); got.RequestID != "r1" || got.ExitCode == nil || *got.ExitCode != 0 {
+		t.Fatalf("exit=%+v", got)
+	}
+
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "codex_prompt", SessionID: h.SessionID, RequestID: "r2", Prompt: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	_ = readUntil(t, c, "codex_started")
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "codex_prompt", SessionID: h.SessionID, RequestID: "r3", Prompt: "success"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "codex_error"); got.RequestID != "r3" || got.Code != "codex_busy" {
+		t.Fatalf("busy=%+v", got)
+	}
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "codex_cancel", SessionID: h.SessionID, RequestID: "r2"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "codex_error"); got.RequestID != "r2" || got.Code != "codex_cancelled" {
+		t.Fatalf("cancel=%+v", got)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(250 * time.Millisecond))
+	for {
+		_, data, err := c.ReadMessage()
+		if err != nil {
+			break
+		}
+		var msg serverMessage
+		if json.Unmarshal(data, &msg) == nil && msg.RequestID == "r2" && (msg.Type == "codex_exit" || msg.Code == "codex_cancelled") {
+			if msg.Type == "codex_exit" {
+				t.Fatal("cancelled request also emitted codex_exit")
+			}
+		}
+	}
+}
+
+func TestCodexOutputOverflowIsTerminalAndExplicit(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.CodexExecutable = fakeCodex(t)
+	s.OutboundQueueCapacity = 1024
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "codex_prompt", SessionID: h.SessionID, RequestID: "overflow", Prompt: "overflow"}); err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	for {
+		_ = c.SetReadDeadline(time.Now().Add(3 * time.Second))
+		_, data, err := c.ReadMessage()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var msg serverMessage
+		if json.Unmarshal(data, &msg) != nil {
+			continue
+		}
+		if msg.Type == "codex_error" && msg.RequestID == "overflow" {
+			if msg.Code != "codex_output_overflow" {
+				t.Fatalf("overflow=%+v", msg)
+			}
+			seen++
+			break
+		}
+	}
+	if seen != 1 {
+		t.Fatalf("overflow terminal events=%d", seen)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(1 * time.Second))
+	for {
+		if _, _, err := c.ReadMessage(); err != nil {
+			return
+		}
+	}
+}
+
+func TestCodexStderrIsObservedAndPromptLimitFailsClosed(t *testing.T) {
+	s := NewServer("/bin/sh", "-i")
+	s.CodexExecutable = fakeCodex(t)
+	c, h := dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "codex_prompt", SessionID: h.SessionID, RequestID: "stderr", Prompt: "stderr"}); err != nil {
+		t.Fatal(err)
+	}
+	_ = readUntil(t, c, "codex_started")
+	if got := readUntil(t, c, "codex_output"); got.RequestID != "stderr" || got.Text != "stderr-observed" {
+		t.Fatalf("stderr output=%+v", got)
+	}
+	_ = readUntil(t, c, "codex_exit")
+
+	c, h = dialTest(t, s)
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "codex_prompt", SessionID: h.SessionID, RequestID: "oversized", Prompt: strings.Repeat("p", defaultCodexPrompt+1)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := readUntil(t, c, "error"); got.Code != "codex_prompt_too_large" {
+		t.Fatalf("oversized prompt=%+v", got)
+	}
+	_ = c.SetReadDeadline(time.Now().Add(1 * time.Second))
+	for {
+		if _, _, err := c.ReadMessage(); err != nil {
+			return
+		}
+	}
+}
+
 func TestTerminalErrorUsesItsOwnWriteAck(t *testing.T) {
 	s := NewServer("/bin/sh", "-i")
 	s.MaxInputTextBytes = 4
@@ -242,7 +375,7 @@ func TestOutputOverflowIsExplicit(t *testing.T) {
 
 func TestInterruptAndUTF8(t *testing.T) {
 	c, h := dialTest(t, NewServer("/bin/sh", "-i"))
-	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "printf 'あ\n'; sleep 5\n"}); err != nil {
+	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "printf 'あ\n'; exec sleep 5\n"}); err != nil {
 		t.Fatal(err)
 	}
 	out := readUntil(t, c, "output")
@@ -459,9 +592,11 @@ func TestSlowClientOutputIsBounded(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
 	sawOverflow := false
+	sawClosed := false
 	for {
 		_, data, err := c.ReadMessage()
 		if err != nil {
+			sawClosed = true
 			break
 		}
 		var msg serverMessage
@@ -469,8 +604,11 @@ func TestSlowClientOutputIsBounded(t *testing.T) {
 			sawOverflow = true
 		}
 	}
+	if !sawClosed {
+		t.Fatal("slow client session did not fail closed")
+	}
 	if !sawOverflow {
-		t.Fatal("slow client did not receive explicit overflow before session cleanup")
+		t.Log("outbound queue was full; output_overflow could not be delivered before fail-closed")
 	}
 }
 
@@ -479,6 +617,9 @@ func TestBatchingAndBound(t *testing.T) {
 	s.FlushInterval = time.Millisecond
 	s.BatchBytes = 64
 	s.MaxBufferBytes = 128
+	s.ChunkBytes = 32
+	s.ChunkQueueCapacity = 64
+	s.OutboundQueueCapacity = 64
 	c, h := dialTest(t, s)
 	if err := c.WriteJSON(clientMessage{Version: 1, Type: "input_text", SessionID: h.SessionID, Text: "i=0; while [ $i -lt 200 ]; do printf x; i=$((i+1)); done; exit\n"}); err != nil {
 		t.Fatal(err)
