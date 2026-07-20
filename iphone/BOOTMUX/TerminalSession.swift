@@ -219,6 +219,7 @@ final class TerminalSession: ObservableObject {
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
+        statusMessage = "Terminal cleared."
     }
 
     private func receiveLoop(socket: any TerminalTransport, generation loopGeneration: Int) async {

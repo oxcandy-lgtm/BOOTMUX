@@ -158,15 +158,20 @@ struct ContentView: View {
                         .focused($focusedField, equals: .endpoint)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    HStack {
-                        Button("CONNECT") { session.connect(endpoint: endpoint) }
-                        Button("DISCONNECT") { session.disconnect() }
+                    Text("TERM (session.state.label)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                    Button("CONNECT") { session.connect(endpoint: endpoint) }
+                        .disabled(session.state != .disconnected)
+                    Button("DISCONNECT") { session.disconnect() }
+                        .disabled(session.state == .disconnected)
+                    Button("CLEAR") {
+                        session.clearVisibleHistory()
                     }
                     Button("SEND") {
                         let value = command
                         Task { if await session.sendInput(value) { command = "" } }
                     }
-                    Button("CLEAR") { session.clearVisibleHistory() }
                 }
             }
             .navigationTitle("Settings")
