@@ -32,12 +32,12 @@ gates:
     status: IN_PROGRESS
     V0A: GREEN
     V0B: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
-    V1: R3_CODE_REPAIRED_PHYSICAL_ACCEPTANCE_PENDING
+    V1: R7_BLE_TRANSPORT_STABILITY_VERIFIED_FULL_ACCEPTANCE_PENDING
     V2: PARTIALLY_PROVEN_BY_V0B
     V3: OPEN
     V4: OPEN
-    evidence: V0A is GREEN; R3 firmware clean build passes; native USB inventory is composite Espressif USB without confirmed HID; Xcode is installed but has no iOS platform/runtime or connected device
-    remaining_gate: native_USB_HID_enumeration_and_physical_iPhone_BLE_acceptance
+    evidence: docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md; launch canvas and short BLE/HID transport path are physically observed; full control-key and stability acceptance is not yet recorded
+    remaining_gate: backspace_ctrl_c_stop_resume_duplicate_reconnect_and_full_stability_receipt
   BW4:
     status: GREEN
     evidence: standalone offline replay and live Companion /judge mode
@@ -66,7 +66,7 @@ gates:
 
 ## Current technical boundary
 
-V0A Companion Core is locally verified. The claim boundary remains: no real iPhone-to-BLE-to-ESP32-S3 input, native USB HID enumeration, mouse support, Codex installation, offline target operation, or continued post-boot operation is proven by this repository state.
+V0A Companion Core is locally verified. The short iPhone-to-BLE transport path and native USB HID ASCII path are observed; the complete V1 keyboard acceptance, mouse support, Codex installation, offline target operation, and continued post-boot operation are not proven by this repository state.
 
 ## Explicit human and tool-use state
 

@@ -104,9 +104,9 @@ The public architecture names capabilities rather than optional third-party pack
 
 ## Project status
 
-V0A is GREEN. V0B is implemented and awaiting physical proof. V1 code is present with the R3 USB descriptor repair, but physical iPhone/BLE/native-HID acceptance is not proven. V2 through V4 are open or partial. Judge Mode is GREEN; BLE, native USB HID, and Codex bootstrap remain high-value evidence work rather than absolute submission blockers. Feature development is frozen except for the bounded V1 physical gate.
+V0A is GREEN. The V0B UI launch canvas is physically confirmed. V1 BLE transport stability and the native USB HID ASCII path are observed, while the remaining control-key, reconnect, duplicate-suppression, and repeatability acceptance is still pending. V2 through V4 are open or partial. Judge Mode is GREEN; Codex bootstrap remains high-value evidence work rather than an absolute submission blocker. Feature development is frozen except for the bounded V1 physical gate.
 
-The V0B iPhone Terminal Loop implementation is now present under `iphone/`. It is a dependency-free SwiftUI app using `URLSessionWebSocketTask` and a selectable `UITextView` bridge. Xcode 26.6 is installed and the project now declares its iOS SDK target, but iOS platform/runtime components and a connected test device are still unavailable on the validation host.
+The V0B iPhone implementation is present under `iphone/`. Its launch canvas and full-screen safe-area behavior were physically confirmed on the validation iPhone. The BLE transport receipt is recorded separately from the remaining V1 acceptance cases.
 
 No runtime, hardware, benchmark, novelty, or Build Week compliance claim is considered complete until reproducible evidence exists.
 
@@ -156,7 +156,7 @@ Open `iphone/BOOTMUX.xcodeproj` in Xcode, build for an available iOS Simulator o
 
 ## How to Run the Hardware Demo
 
-There is no complete hardware demo to run yet. The future demo must separately prove iPhone input, BLE, ESP32-S3 USB HID, terminal return, and Codex bootstrap; the current claim boundary is maintained in the [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
+The hardware demo remains a bounded V1 keyboard path. The current evidence separately proves the launch canvas, short BLE transport stability, and native USB HID ASCII delivery; the remaining V1 controls and repeatability cases are tracked in the [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
 
 ## Architecture
 

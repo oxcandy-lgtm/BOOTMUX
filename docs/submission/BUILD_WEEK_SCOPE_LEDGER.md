@@ -37,6 +37,8 @@ commits:
   S81_submission_closeout: 41755062060c2aa3b828dd9d9eb675074ff941ef
   V1_fastlane_implementation: 3bc50f8966297fc574baecb4e0a51b0b9dbf3505
   V1_R1_control_ack_repair: 13d58dba5573d7d8e9621103dbcd891ae23460d4
+  V1_launch_canvas: d871925
+  V1_R7_ble_transport_repair: 0fed277
 ```
 
 ## Evidence mapping
@@ -50,5 +52,7 @@ commits:
 | V0B iPhone Terminal Loop | `iphone/` at `V0B_implementation` | implementation is recorded; physical iPhone proof is not claimed |
 | V0B R1 client runtime contract | `iphone/` at `V0B_R1_repair` | normal exit, bounded output, CRLF, injected transport, lifecycle, and project contract repairs; physical proof remains unclaimed |
 | V0B R2 protocol and Xcode contract | `iphone/` at `V0B_R2_repair` | single protocol limits, bounded input/close timeout, finalization, selection helper, and standard test-host project structure; Xcode/physical proof pending |
+| V1 launch canvas | `d871925`; `iphone/BOOTMUX/LaunchScreen.storyboard`; `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md` | native launch storyboard removed the legacy letterbox; physical full-screen confirmation is recorded without screenshots or device identifiers |
+| V1 R7 BLE transport repair | `0fed277`; `firmware/esp32s3-bridge/src/main.cpp`; `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md` | fixed POD queue ownership and recorded eight successful applied operations without observed disconnect; full V1 acceptance remains separate |
 
 No private session transcript, account data, private path, hostname, device serial, or guessed date is part of this public ledger.

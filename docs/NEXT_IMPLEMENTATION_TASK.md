@@ -8,13 +8,13 @@ previous_task:
   status: YELLOW_SUBMISSION_READY
   final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
 current_task:
-  task_id: BOOTMUX-V1-R3-AUTOMATED-PHYSICAL-ACCEPTANCE
-  implementation_status: CODE_REPAIRED_PHYSICAL_GATE_PENDING
+  task_id: BOOTMUX-V1-R7-BLE-TRANSPORT-ROOT-FIX-AND-V1-CLOSEOUT
+  implementation_status: BLE_TRANSPORT_STABILITY_VERIFIED_FULL_PHYSICAL_GATE_PENDING
   feature_development: REOPENED_ONLY_FOR_V1
   submission_baseline_preserved: true
 next_technical_task:
-  task_id: BOOTMUX-V0B-V2-PHYSICAL-IPHONE-RETURN-PROOF
-  status: BLOCKED_PENDING_V1_PHYSICAL_ACCEPTANCE
+  task_id: BOOTMUX-V1-PHYSICAL-ACCEPTANCE-CLOSEOUT
+  status: PENDING_BACKSPACE_CTRL_C_STOP_RESUME_DUPLICATE_RECONNECT_AND_STABILITY_PROOF
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```

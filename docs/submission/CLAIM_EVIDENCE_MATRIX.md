@@ -6,9 +6,10 @@ Only claims with both evidence and an allowed public copy are publishable. This 
 | --- | --- | --- | --- | --- |
 | V0A_companion_core | GREEN | `companion/`, local tests, and V0A R3 history | true | none for V0A target-side scope |
 | judge_mode_terminal_copy | GREEN | `judge/index.html`, packaged local Companion `/judge`, and offline replay | true | final human/demo review |
+| ble_transport_stability | GREEN | `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md`, firmware POD queue repair, and observed `OPENED` plus eight `APPLIED` acknowledgements without disconnect | true for the bounded short-operation transport path | full V1 controls, reconnect, duplicate, and stability receipt |
 | iphone_live_terminal | IMPLEMENTED_AWAITING_PHYSICAL_PROOF | `iphone/` and V0B implementation commit; no physical acceptance receipt | false | physical iPhone connection, observed marker, native copy/paste |
-| real_ble_input | NOT_PROVEN | no physical BLE evidence | false | real iPhone-to-BLE-to-device run |
-| real_usb_hid | NOT_PROVEN | public-safe USB inventory sees the Espressif composite device but no confirmed HID keyboard interface; R3 firmware descriptor fix builds but could not be uploaded because no COM port was present | false | board-level HID enumeration and input proof |
+| real_ble_input | PARTIAL_OBSERVED | `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md` records a short iPhone-to-BLE run with eight successful operations and no observed disconnect | false | full V1 physical acceptance |
+| real_usb_hid | GREEN | prior public-safe native USB HID and ASCII delivery receipt, plus current firmware upload | true for the observed ASCII keyboard path | full V1 control and stability acceptance |
 | mouse_support | NOT_IMPLEMENTED | no mouse implementation or proof | false | implement and demonstrate |
 | offline_target_operation | NOT_PROVEN | no offline target run evidence | false | reproducible offline demonstration |
 | codex_installation | NOT_IMPLEMENTED | no Codex installation proof | false | clean-target installation evidence |
