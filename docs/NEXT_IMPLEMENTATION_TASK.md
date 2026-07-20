@@ -8,12 +8,13 @@ previous_task:
   status: GREEN
   final_head_sha: 2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4
 current_task:
-  task_id: BOOTMUX-V0B-R1-CLIENT-RUNTIME-CONTRACT-REPAIR
+  task_id: BOOTMUX-V0B-R2-PROTOCOL-LIMIT-XCODE-HOST-REPAIR
   implementation_status: COMPLETE
-  evidence_status: PHYSICAL_PROOF_PENDING
+  xcode_validation: XCODE_NOT_INSTALLED
+  physical_evidence: PENDING
 next_technical_task:
   task_id: BOOTMUX-V1A-ESP32S3-BOARD-IDENTITY-NATIVE-USB-PROBE
-  status: READY_IF_V0B_PHYSICAL_GREEN
+  status: BLOCKED_PENDING_V0B_PHYSICAL_GREEN
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```
