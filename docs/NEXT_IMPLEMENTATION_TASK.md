@@ -8,7 +8,7 @@ previous_task:
   status: GREEN
   final_head_sha: 2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4
 current_task:
-  task_id: BOOTMUX-V0B-IPHONE-TERMINAL-LOOP
+  task_id: BOOTMUX-V0B-R1-CLIENT-RUNTIME-CONTRACT-REPAIR
   implementation_status: COMPLETE
   evidence_status: PHYSICAL_PROOF_PENDING
 next_technical_task:

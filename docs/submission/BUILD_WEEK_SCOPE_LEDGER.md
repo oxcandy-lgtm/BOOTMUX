@@ -13,6 +13,7 @@ scope:
     - V0A Companion Core implementation
     - V0A R1-R3 repairs
     - V0B iPhone Terminal Loop implementation
+    - V0B R1 client runtime contract repairs
     - submission ledgers
     - Devpost copy and story draft
   unresolved_pending_owner_confirmation:
@@ -24,6 +25,7 @@ commits:
   V0A_R3: 2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4
   devpost_draft: bf74c4d5d30f41d0a7df69f93a0929d6588e0416
   V0B_implementation: 2d730a5a287166a889e26e0067f2d518327390d1
+  V0B_R1_repair: d9746c818eabc31b8bc6bf50c44ecdcbd3dbf395
 ```
 
 ## Evidence mapping
@@ -35,5 +37,6 @@ commits:
 | Devpost draft | `docs/submission/DEVPOST_COPY_AND_STORY_DRAFT.md` at `devpost_draft` | working draft, not final submission copy |
 | BLE/USB HID/Codex | no implementation commit recorded in this ledger | not claimed as complete |
 | V0B iPhone Terminal Loop | `iphone/` at `V0B_implementation` | implementation is recorded; physical iPhone proof is not claimed |
+| V0B R1 client runtime contract | `iphone/` at `V0B_R1_repair` | normal exit, bounded output, CRLF, injected transport, lifecycle, and project contract repairs; physical proof remains unclaimed |
 
 No private session transcript, account data, private path, hostname, device serial, or guessed date is part of this public ledger.
