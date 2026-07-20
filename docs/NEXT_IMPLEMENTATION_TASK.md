@@ -9,7 +9,7 @@ previous_task:
   final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
 current_task:
   task_id: BOOTMUX-V1-FASTLANE-PHYSICAL-KEYBOARD-PATH
-  implementation_status: IN_PROGRESS
+  implementation_status: IN_PROGRESS_CONTROL_ACK_REPAIR
   feature_development: REOPENED_ONLY_FOR_V1
   submission_baseline_preserved: true
 next_technical_task:
@@ -19,7 +19,7 @@ pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```
 
-This task temporarily reopens feature development only for the bounded V1 physical keyboard gate. The Submission Closeout baseline remains preserved. V1 does not include Codex installation, terminal return, mouse/trackpad, arbitrary Unicode, Wi-Fi firmware, background operation, App Store distribution, or USB data return. Firmware and iPhone bridge implementation are present; physical acceptance remains pending.
+This task temporarily reopens feature development only for the bounded V1 physical keyboard gate. The Submission Closeout baseline remains preserved. V1 does not include Codex installation, terminal return, mouse/trackpad, arbitrary Unicode, Wi-Fi firmware, background operation, App Store distribution, or USB data return. Firmware and iPhone bridge implementation are present with control ACK and STOP-latch repair; physical acceptance remains pending.
 
 ## Required artifacts
 

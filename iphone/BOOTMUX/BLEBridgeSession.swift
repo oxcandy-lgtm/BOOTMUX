@@ -5,6 +5,17 @@ import Foundation
 final class BLEBridgeSession: NSObject, ObservableObject {
     enum State: Equatable { case off, scanning, connecting, on, stopped, error(String) }
 
+    private enum OperationKind { case text, control(BLEControl) }
+    private struct PendingOperation {
+        let session: String
+        let sequence: UInt32
+        let kind: OperationKind
+        let frames: [Data]
+        var nextFrame: Int
+        let originalCommand: String?
+        let completion: (Bool) -> Void
+    }
+
     @Published private(set) var state: State = .off
     @Published private(set) var statusMessage = "BLE off."
 
@@ -12,12 +23,12 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     private var peripheral: CBPeripheral?
     private var rx: CBCharacteristic?
     private var tx: CBCharacteristic?
-    private var generation = 0
     private var sessionID = ""
     private var sequence: UInt32 = 0
-    private var pendingWrites: [Data] = []
+    private var pendingOperation: PendingOperation?
+    private var operationTimeoutTask: Task<Void, Never>?
     private var writeInFlight = false
-    private var pendingAck: ((Bool) -> Void)?
+    private var opening = false
 
     override init() {
         super.init()
@@ -33,39 +44,113 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     }
 
     func disconnect() {
-        generation += 1
-        pendingWrites.removeAll()
+        central.stopScan()
+        operationTimeoutTask?.cancel()
+        operationTimeoutTask = nil
+        pendingOperation?.completion(false)
+        pendingOperation = nil
         writeInFlight = false
-        pendingAck = nil
+        opening = false
         if let peripheral { central.cancelPeripheralConnection(peripheral) }
         peripheral = nil; rx = nil; tx = nil; sessionID = ""
         state = .off
         statusMessage = "BLE disconnected."
     }
 
-    func sendText(_ text: String) {
-        guard state == .on else { statusMessage = "Connect BLE before sending HID text."; return }
+    func sendText(_ text: String, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard state == .on, pendingOperation == nil, let peripheral else {
+            statusMessage = pendingOperation == nil ? "Connect BLE before sending HID text." : "Complete the current HID operation first."
+            completion(false)
+            return
+        }
         sequence &+= 1
         do {
-            let maximum = max(20, peripheral?.maximumWriteValueLength(for: .withResponse) ?? 20)
-            let chunks = try BLEChunker(maximumWriteBytes: maximum).frames(session: sessionID, sequence: sequence, text: text)
-            pendingWrites.append(contentsOf: chunks)
-            pumpWrites()
-        } catch { state = .error("HID text rejected.") }
+            let maximum = max(20, peripheral.maximumWriteValueLength(for: .withResponse))
+            let frames = try BLEChunker(maximumWriteBytes: maximum).frames(session: sessionID, sequence: sequence, text: text)
+            pendingOperation = PendingOperation(session: sessionID, sequence: sequence, kind: .text, frames: frames, nextFrame: 0, originalCommand: text, completion: completion)
+            pumpOperation()
+        } catch {
+            statusMessage = "HID text rejected."
+            completion(false)
+        }
     }
 
-    func send(_ control: BLEControl) {
-        guard state == .on || (state == .stopped && control == .resume) else { return }
+    func send(_ control: BLEControl, completion: @escaping (Bool) -> Void = { _ in }) {
+        let allowed = state == .on || (state == .stopped && control == .resume)
+        guard allowed, pendingOperation == nil else {
+            statusMessage = pendingOperation == nil ? "Connect BLE before sending HID control." : "Complete the current HID operation first."
+            completion(false)
+            return
+        }
         sequence &+= 1
-        do { pendingWrites.append(try BLEProtocol.control(session: sessionID, sequence: sequence, control: control)); pumpWrites() }
-        catch { state = .error("HID control rejected.") }
+        do {
+            let frame = try BLEProtocol.control(session: sessionID, sequence: sequence, control: control)
+            pendingOperation = PendingOperation(session: sessionID, sequence: sequence, kind: .control(control), frames: [frame], nextFrame: 0, originalCommand: nil, completion: completion)
+            pumpOperation()
+        } catch {
+            statusMessage = "HID control rejected."
+            completion(false)
+        }
     }
 
-    private func pumpWrites() {
-        guard !writeInFlight, let rx, let peripheral, !pendingWrites.isEmpty else { return }
+    private func pumpOperation() {
+        guard !writeInFlight, var operation = pendingOperation, let peripheral, let rx else { return }
+        guard operation.nextFrame < operation.frames.count else { armOperationTimeout(); return }
         writeInFlight = true
-        let frame = pendingWrites.removeFirst()
+        let frame = operation.frames[operation.nextFrame]
+        operation.nextFrame += 1
+        pendingOperation = operation
         peripheral.writeValue(frame, for: rx, type: .withResponse)
+    }
+
+    private func armOperationTimeout() {
+        operationTimeoutTask?.cancel()
+        operationTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.failPendingOperation("BLE ACK timeout.")
+        }
+    }
+
+    private func finishPendingOperation(success: Bool, message: String) {
+        operationTimeoutTask?.cancel()
+        operationTimeoutTask = nil
+        let completion = pendingOperation?.completion
+        pendingOperation = nil
+        statusMessage = message
+        completion?(success)
+    }
+
+    private func failPendingOperation(_ message: String) {
+        guard pendingOperation != nil else { return }
+        finishPendingOperation(success: false, message: message)
+    }
+
+    private func handleAck(_ ack: (session: String, sequence: UInt32, result: String)) {
+        guard ack.session == sessionID else { return }
+        if opening, ack.sequence == 0, ack.result == "OPENED" {
+            opening = false
+            state = .on
+            statusMessage = "BLE connected."
+            return
+        }
+        guard var operation = pendingOperation, operation.session == ack.session, operation.sequence == ack.sequence else { return }
+        switch ack.result {
+        case "APPLIED", "DUPLICATE":
+            if case .control(.stop) = operation.kind { state = .stopped }
+            if case .control(.resume) = operation.kind { state = .on }
+            finishPendingOperation(success: true, message: ack.result == "DUPLICATE" ? "HID operation already applied." : "HID operation applied.")
+        case "STOPPED":
+            if case .control(.stop) = operation.kind {
+                state = .stopped
+                finishPendingOperation(success: true, message: "HID stopped.")
+            } else {
+                state = .stopped
+                finishPendingOperation(success: false, message: "HID output is stopped.")
+            }
+        default:
+            _ = operation
+        }
     }
 }
 
@@ -88,7 +173,7 @@ extension BLEBridgeSession: CBCentralManagerDelegate {
     nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            self.sessionID = UUID().uuidString.replacingOccurrences(of: "-", with: ""); self.generation += 1
+            self.sessionID = UUID().uuidString.replacingOccurrences(of: "-", with: "")
             peripheral.discoverServices([CBUUID(string: BLEProtocol.serviceUUID)])
         }
     }
@@ -109,9 +194,19 @@ extension BLEBridgeSession: CBPeripheralDelegate {
             guard let self, let characteristics = service.characteristics else { return }
             self.rx = characteristics.first(where: { $0.uuid == CBUUID(string: BLEProtocol.rxUUID) })
             self.tx = characteristics.first(where: { $0.uuid == CBUUID(string: BLEProtocol.txUUID) })
-            if let tx = self.tx { peripheral.setNotifyValue(true, for: tx) }
-            guard let rx = self.rx else { self.state = .error("BOOTMUX BLE characteristic missing."); return }
-            do { self.pendingWrites.append(try BLEProtocol.open(session: self.sessionID)); self.state = .on; self.statusMessage = "BLE connected."; self.pumpWrites(); _ = rx } catch { self.state = .error("BLE session open failed.") }
+            guard let tx = self.tx, self.rx != nil else { self.state = .error("BOOTMUX BLE characteristic missing."); return }
+            peripheral.setNotifyValue(true, for: tx)
+        }
+    }
+
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        Task { @MainActor [weak self] in
+            guard let self, characteristic.uuid == CBUUID(string: BLEProtocol.txUUID), error == nil, characteristic.isNotifying else { return }
+            do {
+                self.opening = true
+                self.writeInFlight = true
+                peripheral.writeValue(try BLEProtocol.open(session: self.sessionID), for: self.rx!, type: .withResponse)
+            } catch { self.state = .error("BLE session open failed.") }
         }
     }
 
@@ -119,17 +214,13 @@ extension BLEBridgeSession: CBPeripheralDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.writeInFlight = false
-            if error != nil { self.state = .error("BLE write failed."); self.pendingWrites.removeAll(); return }
-            self.pumpWrites()
+            if error != nil { self.state = .error("BLE write failed."); self.failPendingOperation("BLE write failed."); return }
+            self.pumpOperation()
         }
     }
 
     nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard error == nil, let data = characteristic.value, let ack = BLEProtocol.parseAck(data) else { return }
-        Task { @MainActor [weak self] in
-            guard let self, ack.session == self.sessionID else { return }
-            if ack.result == "STOPPED" { self.state = .stopped }
-            if ack.result == "APPLIED" || ack.result == "DUPLICATE" { self.pendingAck?(true); self.pendingAck = nil }
-        }
+        Task { @MainActor [weak self] in self?.handleAck(ack) }
     }
 }

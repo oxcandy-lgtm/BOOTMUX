@@ -30,7 +30,10 @@ struct ContentView: View {
                     let value = command
                     Task { if await session.sendInput(value) { command = "" } }
                 }
-                Button("SEND VIA HID") { ble.sendText(command) }
+                Button("SEND VIA HID") {
+                    let value = command
+                    ble.sendText(value) { success in if success { command = "" } }
+                }
                 Button("ENTER") { Task { _ = await session.sendInput("\n") } }
                 Button("BACKSPACE") { Task { _ = await session.sendInput("\u{7F}") } }
             }
@@ -41,6 +44,9 @@ struct ContentView: View {
             HStack {
                 Button("CONNECT BLE") { ble.connect() }
                 Button("DISCONNECT BLE") { ble.disconnect() }
+                Button("HID ENTER") { ble.send(.enter) }
+                Button("HID BACKSPACE") { ble.send(.backspace) }
+                Button("HID CTRL-C") { ble.send(.ctrlC) }
                 Button("STOP HID") { ble.send(.stop) }
                 Button("RESUME HID") { ble.send(.resume) }
             }

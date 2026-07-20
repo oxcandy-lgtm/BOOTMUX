@@ -25,6 +25,7 @@ USBHIDKeyboard Keyboard;
 BLECharacteristic *txCharacteristic = nullptr;
 bool connected = false;
 bool outputEnabled = true;
+bool stoppedLatch = false;
 String activeSession;
 uint32_t reassemblySeq = 0;
 uint8_t reassemblyTotal = 0;
@@ -71,6 +72,8 @@ void rememberCompleted(uint32_t sequence) {
   completed[completedIndex++ % completed.size()] = sequence;
 }
 
+void clearCompleted() { completed.fill(0); completedIndex = 0; }
+
 bool parseUInt(const String &value, uint32_t &result) {
   if (value.isEmpty()) return false;
   uint64_t parsed = 0;
@@ -89,7 +92,13 @@ bool splitFrame(const String &frame, std::array<String, 7> &fields, size_t &coun
   bool escaped = false;
   for (size_t i = 0; i < frame.length(); ++i) {
     char c = frame[i];
-    if (escaped) { field += c; escaped = false; continue; }
+    if (escaped) {
+      if (c == 'n') field += '\n';
+      else if (c == 'r') field += '\r';
+      else field += c;
+      escaped = false;
+      continue;
+    }
     if (c == '\\') { escaped = true; continue; }
     if (c == '|') {
       if (count >= fields.size()) return false;
@@ -114,25 +123,49 @@ void typeASCII(const String &text) {
 
 void applyControl(const String &session, uint32_t sequence, const String &control) {
   if (session != activeSession) return;
+  if (seenCompleted(sequence)) {
+    notify("BMX1|ACK|" + session + "|" + String(sequence) + "|DUPLICATE");
+    return;
+  }
   if (control == "STOP") {
     releaseAll();
     clearReassembly();
+    stoppedLatch = true;
     outputEnabled = false;
+    rememberCompleted(sequence);
     notify("BMX1|ACK|" + session + "|" + String(sequence) + "|STOPPED");
     return;
   }
-  if (control == "RESUME") { outputEnabled = true; releaseAll(); return; }
-  if (!outputEnabled) return;
+  if (control == "RESUME") {
+    outputEnabled = true;
+    stoppedLatch = false;
+    releaseAll();
+    rememberCompleted(sequence);
+    notify("BMX1|ACK|" + session + "|" + String(sequence) + "|RESUMED");
+    return;
+  }
+  if (stoppedLatch || !outputEnabled) {
+    releaseAll();
+    notify("BMX1|ACK|" + session + "|" + String(sequence) + "|STOPPED");
+    return;
+  }
   if (control == "ENTER") Keyboard.write(KEY_RETURN);
   else if (control == "BACKSPACE") Keyboard.write(KEY_BACKSPACE);
   else if (control == "CTRL_C") { Keyboard.press(KEY_LEFT_CTRL); Keyboard.write('c'); releaseAll(); }
   releaseAll();
+  rememberCompleted(sequence);
   notify("BMX1|ACK|" + session + "|" + String(sequence) + "|APPLIED");
 }
 
 void finishText(const String &session, uint32_t sequence) {
   if (seenCompleted(sequence)) {
     notify("BMX1|ACK|" + session + "|" + String(sequence) + "|DUPLICATE");
+    return;
+  }
+  if (stoppedLatch || !outputEnabled) {
+    clearReassembly();
+    releaseAll();
+    notify("BMX1|ACK|" + session + "|" + String(sequence) + "|STOPPED");
     return;
   }
   String text;
@@ -147,15 +180,16 @@ void finishText(const String &session, uint32_t sequence) {
 void handleFrame(const String &frame) {
   std::array<String, 7> fields;
   size_t count = 0;
-  if (!splitFrame(frame, fields, count) || count < 3 || fields[0] != "BMX1") return;
+  if (!splitFrame(frame, fields, count) || count < 3 || fields[0] != "BMX1") { releaseAll(); return; }
   if (fields[1] == "OPEN" && count == 3) {
-    releaseAll(); clearReassembly(); outputEnabled = true; activeSession = fields[2];
-    notify("BMX1|ACK|" + activeSession + "|0|APPLIED");
+    releaseAll(); clearReassembly(); clearCompleted(); activeSession = fields[2];
+    outputEnabled = !stoppedLatch;
+    notify("BMX1|ACK|" + activeSession + "|0|OPENED");
     return;
   }
-  if (count < 5 || fields[2] != activeSession) return;
+  if (count < 5 || fields[2] != activeSession) { releaseAll(); return; }
   uint32_t sequence = 0;
-  if (!parseUInt(fields[3], sequence)) return;
+  if (!parseUInt(fields[3], sequence)) { releaseAll(); return; }
   if (fields[1] == "CTRL") { applyControl(fields[2], sequence, fields[4]); return; }
   if (fields[1] != "TEXT" || count != 7) return;
   uint32_t part = 0, total = 0;

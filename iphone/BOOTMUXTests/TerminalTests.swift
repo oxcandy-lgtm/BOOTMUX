@@ -53,6 +53,14 @@ final class TerminalTests: XCTestCase {
         XCTAssertEqual(ack?.result, "DUPLICATE")
     }
 
+    func testBLESessionScopedFramesAndStopResumeAcks() throws {
+        XCTAssertEqual(String(decoding: try BLEProtocol.open(session: "new"), as: UTF8.self), "BMX1|OPEN|new")
+        XCTAssertEqual(BLEProtocol.parseAck(Data("BMX1|ACK|new|0|OPENED".utf8))?.result, "OPENED")
+        XCTAssertEqual(BLEProtocol.parseAck(Data("BMX1|ACK|new|4|STOPPED".utf8))?.result, "STOPPED")
+        XCTAssertEqual(BLEProtocol.parseAck(Data("BMX1|ACK|new|5|RESUMED".utf8))?.result, "RESUMED")
+        XCTAssertEqual(BLEProtocol.parseAck(Data("BMX1|ACK|old|5|APPLIED".utf8))?.session, "old")
+    }
+
     func testObservedOutputIsNotSynthesizedFromInput() throws {
         let data = Data("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"BOOTMUX_V0\"}".utf8)
         guard case let .output(_, text) = try TerminalProtocol.decodeServer(data, expectedSession: "s") else { return XCTFail("expected output") }
