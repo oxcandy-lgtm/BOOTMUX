@@ -16,6 +16,29 @@ enum BLEControl: String {
     case resume = "RESUME"
 }
 
+enum BLEOperationKind {
+    case text
+    case control(BLEControl)
+}
+
+enum BLEAckContract {
+    static func accepts(_ result: String, for operation: BLEOperationKind) -> Bool {
+        switch result {
+        case "RESUMED":
+            if case .control(.resume) = operation { return true }
+            return false
+        case "STOPPED":
+            if case .control(.stop) = operation { return true }
+            return false
+        case "APPLIED", "DUPLICATE":
+            if case .control(.resume) = operation { return false }
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 enum BLEProtocol {
     static let serviceUUID = "7C1B0001-4B4F-4D55-9A01-42584D583101"
     static let rxUUID = "7C1B0002-4B4F-4D55-9A01-42584D583101"

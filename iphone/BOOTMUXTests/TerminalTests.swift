@@ -61,6 +61,16 @@ final class TerminalTests: XCTestCase {
         XCTAssertEqual(BLEProtocol.parseAck(Data("BMX1|ACK|old|5|APPLIED".utf8))?.session, "old")
     }
 
+    func testBLEAckContractSeparatesResumedFromApplied() {
+        XCTAssertTrue(BLEAckContract.accepts("RESUMED", for: .control(.resume)))
+        XCTAssertFalse(BLEAckContract.accepts("RESUMED", for: .text))
+        XCTAssertFalse(BLEAckContract.accepts("RESUMED", for: .control(.enter)))
+        XCTAssertFalse(BLEAckContract.accepts("APPLIED", for: .control(.resume)))
+        XCTAssertTrue(BLEAckContract.accepts("APPLIED", for: .text))
+        XCTAssertTrue(BLEAckContract.accepts("STOPPED", for: .control(.stop)))
+        XCTAssertFalse(BLEAckContract.accepts("STOPPED", for: .control(.enter)))
+    }
+
     func testObservedOutputIsNotSynthesizedFromInput() throws {
         let data = Data("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"BOOTMUX_V0\"}".utf8)
         guard case let .output(_, text) = try TerminalProtocol.decodeServer(data, expectedSession: "s") else { return XCTFail("expected output") }

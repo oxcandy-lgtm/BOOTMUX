@@ -53,7 +53,10 @@ struct ContentView: View {
         }
         .padding()
         .onChange(of: scenePhase) { _, phase in
-            if phase == .inactive || phase == .background { session.disconnect() }
+            if phase == .inactive || phase == .background {
+                session.disconnect()
+                ble.disconnect()
+            }
         }
     }
 }

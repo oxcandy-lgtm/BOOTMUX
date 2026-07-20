@@ -5,11 +5,10 @@ import Foundation
 final class BLEBridgeSession: NSObject, ObservableObject {
     enum State: Equatable { case off, scanning, connecting, on, stopped, error(String) }
 
-    private enum OperationKind { case text, control(BLEControl) }
     private struct PendingOperation {
         let session: String
         let sequence: UInt32
-        let kind: OperationKind
+        let kind: BLEOperationKind
         let frames: [Data]
         var nextFrame: Int
         let originalCommand: String?
@@ -27,8 +26,10 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     private var sequence: UInt32 = 0
     private var pendingOperation: PendingOperation?
     private var operationTimeoutTask: Task<Void, Never>?
+    private var openTimeoutTask: Task<Void, Never>?
     private var writeInFlight = false
     private var opening = false
+    private var preserveOpeningError = false
 
     override init() {
         super.init()
@@ -44,9 +45,12 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     }
 
     func disconnect() {
+        preserveOpeningError = false
         central.stopScan()
         operationTimeoutTask?.cancel()
         operationTimeoutTask = nil
+        openTimeoutTask?.cancel()
+        openTimeoutTask = nil
         pendingOperation?.completion(false)
         pendingOperation = nil
         writeInFlight = false
@@ -112,6 +116,28 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         }
     }
 
+    private func armOpenTimeout() {
+        openTimeoutTask?.cancel()
+        openTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.failOpening()
+        }
+    }
+
+    private func failOpening() {
+        guard opening else { return }
+        opening = false
+        openTimeoutTask?.cancel()
+        openTimeoutTask = nil
+        preserveOpeningError = true
+        central.cancelPeripheralConnection(peripheral!)
+        peripheral = nil; rx = nil; tx = nil; sessionID = ""
+        writeInFlight = false
+        state = .error("BLE session open timed out.")
+        statusMessage = "BLE session open timed out."
+    }
+
     private func finishPendingOperation(success: Bool, message: String) {
         operationTimeoutTask?.cancel()
         operationTimeoutTask = nil
@@ -130,16 +156,28 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         guard ack.session == sessionID else { return }
         if opening, ack.sequence == 0, ack.result == "OPENED" {
             opening = false
+            openTimeoutTask?.cancel()
+            openTimeoutTask = nil
             state = .on
             statusMessage = "BLE connected."
             return
         }
-        guard var operation = pendingOperation, operation.session == ack.session, operation.sequence == ack.sequence else { return }
+        guard let operation = pendingOperation, operation.session == ack.session, operation.sequence == ack.sequence else { return }
         switch ack.result {
         case "APPLIED", "DUPLICATE":
+            guard BLEAckContract.accepts(ack.result, for: operation.kind) else {
+                finishPendingOperation(success: false, message: "Unexpected BLE acknowledgement.")
+                return
+            }
             if case .control(.stop) = operation.kind { state = .stopped }
-            if case .control(.resume) = operation.kind { state = .on }
             finishPendingOperation(success: true, message: ack.result == "DUPLICATE" ? "HID operation already applied." : "HID operation applied.")
+        case "RESUMED":
+            guard case .control(.resume) = operation.kind else {
+                finishPendingOperation(success: false, message: "Unexpected BLE resume acknowledgement.")
+                return
+            }
+            state = .on
+            finishPendingOperation(success: true, message: "HID output resumed.")
         case "STOPPED":
             if case .control(.stop) = operation.kind {
                 state = .stopped
@@ -148,8 +186,7 @@ final class BLEBridgeSession: NSObject, ObservableObject {
                 state = .stopped
                 finishPendingOperation(success: false, message: "HID output is stopped.")
             }
-        default:
-            _ = operation
+        default: break
         }
     }
 }
@@ -179,7 +216,15 @@ extension BLEBridgeSession: CBCentralManagerDelegate {
     }
 
     nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        Task { @MainActor [weak self] in self?.disconnect() }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if self.preserveOpeningError {
+                self.preserveOpeningError = false
+                self.peripheral = nil; self.rx = nil; self.tx = nil; self.sessionID = ""
+                return
+            }
+            self.disconnect()
+        }
     }
 }
 
@@ -206,6 +251,7 @@ extension BLEBridgeSession: CBPeripheralDelegate {
                 self.opening = true
                 self.writeInFlight = true
                 peripheral.writeValue(try BLEProtocol.open(session: self.sessionID), for: self.rx!, type: .withResponse)
+                self.armOpenTimeout()
             } catch { self.state = .error("BLE session open failed.") }
         }
     }
@@ -214,7 +260,10 @@ extension BLEBridgeSession: CBPeripheralDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.writeInFlight = false
-            if error != nil { self.state = .error("BLE write failed."); self.failPendingOperation("BLE write failed."); return }
+            if error != nil {
+                if self.opening { self.opening = false; self.openTimeoutTask?.cancel(); self.openTimeoutTask = nil }
+                self.state = .error("BLE write failed."); self.failPendingOperation("BLE write failed."); return
+            }
             self.pumpOperation()
         }
     }
