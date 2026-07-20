@@ -7,3 +7,4 @@ BOOTMUX standalone Judge Mode
 5. Press Ctrl-C in the terminal to stop.
 
 Judge Mode demonstrates the terminal, session, and native-copy experience. It does not prove the physical BLE or USB HID path. No private endpoint or credential is required.
+If macOS Gatekeeper blocks the launcher, first try right-click → Open. The fully offline judge/index.html path requires no executable.

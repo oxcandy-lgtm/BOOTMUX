@@ -8,7 +8,17 @@ BOOTMUX — A Terminal Path into an Unready Computer
 
 ## Short description
 
-BOOTMUX gives an iPhone a selectable terminal path into a target computer through a local Companion, with a no-rebuild Judge Mode for the terminal-and-copy experience.
+Conceived and architected with GPT-5.6, BOOTMUX gives an iPhone a selectable terminal path into a target PC, backed by a Codex-built Companion and a no-rebuild Judge Mode.
+
+## Inspiration / Story
+
+AI is present in my daily life almost all the time. Yet the moment I begin setting up a server PC, the normal way to communicate with that AI disappears. I end up wiping a dirty display, adjusting the focus, and searching for the one camera angle that makes a terminal readable before sending a photograph to ChatGPT.
+
+It feels like being dropped on the median strip in the middle of a highway. Other drivers stare as they pass. People say, “Just cross the highway and keep going,” as if that were easy. But I am a baby when it comes to terminal work. If merely typing into the terminal is already a miracle, can you really expect me to crawl across the highway on all fours?
+
+That is the gap BOOTMUX is built to close. Either operating systems will have native AI available from the beginning, or we need a bootstrap path that lets an ordinary person reach AI before the target computer is ready. BOOTMUX is an attempt to build that path: a target-side Companion, a selectable terminal surface, and a future bridge from the physical phone to the computer.
+
+This is an owner voice working draft. Before final submission, the owner will revise the English while preserving the humor, the “baby” metaphor, and the distinction between the working software path and future hardware claims.
 
 ## Category
 

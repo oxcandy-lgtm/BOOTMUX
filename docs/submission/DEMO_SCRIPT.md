@@ -2,6 +2,17 @@
 
 Target duration: 2 minutes 40 seconds or less. Use voice narration. Do not include private endpoints, credentials, device identifiers, or third-party music.
 
+## Recording order for the default honest path
+
+1. Show a dirty-display problem photo or a safe reenactment.
+2. Show the BOOTMUX architecture diagram.
+3. Show Companion live Judge Mode.
+4. Show `BOOTMUX_JUDGE` observed PTY output.
+5. Select and copy the output.
+6. Show standalone Judge Replay Mode.
+7. Show the Codex/GPT-5.6 evidence ledger.
+8. State the honest limitations, including pending physical and hardware proof.
+
 ## Current honest path — no physical hardware proof
 
 ```text

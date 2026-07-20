@@ -6,9 +6,9 @@ This document contains public-safe copy only. Do not add the real `/feedback` Se
 
 ## Project summary — maximum 200 characters
 
-Character count: 198, including spaces and punctuation.
+Character count: 171, including spaces and punctuation.
 
-> Conceived and architected by GPT-5.6, BOOTMUX turns an iPhone and ESP32-S3 into a wireless keyboard, mouse, and live terminal that can bootstrap and operate Codex—even when the target PC is offline.
+> Conceived and architected with GPT-5.6, BOOTMUX gives an iPhone a selectable terminal path into a target PC, backed by a Codex-built Companion and a no-rebuild Judge Mode.
 
 ## Story draft — original Japanese source
 

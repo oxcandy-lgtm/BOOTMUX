@@ -9,8 +9,9 @@ submission_sprint:
   P1_judge_mode: GREEN
   P2_iphone_proof: PENDING
   P3_hardware_bridge: OPEN
-  P4_codex_ready: OPEN
-  P5_submission_package: IN_PROGRESS
+  P4_codex_ready: NOT_PROVEN
+  P5_submission_package: READY_FOR_FEEDBACK_AND_VIDEO
+feature_development: FROZEN
 gates:
   BW0:
     status: IN_PROGRESS
@@ -46,15 +47,15 @@ gates:
     evidence: LICENSE and submission README headings are present
     remaining_gate: human_final_readme_review
   BW6:
-    status: BLOCKED
-    evidence: /feedback has not been run
-    remaining_gate: feedback_not_captured
+    status: READY
+    evidence: Primary Codex Thread confirmed; /feedback has not been run
+    remaining_gate: OWNER_ACTION_RUN_FEEDBACK_AND_KEEP_SESSION_ID_PRIVATE
   BW7:
-    status: OPEN
-    evidence: no public narrated video has been created
+    status: READY_SCRIPT_ONLY
+    evidence: docs/submission/DEMO_SCRIPT.md
     remaining_gate: public_video_with_voice_narration
   BW8:
-    status: IN_PROGRESS
+    status: READY_FOR_HUMAN_REVIEW
     evidence: final Devpost draft, demo script, and checklist are present
     remaining_gate: final_human_review_and_video_upload
   BW9:
@@ -76,7 +77,9 @@ license:
   file_added: true
 feedback:
   command_run: false
-  reason: V0B_to_V4_not_complete
+  ready: true
+  owner_action: run /feedback in the Primary Codex Thread
+  session_id: PRIVATE_NOT_STORED_IN_REPOSITORY
 github_issues_accessed: false
 github_actions_used: false
 ```

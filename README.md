@@ -83,7 +83,7 @@ Mandatory submission evidence includes:
 - a public repository with relevant licensing, or the required private judge sharing;
 - explicit separation of pre-existing work and Submission Period work.
 
-Current submission blockers include physical iPhone and hardware proof, capture of the private `/feedback` Session ID, and production of the narrated demo video. The no-rebuild Judge Mode and MIT license are now present.
+Remaining submission blockers are registration confirmation, the private `/feedback` Session ID, the public narrated video, and final human submission review. Physical hardware proof remains high-value remaining evidence, not a prerequisite for the software submission slice. The no-rebuild Judge Mode and MIT license are GREEN.
 
 ## V1 implementation strategy
 
@@ -104,7 +104,7 @@ The public architecture names capabilities rather than optional third-party pack
 
 ## Project status
 
-BOOTMUX has completed and locally verified the V0A target-side Companion core. The iPhone, BLE, native USB HID, Codex bootstrap, and full hardware loop remain under active development. The first test environment is a minimal ARM64 Linux virtual machine hosted on a single Apple Silicon Mac, alongside a physical iPhone and ESP32-S3.
+V0A is GREEN. V0B is implemented and awaiting Xcode and physical proof. V1 through V4 are open or partial. Judge Mode is GREEN; BLE, native USB HID, and Codex bootstrap remain high-value evidence work rather than absolute submission blockers. Feature development is frozen for Submission Closeout.
 
 The V0B iPhone Terminal Loop implementation is now present under `iphone/`. It is a dependency-free SwiftUI app using `URLSessionWebSocketTask` and a selectable `UITextView` bridge. Physical iPhone, signing, and Simulator evidence remain pending because the current implementation environment has no Xcode/iOS SDK or connected test device.
 
@@ -112,15 +112,17 @@ No runtime, hardware, benchmark, novelty, or Build Week compliance claim is cons
 
 ## Build Week Scope
 
-The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). V0A is complete; V0B through V4 and the human-confirmation submission gates remain open or blocked as recorded there.
+The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). The software submission slice is ready for `/feedback`, video, and final human review; Xcode, physical hardware, and registration evidence remain honestly labeled.
 
 ## Current Working Demo
 
 For a no-rebuild offline replay, open [`judge/index.html`](judge/index.html) directly and select **Replay BOOTMUX_READY**, then use native browser selection and copy. For a live local PTY demo, run the packaged [Judge Mode](judge/README.md) or open `http://127.0.0.1:8765/judge` after starting the Companion. These paths do not prove BLE or USB HID.
 
+If macOS Gatekeeper blocks the packaged launcher, first try right-click → Open. The fully offline `judge/index.html` path requires no executable.
+
 ## How Codex Was Used
 
-Codex was used in V0A and V0B implementation work. The current Codex thread is the confirmed Primary Build Thread for the continuing core work. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
+Codex was used in V0A and V0B implementation work. The current Codex thread is the confirmed Primary Build Thread. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
 
 ## How GPT-5.6 Was Used
 
@@ -132,7 +134,7 @@ Human decisions set the product direction, selected the V0A scope, retained the 
 
 ## Third-Party and Pre-Existing Work
 
-Pre-existing concept and exploratory architecture are separated from submission-period implementation in the [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md). The repository is now MIT licensed; third-party dependencies remain listed in their module metadata and no external iPhone runtime dependency is used.
+The [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md) records repository work as Submission Period work unless private pre-existing material is later confirmed by the owner. The repository is MIT licensed; third-party dependencies remain listed in their module metadata and no external iPhone runtime dependency is used.
 
 ## Installation
 
