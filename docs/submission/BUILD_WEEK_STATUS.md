@@ -3,7 +3,7 @@
 This is the public-safe operational status for the OpenAI Build Week submission path. `GREEN` means repository evidence exists; human-only gates are not marked green without confirmation.
 
 ```yaml
-status_as_of: 2026-07-20 JST
+status_as_of: 2026-07-21 JST
 submission_sprint:
   P0_toolchain: IN_PROGRESS
   P1_judge_mode: GREEN
@@ -33,9 +33,9 @@ gates:
     V0A: GREEN
     V0B: IMPLEMENTED_AWAITING_PHYSICAL_IPHONE_PROOF
     V1: R7_BLE_TRANSPORT_STABILITY_VERIFIED_FULL_ACCEPTANCE_PENDING
-    V2: PARTIALLY_PROVEN_BY_V0B
-    V3: OPEN
-    V4: OPEN
+    V2: VM_CODEX_PROBE_GREEN_PHYSICAL_RETURN_PENDING
+    V3: VM_CODEX_ADAPTER_GREEN_PHYSICAL_RETURN_PENDING
+    V4: GREEN_BOUNDED_LOCAL_AND_VM_PROBE
     evidence: docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md; launch canvas and short BLE/HID transport path are physically observed; full control-key and stability acceptance is not yet recorded
     remaining_gate: backspace_ctrl_c_stop_resume_duplicate_reconnect_and_full_stability_receipt
   BW4:
@@ -63,6 +63,20 @@ gates:
     evidence: final submission has not been made
     remaining_gate: human_submission_confirmation
 ```
+
+## V2–V6 integrated Codex return progress
+
+The real ARM64 Lima VM, official Codex CLI authentication, direct
+BOOTMUX_READY probe, and production Companion codex_prompt probe are GREEN
+locally. Physical iPhone return and copy remain unproven because the
+device-side terminal session has not yet reached TERM ON through the
+currently active LAN endpoint. See
+[V2–V6 Codex Physical Return Progress](../evidence/V2_V6_CODEX_PHYSICAL_RETURN_PROGRESS.md).
+
+The iOS client now includes the required local IP/CIDR ATS exceptions for
+iOS 17+, and its Settings actions are visually separated into CONNECT,
+DISCONNECT, CLEAR, and SEND rows. This does not upgrade the physical claim
+until a fresh signed install observes BOOTMUX_READY on the iPhone.
 
 ## Current technical boundary
 

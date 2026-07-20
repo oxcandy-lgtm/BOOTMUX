@@ -13,7 +13,7 @@ Only claims with both evidence and an allowed public copy are publishable. This 
 | mouse_support | NOT_IMPLEMENTED | no mouse implementation or proof | false | implement and demonstrate |
 | offline_target_operation | NOT_PROVEN | no offline target run evidence | false | reproducible offline demonstration |
 | codex_installation | NOT_IMPLEMENTED | no Codex installation proof | false | clean-target installation evidence |
-| BOOTMUX_READY | NOT_PROVEN | no V1/V4 marker run | false | end-to-end target and iPhone proof |
+| BOOTMUX_READY | VM_DIRECT_AND_COMPANION_ONLY | docs/evidence/V2_V6_CODEX_PHYSICAL_RETURN_PROGRESS.md | false for physical iPhone return | fresh signed iPhone endpoint, marker observation, selectable copy |
 | continued_post_boot_use | NOT_PROVEN | no post-bootstrap operation evidence | false | repeatable continued-use demonstration |
 
 The V0A public claim is limited to a locally verified target-side Companion Core. It does not imply completion of the physical or Codex bootstrap path.

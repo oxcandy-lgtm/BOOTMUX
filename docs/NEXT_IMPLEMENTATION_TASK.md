@@ -8,13 +8,13 @@ previous_task:
   status: YELLOW_SUBMISSION_READY
   final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
 current_task:
-  task_id: BOOTMUX-V2-V6-INTEGRATED-VM-CODEX-DEMO
-  implementation_status: VM_AND_ADAPTER_LOCALLY_VERIFIED_HUMAN_AUTH_AND_PHYSICAL_RETURN_PENDING
+  task_id: BOOTMUX-V2-V6-R2-CODEX-PHYSICAL-RETURN-CLOSEOUT
+  implementation_status: VM_DIRECT_AND_COMPANION_CODEX_GREEN_PHYSICAL_IPHONE_RETURN_PENDING
   feature_development: REOPENED_ONLY_FOR_V1
   submission_baseline_preserved: true
 next_technical_task:
   task_id: BOOTMUX-V2-V6-PHYSICAL-INTEGRATED-DEMO-RUN
-  status: BLOCKED_PENDING_HUMAN_CODEX_AUTH_AND_PHYSICAL_IPHONE_RETURN
+  status: BLOCKED_PENDING_FRESH_SIGNED_INSTALL_AND_LAN_ENDPOINT_PROBE
 pull_request: 1
 branch: agent/bootstrap-design-roadmap
 ```
