@@ -79,3 +79,37 @@ No GitHub Actions were used, inspected, triggered, or depended upon. GitHub Issu
 
     classification: YELLOW_V2_V6_VM_CODEX_GREEN_PHYSICAL_IPHONE_RETURN_PENDING
     next_owner_action: install_latest_app_and_repeat_local_endpoint_probe
+
+## R3 lifecycle repair and physical attempt
+
+    task_id: BOOTMUX-V2-V6-R3-PHYSICAL-RETURN-CLIENT-LIFECYCLE-FIX
+    implementation_head: 4e155f578926c8016732a094bf29bb47c8e6672a
+    inactive_disconnect_removed: PASS
+    background_disconnect_preserved: PASS
+    failed_reconnect_without_disconnect: PASS
+    clear_feedback_and_state_reset: PASS
+    clear_pending_publish_cancellation: PASS
+    scene_phase_policy_tests: PASS
+    forwarder_diagnostics: PASS
+    physical_signed_build: PASS
+    physical_install: PASS
+    physical_launch: PASS
+    mac_safari_judge: PASS
+    iphone_safari_judge: NOT_REACHABLE
+    iphone_term_on: NOT_PROVEN
+    iphone_bootmux_ready: NOT_PROVEN
+    iphone_copy: NOT_PROVEN
+    physical_clear_acceptance: NOT_PROVEN
+    classification: RED_IPHONE_TO_MAC_NETWORK_REACHABILITY
+
+The code-side lifecycle and recovery contract is locally verified. The Mac
+can reach the forwarder and Judge endpoint, but the iPhone cannot open the
+same Judge endpoint. The iPhone then reports TERM ERROR, so no physical
+WebSocket or Codex return claim is made. The payload-opaque forwarder emitted
+only lifecycle markers; it does not identify which client produced a
+connection, and no peer address is recorded.
+
+The next action is environmental: place the Mac and iPhone on the same
+reachable LAN, confirm Local Network permission, and repeat the Safari Judge
+check. Swift client changes are intentionally paused until that prerequisite
+passes.

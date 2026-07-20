@@ -78,6 +78,13 @@ iOS 17+, and its Settings actions are visually separated into CONNECT,
 DISCONNECT, CLEAR, and SEND rows. This does not upgrade the physical claim
 until a fresh signed install observes BOOTMUX_READY on the iPhone.
 
+R3 lifecycle repair is code-green locally: inactive no longer disconnects,
+failed sessions can reconnect directly, and CLEAR visibly resets output,
+sanitizer, pending publication, and failed state. The latest signed app was
+installed and launched, but Safari on the iPhone could not reach the Mac
+Judge endpoint while Safari on the Mac could. Physical return is therefore
+blocked at the network boundary and remains unclaimed.
+
 ## Current technical boundary
 
 V0A Companion Core is locally verified. The short iPhone-to-BLE transport path and native USB HID ASCII path are observed; the complete V1 keyboard acceptance, mouse support, Codex installation, offline target operation, and continued post-boot operation are not proven by this repository state.
