@@ -1,6 +1,6 @@
 # Claim and Evidence Matrix
 
-Only claims with both evidence and an allowed public copy are publishable. This matrix must remain consistent with [Devpost Copy and Story Draft](DEVPOST_COPY_AND_STORY_DRAFT.md).
+Only claims with both evidence and an allowed public copy are publishable. This matrix and [Canonical Project Story](../PROJECT_STORY.md) are the paired public sources of truth. Submission wrappers such as [Devpost Submission Map](DEVPOST_FINAL_DRAFT.md) must not diverge from them.
 
 | Claim key | Status | Evidence | Public copy allowed | Remaining gate |
 | --- | --- | --- | --- | --- |
