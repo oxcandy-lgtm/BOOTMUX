@@ -556,10 +556,15 @@ static int rx_write_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_ga
     secure_zero(data, sizeof(data)); return 0;
 }
 
+static int tx_notify_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
+    (void)conn_handle; (void)attr_handle; (void)ctxt; (void)arg;
+    return BLE_ATT_ERR_READ_NOT_PERMITTED;
+}
+
 static const struct ble_gatt_svc_def s_services[] = {
     { .type = BLE_GATT_SVC_TYPE_PRIMARY, .uuid = &s_service_uuid.u, .characteristics = (struct ble_gatt_chr_def[]) {
         { .uuid = &s_rx_uuid.u, .access_cb = rx_write_cb, .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_NO_RSP },
-        { .uuid = &s_tx_uuid.u, .val_handle = &s_tx_handle, .flags = BLE_GATT_CHR_F_NOTIFY },
+        { .uuid = &s_tx_uuid.u, .access_cb = tx_notify_cb, .val_handle = &s_tx_handle, .flags = BLE_GATT_CHR_F_NOTIFY },
         { 0 }
     } },
     { 0 }
