@@ -56,3 +56,10 @@ authentication, and `BOOTMUX_RECOVERED` conversation remain physical/runtime
 gates until the S3 is flashed with the new image, reaches `WIFI_ONLINE`, and a
 private endpoint is supplied at runtime. No private endpoint or credential is
 stored here.
+
+The R7D tunnel closure instrumentation uses only temporary connection IDs and
+safe stage/reason markers. In the latest controlled attempt the VM relay
+accepted and connected upstream, while the Mac forwarder failed to connect to
+the S3 endpoint before any S3 accept marker. This leaves the physical
+Mac-to-S3 Wi-Fi proxy boundary unresolved; it does not claim a successful
+HTTPS tunnel or Codex recovery.

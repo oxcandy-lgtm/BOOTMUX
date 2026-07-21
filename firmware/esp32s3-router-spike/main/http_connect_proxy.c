@@ -26,6 +26,7 @@ static TaskHandle_t s_proxy_task;
 static volatile bool s_proxy_stop;
 static int s_listen_fd = -1;
 static int s_client_fd = -1;
+static uint32_t s_connection_id;
 
 static void close_fd(int *fd) {
     if (*fd >= 0) {
@@ -103,26 +104,38 @@ static void relay(int client, int upstream) {
     }
 }
 
-static void handle_client(int client) {
+static void handle_client(int client, uint32_t connection_id) {
     char header[BOOTMUX_PROXY_HEADER_MAX];
     size_t header_length = 0;
     char host[256];
     struct timeval io_timeout = {.tv_sec = BOOTMUX_PROXY_CONNECT_SECONDS, .tv_usec = 0};
     setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &io_timeout, sizeof(io_timeout));
     setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &io_timeout, sizeof(io_timeout));
-    if (!recv_header(client, header, &header_length) || !parse_connect(header, header_length, host, sizeof(host))) {
+    if (!recv_header(client, header, &header_length)) {
+        printf("S3_PROXY_CLOSE id=%lu reason=header_read_failed\n", (unsigned long)connection_id);
         static const char response[] = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n";
         (void)send_all(client, response, sizeof(response) - 1);
         return;
     }
+    printf("S3_PROXY_HEADER_COMPLETE id=%lu bytes=%u\n", (unsigned long)connection_id,
+           (unsigned)header_length);
+    if (!parse_connect(header, header_length, host, sizeof(host))) {
+        printf("S3_PROXY_CLOSE id=%lu reason=connect_parse_failed\n", (unsigned long)connection_id);
+        static const char response[] = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n";
+        (void)send_all(client, response, sizeof(response) - 1);
+        return;
+    }
+    puts("S3_PROXY_CONNECT_PARSE_OK");
     struct addrinfo hints = {.ai_family = AF_INET, .ai_socktype = SOCK_STREAM};
     struct addrinfo *result = NULL;
     if (getaddrinfo(host, "443", &hints, &result) != 0 || !result) {
+        printf("S3_PROXY_CLOSE id=%lu reason=dns_failed\n", (unsigned long)connection_id);
         static const char response[] = "HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n";
         (void)send_all(client, response, sizeof(response) - 1);
         if (result) freeaddrinfo(result);
         return;
     }
+    puts("S3_PROXY_DNS_OK");
     int upstream = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
     if (upstream >= 0) {
         setsockopt(upstream, SOL_SOCKET, SO_RCVTIMEO, &io_timeout, sizeof(io_timeout));
@@ -131,19 +144,24 @@ static void handle_client(int client) {
     bool connected = upstream >= 0 && connect(upstream, result->ai_addr, result->ai_addrlen) == 0;
     freeaddrinfo(result);
     if (!connected) {
+        printf("S3_PROXY_CLOSE id=%lu reason=upstream_connect_failed\n", (unsigned long)connection_id);
         close_fd(&upstream);
         static const char response[] = "HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n";
         (void)send_all(client, response, sizeof(response) - 1);
         return;
     }
+    puts("S3_PROXY_UPSTREAM_CONNECTED");
     static const char established[] = "HTTP/1.1 200 Connection Established\r\n\r\n";
     if (!send_all(client, established, sizeof(established) - 1)) {
+        printf("S3_PROXY_CLOSE id=%lu reason=success_response_failed\n", (unsigned long)connection_id);
         close_fd(&upstream);
         return;
     }
-    puts("BOOTMUX_PROXY_TUNNEL_ESTABLISHED");
+    printf("S3_PROXY_200_SENT id=%lu\n", (unsigned long)connection_id);
+    printf("S3_PROXY_RELAY_START id=%lu\n", (unsigned long)connection_id);
     relay(client, upstream);
     close_fd(&upstream);
+    printf("S3_PROXY_CLOSE id=%lu reason=relay_done\n", (unsigned long)connection_id);
 }
 
 static void proxy_task(void *arg) {
@@ -153,8 +171,16 @@ static void proxy_task(void *arg) {
     int reuse = 1;
     setsockopt(s_listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     struct sockaddr_in local = {.sin_family = AF_INET, .sin_port = htons(BOOTMUX_PROXY_PORT), .sin_addr.s_addr = address};
-    if (bind(s_listen_fd, (struct sockaddr *)&local, sizeof(local)) != 0 || listen(s_listen_fd, BOOTMUX_PROXY_MAX_CLIENTS) != 0) goto done;
+    if (bind(s_listen_fd, (struct sockaddr *)&local, sizeof(local)) != 0) {
+        puts("S3_PROXY_CLOSE reason=bind_failed");
+        goto done;
+    }
+    if (listen(s_listen_fd, BOOTMUX_PROXY_MAX_CLIENTS) != 0) {
+        puts("S3_PROXY_CLOSE reason=listen_failed");
+        goto done;
+    }
     puts("BOOTMUX_PROXY_READY");
+    puts("S3_PROXY_ACCEPT_READY");
     while (!s_proxy_stop) {
         struct timeval timeout = {.tv_sec = 1, .tv_usec = 0};
         fd_set set;
@@ -163,10 +189,12 @@ static void proxy_task(void *arg) {
         if (select(s_listen_fd + 1, &set, NULL, NULL, &timeout) <= 0) continue;
         s_client_fd = accept(s_listen_fd, NULL, NULL);
         if (s_client_fd < 0) continue;
-        puts("BOOTMUX_PROXY_CLIENT_CONNECTED");
-        handle_client(s_client_fd);
+        uint32_t connection_id = ++s_connection_id;
+        printf("S3_PROXY_ACCEPT id=%lu\n", (unsigned long)connection_id);
+        handle_client(s_client_fd, connection_id);
         close_fd(&s_client_fd);
-        puts("BOOTMUX_PROXY_CLIENT_CLOSED");
+        printf("S3_PROXY_CLOSE id=%lu reason=client_done\n", (unsigned long)connection_id);
+        puts("S3_PROXY_ACCEPT_READY");
     }
 done:
     close_fd(&s_client_fd);
