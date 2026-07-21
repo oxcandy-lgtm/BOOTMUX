@@ -105,6 +105,7 @@ struct ContentView: View {
         }
         .onAppear {
             if endpoint.isEmpty { endpoint = lastSuccessfulEndpoint }
+            ble.forgetSavedWiFi()
         }
         .onChange(of: session.state) { _, state in
             if case .connected = state { persistEndpointIfSafe() }
@@ -231,7 +232,7 @@ struct ContentView: View {
                 Section("Terminal") {
                     TextField("WebSocket endpoint", text: $endpoint)
                         .focused($focusedField, equals: .endpoint)
-                        .textInputAutocapitalization(.never)
+                        .textInputAutapitalization(.never)
                         .autocorrectionDisabled()
                     Text("TERM \(session.state.label)")
                         .font(.caption.monospaced())
