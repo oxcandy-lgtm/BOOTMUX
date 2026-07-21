@@ -29,8 +29,10 @@ current Wi-Fi STA address only after `WIFI_ONLINE`; it is stopped on Wi-Fi
 disconnect. Hostnames, URLs, credentials, device codes, and tokens are not
 logged.
 
-BLE status is reported as `BMX1|PROXY_STATUS|session|sequence|STATUS` with
-`PROXY_OFFLINE`, `PROXY_READY`, `PROXY_ACTIVE`, or `PROXY_ERROR`.
+BLE status is reported as `BMX1|PROXY_STATUS|session|sequence|STATUS`.
+The current runtime emits `PROXY_OFFLINE`, `PROXY_READY`, and
+`PROXY_ERROR`; `PROXY_ACTIVE` is reserved in the protocol for a future
+per-tunnel notification and is not claimed as emitted by this implementation.
 
 ## Local proof currently available
 
