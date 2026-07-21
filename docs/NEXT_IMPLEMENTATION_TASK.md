@@ -1,6 +1,6 @@
 # BOOTMUX Current Next Task
 
-This file records the current post-integration task. The previous pre-merge task contract is preserved in Git history and is no longer an instruction for the repository.
+This file records the post-submission state. The previous pre-merge and submission-closeout task contracts are preserved in Git history and are no longer active instructions.
 
 ```yaml
 status_as_of: 2026-07-22_JST
@@ -9,24 +9,29 @@ integration_pr:
   state: MERGED
   merge_commit: 024e384ff60956a5be9abfb45d056d6b2d6ff150
 current_branch_of_record: main
-submission_package: GREEN_WITH_EXTERNAL_CLOSEOUT_PENDING
+submission_package: GREEN_SUBMITTED
+submission_status: COMPLETE_OWNER_CONFIRMED
+public_demo_video: https://www.youtube.com/watch?v=BNWTRxrVM6M
+active_submission_task: NONE
 ```
 
-## Immediate external closeout
+## Judging hold
 
-The repository-side Build Week package is complete. The remaining organizer-facing actions are:
+The Build Week entry has been submitted. Until judging is complete:
 
-1. publish the final narrated video to YouTube;
-2. verify public visibility, duration, narration, and the signed-out link;
-3. place the final video URL in Devpost and the repository submission map;
-4. accept the Devpost terms and confirm the final submission.
+- keep the repository public and the `main` links stable;
+- keep the public YouTube video available;
+- do not remove or rewrite the Judge Mode path;
+- do not publish the private `/feedback` Session ID;
+- preserve the submitted evidence and claim boundaries.
 
-The real `/feedback` Session ID remains private and must not be committed.
+## Deferred next technical task
 
-## Next technical task after submission
+No further implementation is required for the submitted entry. The next optional engineering milestone is deliberately deferred until after submission closeout and rest:
 
 ```yaml
 task_id: BOOTMUX-POST-BUILD-WEEK-PHYSICAL-ACCEPTANCE
+status: DEFERRED_NOT_SUBMISSION_BLOCKING
 scope:
   - repeatable physical BLE and USB HID run
   - physical selectable-copy and exact-paste acceptance
@@ -34,6 +39,7 @@ scope:
   - physical HID Mirror acceptance
   - reproducible evidence receipt
 not_in_scope:
+  - retroactive expansion of the submitted claim
   - production-readiness claim
   - Unicode HID
   - mouse support
