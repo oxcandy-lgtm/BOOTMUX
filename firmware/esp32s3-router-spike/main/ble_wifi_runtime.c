@@ -41,6 +41,7 @@
 #define BMX_WIFI_TIMEOUT_MS 15000
 #define BMX_WIFI_TRIES 3
 #define BMX_WIFI_EVENT_QUEUE 8
+#define BMX_HID_REPORT_TIMEOUT_MS 250
 
 static const char *kDeviceName = "BOOTMUX Bridge";
 static const char *TAG = "bootmux_r7b";
@@ -255,9 +256,18 @@ static void remember_sequence(uint32_t sequence) {
     s_completed[s_completed_index++ % (sizeof(s_completed) / sizeof(s_completed[0]))] = sequence;
 }
 
-static void release_all(void) {
+static bool send_hid_report(const uint8_t report[8]) {
+    const int64_t deadline = (esp_timer_get_time() / 1000) + BMX_HID_REPORT_TIMEOUT_MS;
+    while ((esp_timer_get_time() / 1000) < deadline) {
+        if (tud_hid_ready() && tud_hid_report(0, report, 8)) return true;
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    return false;
+}
+
+static bool release_all(void) {
     uint8_t report[8] = {0};
-    if (tud_hid_ready()) tud_hid_report(0, report, sizeof(report));
+    return send_hid_report(report);
 }
 
 static bool hid_key_for_ascii(char value, uint8_t *key, uint8_t *modifier) {
@@ -320,10 +330,7 @@ static bool type_ascii(const char *text, size_t length) {
         uint8_t report[8] = {0};
         report[0] = modifier;
         report[2] = key;
-        tud_hid_report(0, report, sizeof(report));
-        vTaskDelay(pdMS_TO_TICKS(2));
-        release_all();
-        vTaskDelay(pdMS_TO_TICKS(2));
+        if (!send_hid_report(report) || !release_all()) return false;
     }
     return true;
 }
@@ -345,7 +352,11 @@ static void apply_control(const char *session, uint32_t sequence, const char *co
     else if (strcmp(control, "BACKSPACE") == 0) report[2] = HID_KEY_BACKSPACE;
     else if (strcmp(control, "CTRL_C") == 0) { report[0] = 0x01; report[2] = HID_KEY_C; }
     else { notify_error(sequence, "unknown_control"); return; }
-    if (tud_hid_ready()) { tud_hid_report(0, report, sizeof(report)); vTaskDelay(pdMS_TO_TICKS(2)); release_all(); }
+    if (!send_hid_report(report) || !release_all()) {
+        release_all();
+        notify_error(sequence, "hid_not_ready");
+        return;
+    }
     remember_sequence(sequence); notify_ack(sequence, "APPLIED");
 }
 
