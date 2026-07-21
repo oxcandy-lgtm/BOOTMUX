@@ -1,6 +1,6 @@
 # BOOTMUX Roadmap
 
-This is the current roadmap after the Build Week integration merge. Historical gate plans and intermediate task states remain available in Git history; current public claims are controlled by the [Claim and Evidence Matrix](submission/CLAIM_EVIDENCE_MATRIX.md).
+This is the current roadmap after the Build Week integration merge and final submission. Historical gate plans and intermediate task states remain available in Git history; current public claims are controlled by the [Claim and Evidence Matrix](submission/CLAIM_EVIDENCE_MATRIX.md).
 
 The complete original long-range plan is preserved in [Roadmap Blueprint](ROADMAP_BLUEPRINT.md). That blueprint includes speculative product and research stages and must not be read as current implementation status.
 
@@ -8,6 +8,7 @@ The complete original long-range plan is preserved in [Roadmap Blueprint](ROADMA
 
 ```yaml
 status_as_of: 2026-07-22_JST
+build_week_submission: GREEN_SUBMITTED_OWNER_CONFIRMED
 V0_companion_and_iphone_client:
   status: IMPLEMENTED
 V1_physical_keyboard_path:
@@ -30,15 +31,18 @@ production_ready: false
 
 ## Immediate priority
 
-The Build Week implementation and repository package are complete. The immediate priority is submission closeout rather than feature expansion:
+The Build Week submission is complete. The current priority is a judging hold rather than new feature work:
 
-1. publish and verify the final narrated video;
-2. complete the Devpost submission;
-3. keep the repository, Judge Mode, and video available through judging.
+1. keep the repository, `main` links, Judge Mode, and public video available;
+2. preserve the submitted evidence and claim boundaries;
+3. keep the private `/feedback` Session ID and other private submission data out of the repository;
+4. defer optional engineering until after submission closeout and rest.
+
+Public demo video: https://www.youtube.com/watch?v=BNWTRxrVM6M
 
 ## Post-submission engineering
 
-The next engineering milestone is a reproducible physical acceptance run:
+The next optional engineering milestone is a reproducible physical acceptance run:
 
 ```text
 iPhone committed ASCII
@@ -62,6 +66,8 @@ Acceptance requires:
 - visible CLEAR feedback;
 - physical HID Mirror confirmation;
 - an explicit public-safe repeatability receipt.
+
+This milestone is deferred and is not required for the already submitted Build Week entry.
 
 ## Later product milestones
 
