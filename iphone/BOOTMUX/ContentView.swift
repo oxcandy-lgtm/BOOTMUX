@@ -19,7 +19,7 @@ enum BOOTMUXStatusText {
     }
 
     static func wifi(_ rawValue: String) -> String {
-        "EXPERIMENTAL UPLINK: \(rawValue)"
+        "L11 UPLINK: \(rawValue)"
     }
 }
 
