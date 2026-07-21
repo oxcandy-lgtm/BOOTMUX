@@ -297,6 +297,10 @@ struct ContentView: View {
                         ble.clearWiFi { _ in clearWiFiForm() }
                     }
                     .disabled(!ble.isOpenForWiFi)
+                    Button("FORGET SAVED WI-FI") {
+                        ble.forgetSavedWiFi()
+                        clearWiFiForm()
+                    }
                 }
             }
             .navigationTitle("Settings")

@@ -1,5 +1,63 @@
 import CoreBluetooth
 import Foundation
+import Security
+
+private enum BOOTMUXWiFiKeychain {
+    private static let service = "BOOTMUX.WiFiProvisioning"
+    private static let ssidAccount = "wifi-ssid"
+    private static let passwordAccount = "wifi-password"
+
+    static func save(ssid: String, password: String) {
+        replace(account: ssidAccount, value: ssid)
+        replace(account: passwordAccount, value: password)
+    }
+
+    static func load() -> (ssid: String, password: String)? {
+        guard let ssid = read(account: ssidAccount),
+              let password = read(account: passwordAccount),
+              !ssid.isEmpty, !password.isEmpty else { return nil }
+        return (ssid, password)
+    }
+
+    static func clear() {
+        for account in [ssidAccount, passwordAccount] {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: account
+            ]
+            SecItemDelete(query as CFDictionary)
+        }
+    }
+
+    private static func replace(account: String, value: String) {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(base as CFDictionary)
+        var item = base
+        item[kSecValueData as String] = Data(value.utf8)
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        item[kSecAttrSynchronizable as String] = false
+        SecItemAdd(item as CFDictionary, nil)
+    }
+
+    private static func read(account: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+}
 
 @MainActor
 final class BLEBridgeSession: NSObject, ObservableObject {
@@ -52,6 +110,8 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     private var preserveOpeningError = false
     private var lastNetworkSequence: UInt32 = 0
     private var lastProxyEpoch: UInt32?
+    private var pendingWiFiCredentials: (ssid: String, password: String)?
+    private var attemptedProvisionEpochs = Set<UInt32>()
 
     static func supportsASCIIHIDText(_ text: String) -> Bool {
         text.utf8.allSatisfy { $0 >= 0x20 && $0 <= 0x7e }
@@ -90,6 +150,8 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         proxyEndpoint = nil
         proxyEpoch = nil
         lastProxyEpoch = nil
+        pendingWiFiCredentials = nil
+        attemptedProvisionEpochs.removeAll(keepingCapacity: true)
         wifiStatusMessage = "Wi-Fi credentials cleared locally."
         lastNetworkSequence = 0
         state = .off
@@ -112,6 +174,8 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         proxyEndpoint = nil
         proxyEpoch = nil
         lastProxyEpoch = nil
+        pendingWiFiCredentials = nil
+        attemptedProvisionEpochs.removeAll(keepingCapacity: true)
         state = .error("BLE transport disconnected.")
         statusMessage = "BLE transport disconnected. Tap BLE ON to retry."
         log("transport cleanup complete")
@@ -174,6 +238,7 @@ final class BLEBridgeSession: NSObject, ObservableObject {
             sequence &+= 1
             let maximum = max(20, peripheral.maximumWriteValueLength(for: .withResponse))
             let frames = try BLEChunker(maximumWriteBytes: maximum).wifiFrames(session: sessionID, sequence: sequence, payload: payload)
+            pendingWiFiCredentials = (ssid, password)
             pendingOperation = PendingOperation(session: sessionID, sequence: sequence, kind: .wifiProvision, frames: frames, nextFrame: 0, originalCommand: nil, completion: completion)
             pumpOperation()
         } catch {
@@ -211,6 +276,22 @@ final class BLEBridgeSession: NSObject, ObservableObject {
 
     func clearLocalWiFiCredentials() {
         wifiStatusMessage = "Wi-Fi credentials cleared locally."
+    }
+
+    func forgetSavedWiFi() {
+        BOOTMUXWiFiKeychain.clear()
+        pendingWiFiCredentials = nil
+        wifiStatusMessage = "Saved Wi-Fi credentials forgotten."
+    }
+
+    private func attemptAutoProvisionIfNeeded(epoch: UInt32) {
+        guard state == .on || state == .stopped,
+              pendingOperation == nil,
+              wifiState == .idle || wifiState == .disconnected,
+              attemptedProvisionEpochs.insert(epoch).inserted,
+              let credentials = BOOTMUXWiFiKeychain.load() else { return }
+        log("automatic Wi-Fi provisioning started")
+        provisionWiFi(ssid: credentials.ssid, password: credentials.password)
     }
 
     private func pumpOperation() {
@@ -279,6 +360,7 @@ final class BLEBridgeSession: NSObject, ObservableObject {
             openTimeoutTask = nil
             state = .on
             statusMessage = "BLE connected."
+            attemptAutoProvisionIfNeeded(epoch: proxyEpoch ?? 0)
             return
         }
         guard let operation = pendingOperation, operation.session == ack.session, operation.sequence == ack.sequence else { return }
@@ -317,6 +399,11 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         lastNetworkSequence = event.sequence
         wifiState = event.state
         wifiStatusMessage = event.state.rawValue.replacingOccurrences(of: "_", with: " ")
+        if event.state == .online, let credentials = pendingWiFiCredentials {
+            BOOTMUXWiFiKeychain.save(ssid: credentials.ssid, password: credentials.password)
+            pendingWiFiCredentials = nil
+            wifiStatusMessage = "Wi-Fi online; credentials saved on this device."
+        }
     }
 
     private func handleProxy(_ event: BLEProxyEvent) {
@@ -334,6 +421,9 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         proxyEndpoint = event.endpoint
         proxyEpoch = event.epoch
         log("proxy status: \(event.state.rawValue)")
+        if event.state == .offline || event.state == .error {
+            attemptAutoProvisionIfNeeded(epoch: event.epoch ?? 0)
+        }
     }
 }
 
