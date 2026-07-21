@@ -1,192 +1,112 @@
 # Build Week Status
 
-This is the public-safe operational status for the OpenAI Build Week submission path. `GREEN` means repository evidence exists; human-only gates are not marked green without confirmation.
+This is the public-safe operational status for the OpenAI Build Week submission path. `GREEN` means repository evidence exists. Human-only and organizer-facing actions are not marked complete without explicit confirmation.
 
 ```yaml
-status_as_of: 2026-07-21_JST
+status_as_of: 2026-07-22_JST
+category: DEVELOPER_TOOLS
 submission_sprint:
-  P0_toolchain: GREEN_WITH_DECLARED_LOCAL_LIMITS
-  P1_judge_mode: GREEN
-  P2_iphone_proof: PHYSICAL_BOOTMUX_READY_OBSERVED_COPY_PENDING
-  P3_hardware_bridge: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
-  P4_codex_ready: DIRECT_VM_COMPANION_AND_PHYSICAL_RETURN
-  P5_submission_package: READY_FINAL_VIDEO_AND_SUBMISSION_PENDING
+  toolchain_and_companion: GREEN_WITH_DECLARED_LIMITS
+  no_build_judge_mode: GREEN
+  iphone_client: IMPLEMENTED_PHYSICAL_BOOTMUX_READY_OBSERVED
+  physical_bridge: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
+  codex_ready: CLEAN_VM_AND_PHYSICAL_RETURN_OBSERVED
+  submission_package: READY_PUBLIC_UPLOAD_AND_FINAL_SUBMIT_PENDING
 feature_development: FROZEN_OUTSIDE_SUBMISSION_BLOCKERS
-
-gates:
-  BW0:
-    status: IN_PROGRESS
-    evidence: docs/submission/BUILD_WEEK_STATUS.md
-    remaining_gate: REGISTRATION_AND_TRACK_CONFIRMATION
-
-  BW1:
-    status: GREEN_PUBLIC_EVIDENCE_PRIVATE_RECEIPT
-    primary_codex_thread: CONFIRMED
-    majority_core_work: COMPLETE
-    gpt_5_6_evidence: GREEN_PUBLIC_EVIDENCE_MAPPING
-    feedback_receipt: CAPTURED_PRIVATELY
-    evidence: docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md
-    remaining_gate: PRESERVE_PRIVATE_SESSION_ID_AND_EXPLAIN_BOTH_TOOLS_IN_FINAL_VIDEO
-
-  BW2:
-    status: IMPLEMENTED
-    evidence: docs/submission/BUILD_WEEK_SCOPE_LEDGER.md
-    remaining_gate: FINAL_HUMAN_SCOPE_REVIEW
-
-  BW3:
-    status: IN_PROGRESS_PHYSICAL_USABILITY_AND_REPEATABILITY_PENDING
-    V0A: GREEN
-    V0B: IMPLEMENTED_PHYSICAL_BOOTMUX_READY_OBSERVED
-    V1: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
-    V2: PHYSICAL_RETURN_OBSERVED_COPY_REPEATABILITY_PENDING
-    V3: CLEAN_VM_CODEX_INSTALL_AND_ADAPTER_GREEN
-    V4: PHYSICAL_CODEX_RETURN_OBSERVED
-    HID_MIRROR: CODE_GREEN_PHYSICAL_CONFIRMATION_PENDING
-    evidence: docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md; docs/evidence/V2_V6_CODEX_PHYSICAL_RETURN_PROGRESS.md
-    remaining_gate: SELECTABLE_COPY_CLEAR_HID_MIRROR_AND_REPEATABILITY
-
-  BW4:
-    status: GREEN
-    evidence: standalone offline replay and live Companion /judge mode
-    remaining_gate: none_for_no_rebuild_terminal_demo
-
-  BW5:
-    status: GREEN
-    evidence: LICENSE, README, installation, supported-platform, and judge-test instructions
-    remaining_gate: FINAL_HUMAN_README_AND_LINK_REVIEW
-
-  BW6:
-    status: GREEN_PRIVATE_CAPTURED
-    evidence: owner-confirmed private /feedback receipt; Session ID intentionally excluded from the public repository
-    remaining_gate: ENTER_PRIVATE_SESSION_ID_IN_DEVPOST
-
-  BW7:
-    status: IN_PROGRESS_THREE_EDITED_SEGMENTS_COMPLETE
-    evidence: docs/submission/DEMO_SCRIPT.md; narrated 17.233-second opening; narrated 28.233-second app-design and agent-loop introduction; narrated 36.700-second HID SEND function test
-    completed_duration_seconds: 82.166
-    recommended_final_duration_seconds: 125
-    remaining_recommended_seconds: 42.834
-    remaining_gate: integrated_codex_return_copy_clear_architecture_judge_closeout_final_edit_privacy_review_and_public_upload
-
-  BW8:
-    status: READY_FOR_HUMAN_REVIEW
-    evidence: Devpost drafts, official-rule summary, Codex/GPT-5.6 ledger, demo script, and checklist
-    remaining_gate: RULES_RECHECK_SIGNED_OUT_LINK_CHECK_AND_DEVPOST_DRAFT
-
-  BW9:
-    status: OPEN
-    evidence: final submission has not been confirmed
-    remaining_gate: HUMAN_SUBMISSION_CONFIRMATION
 ```
+
+## Gate status
+
+| Gate | Status | Evidence or remaining action |
+| --- | --- | --- |
+| BW0 — registration and category | GREEN_OWNER_CONFIRMED | Individual entry, Japan, Developer Tools selected in Devpost |
+| BW1 — Codex and GPT-5.6 evidence | GREEN | Public evidence ledger plus private Primary Build Thread receipt |
+| BW2 — scope ledger | GREEN_PUBLIC_LEDGER | Final human claims remain bounded by the claim matrix |
+| BW3 — working implementation | BOUNDED_DEMO_GREEN | Physical bounded ASCII and `BOOTMUX_READY` observed; repeatability and usability gates remain explicit |
+| BW4 — no-build judge path | GREEN | Standalone replay plus packaged/live Companion Judge Mode |
+| BW5 — repository package | GREEN | MIT license, README, setup, supported platforms, and testing path |
+| BW6 — `/feedback` | GREEN_PRIVATE_CAPTURED_AND_ENTERED | Real Session ID intentionally excluded from the public repository |
+| BW7 — narrated demo | FINAL_MASTER_COMPLETE_OWNER_REPORTED | Public YouTube upload, visibility, duration, audio, and signed-out link check remain |
+| BW8 — Devpost fields | READY_FINAL_LINK_REVIEW | Project copy, category, repository, judge instructions, and developer-tool testing path populated |
+| BW9 — final submission | OPEN | Terms acceptance and successful `Submit project` confirmation remain human actions |
 
 ## Competition positioning
 
-BOOTMUX is positioned as:
-
 > **The physical first mile for Codex. Built by Codex. Architected and hardened with GPT-5.6.**
-
-This maps directly to the Build Week requirements:
 
 ```text
 Codex
-  implemented the Go Companion, SwiftUI app, ESP32-S3 firmware,
-  VM harness, Codex adapter, Judge Mode, tests, and repair cycles
+  implemented and repaired the Go Companion, native SwiftUI client,
+  ESP32-S3 firmware, ARM64 VM harness, bounded Codex adapter,
+  Judge Mode, tests, probes, and validation tooling
 
 GPT-5.6
   designed the asymmetric physical-input / observed-output architecture,
-  bounded contracts, adversarial reviews, and public evidence boundaries
+  bounded contracts, adversarial reviews, root-cause repairs,
+  claim boundaries, and submission convergence
 
 Human
-  selected the problem and product direction, performed physical setup,
-  accepted repairs, recorded evidence, and owns the final submission
+  selected the problem and product direction, performed hardware setup,
+  made real-device observations, accepted or rejected repairs,
+  edited the final video, and owns every public claim and submission action
 ```
 
-The central result is recursive but concrete: Codex helped build BOOTMUX, and BOOTMUX then carried a real Codex prompt through the system and returned `BOOTMUX_READY` to the physical iPhone.
-
-## What BOOTMUX is required to prove
-
-For this competition, BOOTMUX does not need to become a complete remote-administration suite. It must present the smallest coherent Developer Tools product that demonstrates:
-
-1. a real problem before normal AI or remote-development access is ready;
-2. physical iPhone → BLE → ESP32-S3 → USB HID input;
-3. independently observed target or Codex output returning through the Companion;
-4. meaningful, specific Codex implementation work;
-5. meaningful, specific GPT-5.6 architecture and verification work;
-6. a runnable no-rebuild judge path;
-7. an honest boundary between demonstrated and future features.
-
-See [OpenAI Build Week Requirements](../OPENAI_BUILD_WEEK.md) for the official-rule mapping.
-
-## Integrated Codex return progress
-
-The real ARM64 Lima VM, official Codex CLI authentication, direct `BOOTMUX_READY` probe, and production Companion `codex_prompt` probe are GREEN locally. The owner also observed the physical iPhone return through the Companion.
-
-The physical claim is limited to the owner-observed bounded ASCII path and `BOOTMUX_READY` return. It does not claim repeatability or production readiness.
-
-Selectable copy, visible CLEAR feedback, physical HID Mirror, and repeatability remain owner-confirmation gates.
-
-## Video production status
-
-Three narrated 16:9 segments are complete locally:
-
-1. **17.233 seconds — opening:** dirty-display problem setup, ESP32-S3 reveal, English narration and subtitles, screen treatment, and `BOOT GPT-5.6` / BOOTMUX title.
-2. **28.233 seconds — app design and agent loop:** subliminal dog flash, app launch, terminal and Codex tab switching, diagnostics/log controls, input UI, and the `CODEX BUILDS → GPT-5.6 REVIEWS → HUMAN TASTE → REPEAT` convergence explanation.
-3. **36.700 seconds — HID SEND function test:** BLE connection, ENTER twice, `hello`, HID SEND, observed physical terminal reflection, separate operation callouts, public-safe redaction, and a BLE batch → ESP32-S3 → USB HID technical card.
-
-The app-design segment is placed directly after the opening, before the HID SEND proof.
-
-Completed duration is **82.166 seconds**. The hard three-minute allowance leaves **97.834 seconds**, but the recommended final master remains approximately **125 seconds**, leaving only **42.834 seconds** of useful remaining footage.
-
-The remaining required footage is:
-
-1. integrated physical Codex `BOOTMUX_READY` return to the iPhone;
-2. COPY/CLEAR acceptance when available;
-3. the asymmetric transport explanation;
-4. short Judge Mode proof;
-5. honest limitations and closing claim.
-
-The explicit Codex / GPT-5.6 / human development-loop explanation is now covered by the completed app-design segment and must survive the final assembly.
+The central result is recursive but concrete: Codex helped build BOOTMUX, and BOOTMUX then carried a real target-side Codex interaction through the demonstrated system and returned `BOOTMUX_READY` to the physical iPhone.
 
 ## Current technical boundary
 
-V0A Companion Core is locally verified. The short iPhone-to-BLE transport path and native USB HID ASCII path are observed, and official Codex installation plus bounded `BOOTMUX_READY` probes are GREEN in the clean ARM64 Lima VM.
+Demonstrated or owner-observed:
 
-The project does not currently claim:
+- Go Companion PTY/WebSocket core;
+- native SwiftUI iPhone implementation;
+- bounded BLE transport and native USB HID ASCII delivery;
+- official Codex CLI installation and bounded probes in a clean ARM64 Lima VM;
+- physical `BOOTMUX_READY` return to the iPhone;
+- standalone, packaged, and live local Judge Mode.
 
-- repeatable full physical operation;
-- selectable copy acceptance;
+Not claimed as complete:
+
+- repeatable production-ready physical operation;
+- physical selectable-copy acceptance;
 - visible CLEAR acceptance;
 - physical HID Mirror acceptance;
-- Unicode HID;
-- mouse support;
+- Unicode HID or mouse support;
 - complete offline target operation;
-- a full terminal emulator;
-- production readiness.
+- full terminal emulation;
+- continued post-bootstrap operation.
 
-## Explicit human and tool-use state
+## Submission closeout
 
 ```yaml
-registration: HUMAN_CONFIRMATION_PENDING
-track: DEVELOPER_TOOLS_INTENDED
-license:
-  status: GREEN_MIT_APPROVED
-  file_added: true
+registration_and_category:
+  status: GREEN_OWNER_CONFIRMED
+  submitter_type: INDIVIDUAL
+  country: JAPAN
+  category: DEVELOPER_TOOLS
 feedback:
   captured_privately: true
+  entered_in_devpost: true
   public_session_id: false
 video:
-  opening_segment_complete: true
-  opening_duration_seconds: 17.233
-  app_design_agent_loop_segment_complete: true
-  app_design_agent_loop_duration_seconds: 28.233
-  hid_send_segment_complete: true
-  hid_send_duration_seconds: 36.700
-  completed_segments: 3
-  completed_duration_seconds: 82.166
-  recommended_final_duration_seconds: 125
-  remaining_recommended_seconds: 42.834
-  final_public_video_complete: false
-  public_upload_complete: false
-github_issues_accessed: false
+  final_master_complete: true
+  completion_source: OWNER_CONFIRMATION
+  public_youtube_upload: PENDING_CONFIRMATION
+  public_visibility_check: PENDING
+  under_three_minutes_check: PENDING_FINAL_VERIFICATION
+  narration_covers_product_codex_and_gpt_5_6: PENDING_FINAL_PLAYBACK_VERIFICATION
+devpost:
+  form_fields_prepared: true
+  terms_accepted: PENDING
+  final_submit_confirmed: false
 github_actions_used: false
+github_issues_used: false
 ```
+
+The remaining submission-critical sequence is:
+
+1. upload the final master to YouTube as **Public**;
+2. verify duration, narration, audio, and visibility in a signed-out browser;
+3. add the final video URL to Devpost and optionally to this repository;
+4. recheck all public links;
+5. accept the rules and terms;
+6. submit and confirm that the Devpost entry is no longer a draft.
