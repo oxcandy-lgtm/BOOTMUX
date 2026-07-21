@@ -33,6 +33,8 @@ def main() -> int:
     errors: list[str] = []
 
     swift = read("iphone/BOOTMUX/BLEProtocol.swift")
+    content_view = read("iphone/BOOTMUX/ContentView.swift")
+    iphone_readme = read("iphone/README.md")
     bridge = read("firmware/esp32s3-bridge/src/main.cpp")
     bridge_readme = read("firmware/esp32s3-bridge/README.md")
     bmx1 = read("docs/protocol/BMX1.md")
@@ -63,6 +65,27 @@ def main() -> int:
         errors,
         'static let txUUID = "7C1B0003-4B4F-4D55-9A01-42584D583101"' in swift,
         "Swift active TX UUID is not the demonstrated core keyboard profile",
+    )
+
+    require(
+        errors,
+        'Section("Network Bridge — Experimental")' in content_view,
+        "iPhone Settings no longer labels router controls experimental",
+    )
+    require(
+        errors,
+        "Router-spike profile required. Disabled in this Build Week core keyboard build." in content_view,
+        "iPhone Settings missing the router-profile boundary warning",
+    )
+    require(
+        errors,
+        re.search(r"var\s+isOpenForWiFi:\s*Bool\s*\{\s*false\s*\}", content_view) is not None,
+        "router mutation controls are not fail-closed in the core iPhone build",
+    )
+    require(
+        errors,
+        "## Experimental router controls" in iphone_readme,
+        "iPhone README missing the experimental router boundary",
     )
 
     for frame in ("BMX1|OPEN", "BMX1|TEXT", "BMX1|CTRL", "BMX1|ACK", "BMX1|ERR"):
