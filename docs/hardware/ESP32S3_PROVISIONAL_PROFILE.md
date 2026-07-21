@@ -1,38 +1,61 @@
 # ESP32-S3 Provisional Hardware Profile
 
-Inventory date: 2026-07-20 (read-only Mac USB inspection)
+This file combines the original read-only USB inventory with the later bounded physical evidence. The exact retail board model remains unresolved; that uncertainty does not erase the later owner-observed native USB HID ASCII path.
+
+## Original read-only inventory — 2026-07-20
 
 ```yaml
 physical_ports:
   - COM
   - USB
-connector_type: USB-C x2
-currently_connected: USB
+connector_type: USB-C_x2
+connected_during_inventory: USB
 exact_board_model: UNRESOLVED
 chip: ESP32-S3
 chip_revision: v0.2
 flash_size: 16MB
 psram: 8MB
-native_usb_enumeration: COMPOSITE_USB_SEEN_HID_NOT_CONFIRMED
-firmware_upload: PASS_COM_SIDE
+native_usb_enumeration_at_inventory: COMPOSITE_USB_SEEN_HID_NOT_CONFIRMED
+firmware_upload_at_inventory: PASS_COM_SIDE
 ```
 
-Observed from the connected USB device, with serial values intentionally omitted:
+The COM-side inventory identified a WCH CH343-class USB-to-UART bridge:
 
 ```yaml
 usb_product_name: USB Single Serial
 usb_vendor_id: "0x1A86"
 usb_product_id: "0x55D3"
 serial_candidate: present_but_not_recorded
-usb_uart_bridge:
-  family: WCH_CH343_class
-  evidence:
-    product: USB Single Serial
-    vid: "0x1A86"
-    pid: "0x55D3"
-  confidence: high
 ```
 
-The current read-only inventory sees the separate USB-side Espressif composite device (VID `0x303A`, PID `0x1001`) but no confirmed HID keyboard interface. No COM device is currently available for the R3 descriptor build, so that build has not been flashed. The COM-side WCH CH343-class inventory remains recorded above as the expected upload role. RGB LED observation remains human-reported as blinking.
+The separate USB-side Espressif composite device was seen during that inventory, but the read-only snapshot did not by itself prove a HID keyboard interface. A local flash-backup attempt stalled after chip detection and was stopped; no backup artifact is treated as valid.
 
-The read-only chip and flash probes identified ESP32-S3 revision v0.2, 16MB flash, and 8MB PSRAM. A local flash backup was attempted before the earlier V1 write but esptool stalled after chip detection; the attempt was stopped and no backup artifact is treated as valid. Bluetooth addresses, USB serial numbers, private hostnames, and account data are intentionally excluded. Exact board model, connector mapping, native USB HID enumeration, and real BLE measurements remain unresolved until the board marking and both physical connectors are verified.
+## Later reconciliation
+
+```yaml
+firmware_build: PASS
+firmware_upload: PASS
+ble_open_and_short_operation: OWNER_OBSERVED
+native_usb_hid_ascii_delivery: OWNER_OBSERVED_BOUNDED_PATH
+physical_BOOTMUX_READY_return: OWNER_OBSERVED_SEPARATE_RETURN_PATH
+exact_board_model: UNRESOLVED
+full_control_acceptance: PENDING
+reconnect_and_repeatability: PENDING
+production_ready: false
+```
+
+The later physical evidence is recorded in:
+
+- [`../evidence/V1_PHYSICAL_KEYBOARD_PATH.md`](../evidence/V1_PHYSICAL_KEYBOARD_PATH.md)
+- [`../evidence/V2_V6_CODEX_PHYSICAL_RETURN_PROGRESS.md`](../evidence/V2_V6_CODEX_PHYSICAL_RETURN_PROGRESS.md)
+- [`../submission/CLAIM_EVIDENCE_MATRIX.md`](../submission/CLAIM_EVIDENCE_MATRIX.md)
+
+## Port and evidence boundary
+
+- use the board's COM connector for the documented upload/debug role;
+- use the native USB connector for the target-side USB HID path;
+- the exact connector mapping must still be checked on an unfamiliar replacement board;
+- an upload log or USB enumeration alone is not physical target-output evidence;
+- the public claim remains printable ASCII only, with no mouse, Unicode HID, full controls, or repeatability claim.
+
+Bluetooth addresses, USB serial numbers, local paths, hostnames, credentials, and account data are intentionally excluded.
