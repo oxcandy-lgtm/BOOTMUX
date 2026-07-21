@@ -1,21 +1,24 @@
 # BMX1 BLE Protocol
 
-BMX1 is the bounded, ASCII-framed BLE protocol shared by the iPhone client and BOOTMUX ESP32-S3 firmware.
+BMX1 is the bounded, ASCII-framed BLE protocol used by BOOTMUX firmware and the iPhone client.
 
-The **core keyboard profile** is used by `firmware/esp32s3-bridge/`. The independent `firmware/esp32s3-router-spike/` preserves the core profile and adds experimental Wi-Fi and proxy messages. Those network extensions are not part of the Build Week physical-input claim.
+The repository contains two deliberately separate GATT profiles:
 
-## GATT contract
+1. the **core keyboard profile** used by the Build Week physical-input claim;
+2. an **experimental router profile** used only by `firmware/esp32s3-router-spike/`.
+
+They share frame semantics but do not currently share the same RX/TX characteristic UUIDs. The Build Week iPhone connection targets the core keyboard profile. Experimental network routing is not part of the submitted physical-input claim.
+
+## Core keyboard GATT profile
 
 ```yaml
-device_names:
-  keyboard_bridge: BOOTMUX Keyboard
-  router_spike: BOOTMUX Bridge
+device_name: BOOTMUX Keyboard
 service_uuid: 7c1b0001-4b4f-4d55-9a01-42584d583101
-rx_write_uuid: 7c1b0002-4b4f-4d55-9a01-42584d583102
-tx_notify_uuid: 7c1b0003-4b4f-4d55-9a01-42584d583103
+rx_write_uuid: 7c1b0002-4b4f-4d55-9a01-42584d583101
+tx_notify_uuid: 7c1b0003-4b4f-4d55-9a01-42584d583101
+implementation: firmware/esp32s3-bridge
+client: iphone/BOOTMUX/BLEProtocol.swift
 ```
-
-The iPhone writes frames to RX and receives acknowledgements, errors, and optional network state through TX notifications.
 
 ## Core keyboard frames
 
@@ -57,16 +60,25 @@ keyboard_layout: US_ANSI_QWERTY
 ```
 
 - `OPEN` installs a fresh session and returns `OPENED` only after it is accepted.
-- A `(session, sequence)` that was already completed returns `DUPLICATE` and is not applied twice.
+- A completed `(session, sequence)` returns `DUPLICATE` and is not applied twice.
 - Incomplete reassembly is discarded on timeout, disconnect, or replacement by a different operation.
 - `STOP` releases all keys, clears pending data, latches output disabled, and returns `STOPPED`.
 - `RESUME` releases all keys, clears the stop latch, and returns `RESUMED`.
 - Parser, disconnect, and control paths return the keyboard toward a neutral report.
 - A BLE acknowledgement is not independently observed target output.
 
-## Experimental router extensions
+## Experimental router GATT profile
 
-The router spike adds these request frames:
+```yaml
+device_name: BOOTMUX Bridge
+service_uuid: 7c1b0001-4b4f-4d55-9a01-42584d583101
+rx_write_uuid: 7c1b0002-4b4f-4d55-9a01-42584d583102
+tx_notify_uuid: 7c1b0003-4b4f-4d55-9a01-42584d583103
+implementation: firmware/esp32s3-router-spike
+status: EXPERIMENTAL_NOT_BUILD_WEEK_CORE_PATH
+```
+
+The router spike preserves core frame semantics and adds:
 
 ```text
 BMX1|WIFI|<session>|<sequence>|<part>|<total>|<base64-json>
@@ -105,8 +117,8 @@ maximum_attempts: 3
 storage: RAM_ONLY
 ```
 
-Credentials are base64 transport payloads, not encryption. They must travel only over the operator-controlled local BLE link, remain in bounded transient buffers on the spike, and never appear in source, logs, fixtures, screenshots, recordings, or public evidence.
+Credentials are base64 transport payloads, not encryption. They must remain on the operator-controlled local BLE path, use bounded transient buffers, and never appear in source, logs, fixtures, screenshots, recordings, or public evidence.
 
 ## Claim boundary
 
-The Build Week public claim uses the core keyboard profile only. Wi-Fi provisioning, USB Ethernet, CONNECT proxying, and complete recovery routing remain experimental and must not be inferred from the bounded BLE-to-USB-HID evidence.
+The Build Week public claim uses the core keyboard profile only. Wi-Fi provisioning, USB Ethernet, CONNECT proxying, and complete recovery routing remain experimental. A future product may unify or negotiate profiles only after explicit compatibility tests and a versioned migration contract.
