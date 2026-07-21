@@ -1,267 +1,177 @@
 # BOOTMUX
 
-**BOOTMUX creates the first physical and software path for AI into a computer that is not ready to run AI yet.**
+**The physical first mile for Codex.**
 
-It combines an iPhone, an ESP32-S3, USB HID, BLE, a terminal bridge, and a target-side Codex runtime.
+> Built by Codex. Architected and hardened with GPT-5.6. Proven through human-operated hardware.
 
-> The first path for AI into any computer.
+BOOTMUX gives an iPhone a bounded physical path into a computer before the normal AI, SSH, or remote-development path is ready. Committed text travels through Bluetooth Low Energy and an ESP32-S3 that appears to the target as a native USB HID keyboard. Independently observed terminal and Codex output returns through a target-side Companion to the iPhone.
 
-## Project Story
+## Quick judge test — no build required
 
-Read the canonical [BOOTMUX Project Story](docs/PROJECT_STORY.md) for the problem, demonstrated system, Codex + GPT-5.6 development loop, challenges, evidence boundary, and next steps.
+1. Download or clone this repository.
+2. Open [`judge/index.html`](judge/index.html) directly in a modern browser.
+3. Select **Replay BOOTMUX_READY**.
+4. Confirm that the observed terminal text is selectable and copyable using native browser behavior.
 
-## What BOOTMUX Does
+The standalone replay requires no account, credential, network connection, private endpoint, executable, or hardware. It demonstrates the terminal, session, selection, and copy experience; it does **not** claim to reproduce the physical BLE or USB HID path.
 
-BOOTMUX provides a target-side PTY Companion and a native iPhone terminal client for bootstrapping work on a computer that is not ready to run AI. The current submission slice proves a local WebSocket terminal, a bounded physical ASCII keyboard path, physical `BOOTMUX_READY` return, and a no-rebuild Judge Mode. Copy confirmation, visible CLEAR feedback, and repeatability remain explicitly pending.
+For the packaged macOS arm64 and live Companion paths, follow [Judge Mode instructions](judge/README.md).
 
-Working now:
+## What was demonstrated
 
-- Companion PTY and versioned WebSocket terminal;
-- dependency-free native SwiftUI iPhone terminal client implementation;
-- bounded, selectable terminal output with copy controls;
-- offline standalone Judge Replay Mode;
-- live local Judge Mode through the Companion.
+| Slice | Current evidence boundary |
+| --- | --- |
+| Companion | Go PTY/WebSocket terminal core with bounded queues, batching, cleanup, and fail-closed behavior |
+| iPhone client | Native SwiftUI/CoreBluetooth implementation for BLE input and bounded terminal output |
+| Physical input | Owner-observed bounded ASCII path: iPhone → BLE → ESP32-S3 → native USB HID → target |
+| Codex return | A real target-side Codex prompt returned the exact marker `BOOTMUX_READY` to the iPhone |
+| Clean target | Official Codex CLI installation and bounded probes passed in a clean ARM64 Lima VM |
+| Judge path | Standalone offline replay plus packaged and live local Judge Mode |
 
-In progress or hardware-dependent:
+The canonical public narrative is [BOOTMUX Project Story](docs/PROJECT_STORY.md). Exact claim boundaries are maintained in the [Claim and Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
 
-- repeatable physical BLE-to-ESP32-S3 keyboard operation;
-- selectable-copy and CLEAR-feedback owner confirmation;
-- continued post-bootstrap operation and full hardware loop.
+## Why BOOTMUX exists
 
-## Current build target — Hackathon V1
+When a target computer is new, damaged, offline from the normal development path, or not yet configured, the usual advice—install a tool, open SSH, paste a command—may be impossible to follow. BOOTMUX is designed for that earlier bootstrap moment.
 
-The immediate target is intentionally narrow:
-
-1. enter keyboard text from an iPhone through BLE and ESP32-S3 USB HID;
-2. install and reach Codex in a clean target environment;
-3. return live terminal text to the iPhone and make it selectable and copyable.
-
-```text
-Input:
-iPhone
-→ BLE
-→ ESP32-S3
-→ USB HID keyboard
-→ target
-
-Output:
-target PTY
-→ BOOTMUX Companion
-→ local WebSocket
-→ iPhone terminal view
-```
-
-The asymmetric return path is deliberate. Full terminal return through USB and ESP32-S3 is deferred to V1.1 so the first end-to-end proof remains small and repeatable.
-
-The final V1 demonstration asks Codex to return:
-
-```text
-BOOTMUX_READY
-```
-
-V1 is complete when that marker reaches the iPhone and can be selected, copied, and pasted using native iOS behavior.
-
-Read [Hackathon V1](docs/HACKATHON_V1.md) for the exact boundary and [Roadmap](docs/ROADMAP.md) for the V0–V4 implementation gates.
-
-## OpenAI Build Week compliance
-
-BOOTMUX treats submission compliance as a parallel delivery path rather than a final checklist.
-
-```text
-Technical gates:
-V0 → V1 → V2 → V3 → V4
-
-Submission gates:
-BW0 → BW1 → BW2 → BW3 → BW4 → BW5 → BW6 → BW7 → BW8 → BW9
-```
-
-The official-source summary is maintained in [OpenAI Build Week Requirements](docs/OPENAI_BUILD_WEEK.md). The executable submission sequence is maintained in the [Build Week Submission Roadmap](docs/BUILD_WEEK_SUBMISSION_ROADMAP.md).
-
-Mandatory submission evidence includes:
-
-- meaningful Codex and GPT-5.6 use;
-- a `/feedback` Session ID from the primary Codex build thread;
-- a public YouTube demo of three minutes or less with voice narration;
-- setup, supported-platform, and judge-test instructions;
-- a public repository with relevant licensing, or the required private judge sharing;
-- explicit separation of pre-existing work and Submission Period work.
-
-The `/feedback` Session ID has been captured privately and is intentionally not published in this repository. Remaining submission blockers are registration confirmation, completion and public upload of the narrated video, and final human submission review. Two narrated segments totaling 53.933 seconds are complete locally, but the final public master is not complete. The no-rebuild Judge Mode and MIT license are GREEN.
-
-## V1 implementation strategy
-
-Hackathon V1 minimizes code, dependencies, and runtime layers.
-
-- prefer platform-native phone capabilities;
-- use the vendor-supported embedded stack for BLE and USB HID;
-- deploy Companion as one small executable or equivalent minimal bundle;
-- send committed command text in batches instead of one BLE transaction per character;
-- send terminal output in bounded batches instead of one frame per byte;
-- use selectable plain text instead of a complete terminal emulator;
-- prefer a bounded one-shot Codex invocation for the final connectivity proof;
-- prefer the smallest supported official Codex distribution;
-- keep initial protocols readable and versioned;
-- defer compression, advanced codecs, local models, and research transports until measurements justify them.
-
-The public architecture names capabilities rather than optional third-party packages. Concrete implementation dependencies may be selected later, pinned in build metadata, and disclosed in attribution files.
-
-## Project status
-
-V0A is GREEN. The V0B UI launch canvas is physically confirmed. The bounded physical ASCII BLE/USB-HID path and physical `BOOTMUX_READY` return are owner-observed; selectable copy, visible CLEAR feedback, physical HID Mirror, and repeatability remain pending. The VM harness and bounded Codex adapter are implemented and locally verified in a real ARM64 Lima VM: clean recreation, network egress, Companion tests/race/vet/build, live Judge Mode, and official Codex CLI installation pass. Judge Mode is GREEN; production readiness is not claimed.
-
-The V0B iPhone implementation is present under `iphone/`. Its launch canvas and full-screen safe-area behavior were physically confirmed on the validation iPhone. The BLE transport receipt is recorded separately from the remaining V1 acceptance cases.
-
-No runtime, hardware, benchmark, novelty, or Build Week compliance claim is considered complete until reproducible evidence exists.
-
-## Build Week Scope
-
-The current Build Week delivery spine is documented in [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md), [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md), and [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md). The integrated demo is ready for repeatability and owner usability confirmation. The private `/feedback` receipt is captured; the remaining submission work is the rest of the demo recording, final narrated edit and upload, registration confirmation, and final human review.
-
-## Current Working Demo
-
-For a no-rebuild offline replay, open [`judge/index.html`](judge/index.html) directly and select **Replay BOOTMUX_READY**, then use native browser selection and copy. For a live local PTY demo, run the packaged [Judge Mode](judge/README.md) or open `http://127.0.0.1:8765/judge` after starting the Companion. These paths do not prove BLE or USB HID.
-
-If macOS Gatekeeper blocks the packaged launcher, first try right-click → Open. The fully offline `judge/index.html` path requires no executable.
-
-## How Codex Was Used
-
-Codex was the implementation and execution engine for the Go Companion, native SwiftUI client, ESP32-S3 firmware, ARM64 VM harness, bounded Codex adapter, Judge Mode, tests, and repair cycles. It read and modified the repository, ran builds and probes, and returned concrete outputs for review.
-
-The Primary Build Thread is confirmed and its `/feedback` Session ID has been captured privately. The public repository records the resulting code, tests, repair history, and claim boundary; no real `/feedback` Session ID is published here.
-
-## How GPT-5.6 Was Used
-
-GPT-5.6 was the architecture, adversarial review, and convergence layer. It converted human product intent into bounded contracts, separated physical input from independently observed output, constrained scope, reviewed lifecycle and overflow behavior, identified the BLE queue ownership hazard, audited the HID Mirror path binding, and protected the distinction between code-green and physically proven claims.
-
-Concrete results and commit mappings are recorded in [Codex and GPT-5.6 Evidence Ledger](docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md).
-
-## Rapid Codex + GPT-5.6 Development Loop
-
-BOOTMUX was not generated in one prompt. It was developed through a repeated loop aimed at a declared END condition:
-
-```text
-Human product goal and END condition
-↓
-GPT-5.6 decomposition, contracts, risk analysis, and scope control
-↓
-Codex implementation, execution, tests, and evidence return
-↓
-GPT-5.6 review of code, failures, and proof boundaries
-↓
-Bounded FIX instructions returned to Codex
-↓
-Codex repair and re-validation
-↓
-Human physical acceptance or an explicit unresolved gate
-```
-
-This loop helped one human builder coordinate Go, SwiftUI, CoreBluetooth, ESP32-S3 firmware, BLE, USB HID, PTY/WebSocket behavior, an ARM64 VM, the official Codex CLI, Judge Mode, evidence, and video preparation inside the Build Week period.
-
-The acceleration claim is not that AI generated the most code or that an exact number of hours was independently measured. The claim is that Codex implementation velocity, GPT-5.6 review pressure, and human scope control repeatedly reduced the distance from an ambiguous idea to a working, evidenced, submit-ready product.
-
-The loop continued past the first successful demo into lifecycle repair, physical acceptance, Judge Mode, licensing, README evidence, privacy review, narration, and submission closeout. This directly addresses the common AI-development failure mode where a project reaches a convincing first 80 percent but never closes packaging, proof, and delivery.
-
-Read [Codex + GPT-5.6 Development Loop](docs/submission/CODEX_GPT56_DEVELOPMENT_LOOP.md) for the full public-safe method and concrete repair examples.
-
-## Human Decisions
-
-Human decisions set the product direction, selected the V0A scope, retained the iPhone/BLE/ESP32-S3 roadmap boundary, declared the END condition, accepted or rejected implementation fixes, performed physical setup and observation, and remain responsible for registration, final claims, the completed submission video, and final submission.
-
-## Third-Party and Pre-Existing Work
-
-The [Build Week Scope Ledger](docs/submission/BUILD_WEEK_SCOPE_LEDGER.md) records repository work as Submission Period work unless private pre-existing material is later confirmed by the owner. The repository is MIT licensed; third-party dependencies remain listed in their module metadata and no external iPhone runtime dependency is used.
-
-## Installation
-
-V0A is a local development Companion proof and is not yet a packaged cross-platform installation. See `companion/README.md` for the current local build and probe commands.
-
-For the V0B app, open `iphone/BOOTMUX.xcodeproj` in Xcode with an iOS SDK. Start the Companion on a trusted local network with `go run . -addr 0.0.0.0:8765 -allow-remote`, then enter the resulting `ws://<trusted-local-host>:8765/v1/terminal` endpoint in the app. For Judge Mode, use the prebuilt package under `dist/bootmux-judge-macos-arm64/` or open `judge/index.html` directly. No signing material or external iPhone runtime dependency is committed.
-
-## Supported Platforms
-
-The verified V0A environment is the declared Unix-like local target used by the Companion tests. V0B targets iOS 17 or later and its launch canvas plus physical terminal path have been owner-observed. ESP32-S3 firmware and BLE protocol support are implemented; the observed physical path is bounded ASCII only and is not a claim of Unicode HID, mouse support, or production readiness.
-
-## Judge Test Mode
-
-Judge Mode is available without rebuilding: standalone replay works offline, and live mode is served at `/judge` by the loopback Companion. It demonstrates terminal, session, and native-copy behavior; it does not prove the physical BLE or USB HID path.
-
-## How to Run the iPhone Demo
-
-Open `iphone/BOOTMUX.xcodeproj` in Xcode, build for an available iOS Simulator or a locally signed device, start the Companion on a trusted local network, enter its versioned WebSocket endpoint, and run `echo BOOTMUX_V0`. The physical `BOOTMUX_READY` return is owner-observed; selectable copy, CLEAR feedback, physical HID Mirror, and repeatability remain pending in the claim matrix.
-
-## How to Run the Hardware Demo
-
-The hardware demo remains a bounded V1 keyboard path. The current evidence separately records the launch canvas, BLE transport, native USB HID ASCII delivery, and physical `BOOTMUX_READY` return; the remaining usability and repeatability cases are tracked in the [Claim Evidence Matrix](docs/submission/CLAIM_EVIDENCE_MATRIX.md).
+It is intentionally **not just an SSH client**. SSH assumes the target is already reachable and configured. BOOTMUX begins with a physical keyboard interface the target already understands.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    A[iPhone app] <-->|BLE GATT| B[ESP32-S3]
-    B <-->|USB HID + future data channel| C[Target computer]
-    C <-->|PTY and structured events| D[BOOTMUX Companion]
-    D <-->|After bootstrap| F[Codex on target]
+BOOTMUX separates sent input from independently observed output so a successful bridge acknowledgement is never mistaken for proof that the target processed a command.
+
+```text
+Physical input:
+iPhone
+→ Bluetooth Low Energy
+→ ESP32-S3
+→ native USB HID keyboard
+→ target computer
+
+Observed return:
+target PTY / Codex
+→ BOOTMUX Companion
+→ local WebSocket
+→ iPhone terminal
 ```
 
-The long-term system advances through three stages:
+```mermaid
+flowchart LR
+    A[iPhone app] -->|BLE committed text| B[ESP32-S3]
+    B -->|Native USB HID keyboard| C[Target computer]
+    C -->|PTY and observed output| D[BOOTMUX Companion]
+    D -->|Local WebSocket| A
+    C --> E[Official Codex CLI]
+```
 
-1. **Input path:** ESP32-S3 appears as a USB mouse and keyboard.
-2. **Terminal path:** BOOTMUX Companion opens a live PTY and returns stdout, stderr, and exit status.
-3. **Agent path:** Codex is installed on the target and takes over repository-scale work.
+## Repository map
 
-Hackathon V1 proves only the smallest keyboard, Codex, and copyable-terminal slice of that architecture.
+| Path | Purpose |
+| --- | --- |
+| [`iphone/`](iphone/) | Native iOS 17+ SwiftUI and CoreBluetooth client |
+| [`firmware/esp32s3-bridge/`](firmware/esp32s3-bridge/) | Bounded BLE-to-native-USB-HID bridge firmware |
+| [`companion/`](companion/) | Go PTY/WebSocket Companion and bounded Codex adapter |
+| [`vm/`](vm/) | Clean ARM64 Lima VM creation, provisioning, and demo harness |
+| [`judge/`](judge/) | No-build offline Judge Replay |
+| [`dist/bootmux-judge-macos-arm64/`](dist/bootmux-judge-macos-arm64/) | Packaged macOS arm64 Judge Mode |
+| [`docs/evidence/`](docs/evidence/) | Public-safe technical and physical evidence records |
+| [`docs/submission/`](docs/submission/) | Build Week scope, claims, tool-use evidence, and submission records |
 
-## Future product surfaces
+## Run the live Companion
 
-- **PAD:** full-screen trackpad with a collapsible system keyboard.
-- **TERMINAL:** selectable live terminal with an embedded AI diagnosis panel.
-- **AI:** conversation, runtime selection, approvals, and recovery status.
-- **BRIDGE:** ESP32-S3 firmware for BLE, USB HID, transport switching, and compact state storage.
-- **COMPANION:** target-side PTY bridge and structured executor.
-- **CAPSULE:** redacted state, proposed action, evidence, and resume data.
+Requirements: a Unix-like environment and Go.
 
-These surfaces are not all required for Hackathon V1.
+```sh
+cd companion
+go test ./...
+go run . -addr 127.0.0.1:8765
+```
 
-## SAI-originated research program
+Then open:
 
-BOOTMUX includes an experimental lightweight recovery architecture proposed by **SAI (宰)** during project design.
+```text
+http://127.0.0.1:8765/judge
+```
 
-Its central thesis is:
+Choose **Connect live Companion**. The listener is loopback-only by default. Non-loopback binding requires the explicit `-allow-remote` flag and a trusted external network boundary.
 
-> **Convert machine uncertainty into the smallest safe set of proof-bearing observations and executions required to advance recovery.**
+More details: [Companion README](companion/README.md) and [protocol documentation](docs/COMPANION_PROTOCOL_V1.md).
 
-The research program includes EPOCHROOT, TTYRETINA, Proof Frontier Execution, SYNDROMUX, SYNDCOMP, VOIDCODE, CAUSALCLOCK, STRATAROOT, ROOTFIT, and effect-bounded experiment mechanisms.
+## Run the iPhone client
 
-These are documented research hypotheses, not completed V1 dependencies and not claims that every underlying foundation was invented by BOOTMUX.
+Requirements: Xcode with an iOS SDK and iOS 17 or later.
 
-Read [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md) and the independent [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md). Research work begins after V1 or in isolated fixtures that cannot delay V0–V4 or BW0–BW9.
+1. Open `iphone/BOOTMUX.xcodeproj`.
+2. Build for an available simulator or locally signed device.
+3. Start the Companion on a trusted local network when using the live terminal path.
+4. Enter the versioned WebSocket endpoint in the app.
 
-## Security and Privacy Notes
+The physical bridge additionally requires an ESP32-S3 board with native USB device support and the firmware under `firmware/esp32s3-bridge/`.
 
-BOOTMUX does not grant an AI unrestricted shell access.
+## How Codex was used
 
-For Hackathon V1:
+Codex was the implementation and execution engine. It implemented and repaired the Go Companion, native SwiftUI client, ESP32-S3 firmware, ARM64 VM harness, bounded Codex adapter, Judge Mode, tests, probes, and validation tooling. It operated on the real repository, ran builds and tests, inspected concrete failures, and returned evidence for review.
 
-- authentication remains user-controlled;
-- no credential is included in fixtures, logs, or recordings;
-- terminal output is bounded;
-- sent HID input is not presented as verified target output;
-- failures remain visible and cannot become false completion claims;
-- the WebSocket return path is described honestly as a development path;
-- the real `/feedback` Session ID remains outside the public repository by default.
+The Primary Build Thread was confirmed and its `/feedback` Session ID was captured privately. The real ID is intentionally not stored in this public repository.
 
-For the full architecture, a deterministic policy gate, structured execution, explicit approval, evidence verification, and abstention remain part of the post-V1 roadmap.
+## How GPT-5.6 was used
 
-See [Project Story](docs/PROJECT_STORY.md), [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), [Roadmap](docs/ROADMAP.md), [OpenAI Build Week Requirements](docs/OPENAI_BUILD_WEEK.md), [Build Week Submission Roadmap](docs/BUILD_WEEK_SUBMISSION_ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
+GPT-5.6 was the architecture, adversarial-review, and convergence layer. It converted the human product goal into bounded contracts, separated physical input from independently observed output, constrained scope, reviewed lifecycle and overflow behavior, identified the BLE queue-ownership hazard, audited HID Mirror path binding, and protected the distinction between code-green and physically proven claims.
 
-## Known Limitations
+The repeated development loop was:
 
-The current submission slice does not claim repeatable physical operation, complete Unicode HID, mouse support, background operation, a full terminal emulator, or production readiness. Codex installation is GREEN in the clean ARM64 VM, while continued post-bootstrap operation and owner confirmation of copy/CLEAR/HID-Mirror/repeatability remain open. These are tracked as claims rather than implied by Judge Mode.
+```text
+Human goal and END condition
+→ GPT-5.6 decomposition, contracts, risk review, and scope control
+→ Codex implementation, execution, tests, and evidence
+→ GPT-5.6 review of code, failures, and proof boundaries
+→ bounded repair instructions
+→ Codex repair and re-validation
+→ human physical acceptance or an explicit unresolved gate
+```
 
-## Repository policy
+Concrete examples and commit mappings are recorded in the [Codex and GPT-5.6 Evidence Ledger](docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md).
 
-This public repository must not contain credentials, personal contact information, private infrastructure names, local absolute paths, raw production logs, private network addresses, device identifiers, or private submission credentials. Use synthetic examples and placeholders in all documentation, tests, fixtures, screenshots, and demos.
+## Supported platforms
+
+- **Standalone Judge Replay:** modern browser on macOS, Windows, or Linux
+- **Packaged Judge Mode:** macOS arm64
+- **Companion development path:** verified Unix-like environment and clean ARM64 Lima VM
+- **iPhone client:** iOS 17 or later
+- **Physical bridge:** ESP32-S3 with BLE and native USB HID keyboard support
+
+## Evidence boundary
+
+Demonstrated or owner-observed in the Build Week slice:
+
+- Go PTY/WebSocket Companion;
+- native SwiftUI iPhone implementation;
+- bounded BLE transport and native USB HID ASCII delivery;
+- official Codex installation and bounded probes in a clean ARM64 VM;
+- physical `BOOTMUX_READY` return to the iPhone;
+- standalone and packaged Judge Mode.
+
+Not claimed as complete:
+
+- production-ready or repeatable physical operation;
+- Unicode HID or mouse support;
+- full terminal emulation;
+- completely offline target operation;
+- continued post-bootstrap operation;
+- physical selectable-copy, visible CLEAR, or HID Mirror acceptance until owner-confirmed.
+
+## Build Week submission state
+
+The narrated demo master is complete. The Developer Tools form, private `/feedback` receipt, MIT license, setup instructions, supported-platform details, and no-build judge path are prepared. Public video upload/link verification and the final Devpost submit confirmation remain organizer-facing actions and are not represented as completed by this repository.
+
+See [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md) and [Final Checklist](docs/submission/FINAL_CHECKLIST.md) for the public-safe closeout state.
+
+## Security and privacy
+
+Do not commit credentials, private endpoints, signing material, device identifiers, local account paths, or the real `/feedback` Session ID. Local Wi-Fi credentials remain outside the repository under the documented [local secret contract](docs/evidence/LOCAL_WIFI_SECRET.md).
+
+See [Security Policy](SECURITY.md) and [Publication Safety](docs/PUBLICATION_SAFETY.md).
 
 ## License
 
-BOOTMUX is released under the [MIT License](LICENSE).
+BOOTMUX is available under the [MIT License](LICENSE).
