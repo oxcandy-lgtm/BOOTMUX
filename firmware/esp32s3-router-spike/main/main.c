@@ -31,7 +31,7 @@ static void on_usb_network_ready(void *context) {
 }
 
 static void send_ascii_probe(void) {
-    uint8_t report[6] = {0};
+    uint8_t report[8] = {0};
     report[2] = HID_KEY_B;
     tud_hid_report(0, report, sizeof(report));
     vTaskDelay(pdMS_TO_TICKS(10));
