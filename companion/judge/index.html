@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BOOTMUX Judge Mode</title>
+  <style>
+    :root { color-scheme: dark; font: 16px system-ui, sans-serif; }
+    body { max-width: 900px; margin: 0 auto; padding: 24px; background: #111827; color: #e5e7eb; }
+    h1 { margin-bottom: 4px; } .muted { color: #9ca3af; }
+    #terminal { min-height: 260px; padding: 16px; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #4b5563; border-radius: 8px; background: #030712; font: 15px ui-monospace, monospace; user-select: text; }
+    button, input { margin: 6px 6px 6px 0; padding: 9px 12px; border-radius: 6px; border: 1px solid #6b7280; background: #1f2937; color: inherit; }
+    input { min-width: min(560px, 90%); } button { cursor: pointer; }
+    .notice { border-left: 4px solid #f59e0b; padding: 8px 12px; background: #1f2937; }
+  </style>
+</head>
+<body>
+  <h1>BOOTMUX Judge Mode</h1>
+  <p class="muted">A no-rebuild terminal-and-copy demonstration.</p>
+  <p class="notice">Judge Mode demonstrates the terminal, session, and native-copy experience. It does not claim to prove the physical BLE or USB HID path.</p>
+  <p id="status" class="muted">Offline replay ready.</p>
+  <div id="terminal" tabindex="0" aria-label="Selectable terminal output"></div>
+  <p><button id="replay">Replay BOOTMUX_READY</button><button id="reset">Reset</button><button id="copy">Copy terminal</button><button id="live">Connect live Companion</button></p>
+  <input id="command" aria-label="Simulated command" value="echo BOOTMUX_READY"><button id="simulate">Simulate command</button>
+  <p class="muted">Standalone replay works offline from this file. Live mode is available only when served by the local Companion at <code>/judge</code>.</p>
+  <script>
+    (() => { const t=document.getElementById('terminal'),s=document.getElementById('status'),f={output:['BOOTMUX_READY\n']}; let socket=null,id=null;
+      function replay(){t.textContent=f.output.join('');s.textContent='Offline replay complete: observed synthetic fixture.'}
+      replay(); document.getElementById('replay').onclick=replay; document.getElementById('reset').onclick=()=>{t.textContent='';s.textContent='Reset.'};
+      document.getElementById('simulate').onclick=()=>{s.textContent='Simulated command: '+document.getElementById('command').value;replay()};
+      document.getElementById('copy').onclick=async()=>{t.focus();try{await navigator.clipboard.writeText(t.textContent||'');s.textContent='Copied observed terminal text.'}catch(_){let r=document.createRange();r.selectNodeContents(t);let q=getSelection();q.removeAllRanges();q.addRange(r);s.textContent='Select the highlighted text and use native copy.'}};
+      document.getElementById('live').onclick=()=>{if(!/^https?:$/.test(location.protocol)){s.textContent='Live mode requires the Companion /judge endpoint.';return}let u=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/v1/terminal';socket=new WebSocket(u);s.textContent='Connecting to local Companion.';socket.onmessage=e=>{let m=JSON.parse(e.data);if(m.type==='hello'){id=m.session_id;socket.send(JSON.stringify({v:1,type:'input_text',session_id:id,text:'echo BOOTMUX_JUDGE'}));socket.send(JSON.stringify({v:1,type:'input_text',session_id:id,text:'\n'}));s.textContent='Live command sent; showing observed PTY output only.'}if(m.type==='output')t.textContent+=m.text;if(m.type==='exit')s.textContent='Live process exited with code '+m.exit_code+'.';if(m.type==='error')s.textContent='Live error: '+m.code};socket.onerror=()=>{s.textContent='Live connection failed.'}};
+    })();
+  </script>
+</body>
+</html>

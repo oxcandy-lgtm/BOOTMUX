@@ -1,0 +1,62 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+secrets/
+credentials/
+private/
+
+# Logs, captures, and evidence generated from real devices
+*.log
+logs/
+captures/
+recordings/
+evidence/private/
+terminal-history/
+crash-dumps/
+
+# Apple and Xcode
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.build/
+.swiftpm/
+
+# ESP32 / PlatformIO / embedded build output
+.pio/
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+.tools/
+.local-backups/
+
+# Node, Python, and general build output
+node_modules/
+dist/
+coverage/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
