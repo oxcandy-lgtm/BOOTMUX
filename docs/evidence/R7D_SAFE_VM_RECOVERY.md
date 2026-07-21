@@ -22,6 +22,12 @@ demo namespace (no default route)
   -> HTTPS destination:443
 ```
 
+The Mac forwarder keeps loopback as its default listener. When a Lima VM is
+used, the runtime invocation binds only to the Lima host-facing surface and
+allowlists the disposable VM subnet; it does not bind the Mac Wi-Fi address.
+The relay and forwarder continue accepting bounded new attempts after a
+transient target refusal.
+
 The S3 proxy accepts only bounded `CONNECT host:443 HTTP/1.1` requests. It uses
 one client, a 4096-byte request-header limit, 4096-byte relay buffers, a
 15-second connection bound, and a 300-second idle bound. It binds to the

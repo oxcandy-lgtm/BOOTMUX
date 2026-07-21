@@ -31,9 +31,17 @@ def main():
     with socket.create_server((args.listen_host, args.listen_port), backlog=1) as server:
         server.settimeout(IDLE_SECONDS)
         while True:
-            client, _ = server.accept()
-            with client, socket.create_connection((args.target_host, args.target_port), timeout=15) as target:
-                relay(client, target)
+            try:
+                client, _ = server.accept()
+            except TimeoutError:
+                continue
+            with client:
+                try:
+                    target = socket.create_connection((args.target_host, args.target_port), timeout=15)
+                except OSError:
+                    continue
+                with target:
+                    relay(client, target)
 
 if __name__ == "__main__":
     main()
