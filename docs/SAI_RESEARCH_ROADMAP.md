@@ -6,7 +6,7 @@ This roadmap develops SAI-originated BOOTMUX research hypotheses without changin
 
 The implemented Build Week slice proves a bounded physical ASCII input path, an independently observed PTY/Codex return path, a clean ARM64 VM Codex installation, and no-build Judge Mode. It does **not** currently implement or prove a complete automated event classifier, policy gate, structured recovery executor, evidence verifier, recovery-capsule runtime, or autonomous repair system.
 
-The named mechanisms below are research concepts unless a later document explicitly promotes them with runnable code, tests, and measured evidence. Definitions and attribution are maintained in [SAI Research Hypotheses](SAI_RESEARCH_HYPOTHESES.md).
+The complete original long-form research program is preserved in [SAI Research Blueprint](SAI_RESEARCH_BLUEPRINT.md). The named mechanisms below are research concepts unless a later document explicitly promotes them with runnable code, tests, and measured evidence. Definitions and attribution are maintained in [SAI Research Hypotheses](SAI_RESEARCH_HYPOTHESES.md).
 
 ## Status model
 
