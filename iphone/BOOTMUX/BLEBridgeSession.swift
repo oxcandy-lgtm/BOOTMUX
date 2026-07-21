@@ -352,7 +352,9 @@ extension BLEBridgeSession: CBCentralManagerDelegate {
 extension BLEBridgeSession: CBPeripheralDelegate {
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let service = peripheral.services?.first(where: { $0.uuid == CBUUID(string: BLEProtocol.serviceUUID) }) else { return }
-        peripheral.discoverCharacteristics([CBUUID(string: BLEProtocol.rxUUID), CBUUID(string: BLEProtocol.txUUID)], for: service)
+        // Discover the complete service so CoreBluetooth exposes the device's
+        // actual UUIDs before the protocol-specific RX/TX match is applied.
+        peripheral.discoverCharacteristics(nil, for: service)
     }
 
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
