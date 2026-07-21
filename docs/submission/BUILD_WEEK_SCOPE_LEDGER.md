@@ -1,58 +1,70 @@
 # Build Week Scope Ledger
 
-This ledger separates pre-existing project material from work attributed to the submission period without guessing dates that are not recorded here.
+This public ledger separates work attributed to the Build Week submission period from any pre-existing material without inventing dates or private history.
 
 ```yaml
 scope:
   pre_existing_confirmed:
-    - none currently established by public repository evidence
+    - none established by public repository evidence
   submission_period:
     - BOOTMUX repository initialization
-    - committed BOOTMUX architecture and roadmap
-    - OpenAI Build Week requirements and compliance documents
-    - V0A Companion Core implementation
-    - V0A R1-R3 repairs
-    - V0B iPhone Terminal Loop implementation
-    - V0B R1 client runtime contract repairs
-    - V0B R2 protocol-limit and Xcode-host repairs
-    - standalone and live Judge Mode
-    - MIT license and submission README
-    - Devpost final draft, demo script, and final checklist
-    - submission ledgers
-    - Devpost copy and story draft
-  unresolved_pending_owner_confirmation:
-    - whether any private BOOTMUX concept existed before 2026-07-13 09:00 PDT
-commits:
-  V0A_initial: 7854781a69d6bc0d93e7759ba8aa467e5b0e2a04
-  V0A_R1_final: 6099662d7e146ba250381df33b3aea14a995e3e7
-  V0A_R2: 9ff5766e17276df367f8a1219ebc992eab82765b
-  V0A_R3: 2f9378f0d84ce0b3cb0caabdd9229a8ae7f0b2d4
-  devpost_draft: bf74c4d5d30f41d0a7df69f93a0929d6588e0416
-  V0B_implementation: 2d730a5a287166a889e26e0067f2d518327390d1
-  V0B_R1_repair: d9746c818eabc31b8bc6bf50c44ecdcbd3dbf395
-  V0B_R2_repair: f554b38a5e0c5218c98f0811b7b8667bd379a32e
-  judge_mode: 88a9f75f46976940408f084b768593c6770f8073
-  mit_readme: 1131d4c180779db9527103fb3ab16654eedf908d
-  judge_package: d1dd4f19ad6322a384fcae0774d31b331840b483
-  S81_submission_closeout: 41755062060c2aa3b828dd9d9eb675074ff941ef
-  V1_fastlane_implementation: 3bc50f8966297fc574baecb4e0a51b0b9dbf3505
-  V1_R1_control_ack_repair: 13d58dba5573d7d8e9621103dbcd891ae23460d4
-  V1_launch_canvas: d871925
-  V1_R7_ble_transport_repair: 0fed277
+    - architecture, protocols, roadmap, and public-safety boundaries
+    - Go Companion Core and lifecycle/overflow repairs
+    - native SwiftUI and CoreBluetooth iPhone client
+    - ESP32-S3 BLE-to-native-USB-HID bridge firmware
+    - clean ARM64 Lima VM harness and official Codex CLI installation path
+    - bounded target-side Codex adapter and probes
+    - physical bounded ASCII keyboard-path evidence
+    - physical BOOTMUX_READY return evidence
+    - HID Mirror implementation and local tests
+    - standalone, packaged, and live local Judge Mode
+    - MIT license, setup instructions, supported platforms, and security guidance
+    - Codex and GPT-5.6 evidence ledger and development-loop documentation
+    - canonical Project Story and Devpost submission map
+    - narrated demo production and final master
+  unresolved_private_history:
+    - whether any uncommitted private concept or note existed before the submission period
 ```
 
-## Evidence mapping
+## Selected implementation history
 
-| Scope item | Evidence | Claim boundary |
+The repository and PR history remain the authoritative source for exact SHAs. The following public mappings identify major delivery slices without claiming that every intermediate repair is reproduced here.
+
+| Slice | Repository evidence | Public boundary |
 | --- | --- | --- |
-| V0A Companion Core | `companion/` and V0A commits above | local target-side proof only |
-| V0A R1–R3 repairs | the R1, R2, and R3 commits above | lifecycle and contract repair evidence, not hardware proof |
-| Devpost draft | `docs/submission/DEVPOST_COPY_AND_STORY_DRAFT.md` at `devpost_draft` | working draft, not final submission copy |
-| BLE/USB HID/Codex | no implementation commit recorded in this ledger | not claimed as complete |
-| V0B iPhone Terminal Loop | `iphone/` at `V0B_implementation` | implementation is recorded; physical iPhone proof is not claimed |
-| V0B R1 client runtime contract | `iphone/` at `V0B_R1_repair` | normal exit, bounded output, CRLF, injected transport, lifecycle, and project contract repairs; physical proof remains unclaimed |
-| V0B R2 protocol and Xcode contract | `iphone/` at `V0B_R2_repair` | single protocol limits, bounded input/close timeout, finalization, selection helper, and standard test-host project structure; Xcode/physical proof pending |
-| V1 launch canvas | `d871925`; `iphone/BOOTMUX/LaunchScreen.storyboard`; `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md` | native launch storyboard removed the legacy letterbox; physical full-screen confirmation is recorded without screenshots or device identifiers |
-| V1 R7 BLE transport repair | `0fed277`; `firmware/esp32s3-bridge/src/main.cpp`; `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md` | fixed POD queue ownership and recorded eight successful applied operations without observed disconnect; full V1 acceptance remains separate |
+| Companion Core | `companion/`, `docs/COMPANION_PROTOCOL_V1.md`, PR repair history | bounded local target-side PTY/WebSocket Companion |
+| iPhone client | `iphone/`, `iphone/README.md` | native implementation; physical claims remain separately evidenced |
+| BLE and USB HID bridge | `firmware/esp32s3-bridge/`, `docs/evidence/V1_PHYSICAL_KEYBOARD_PATH.md` | bounded owner-observed ASCII path only |
+| Clean VM and Codex install | `vm/`, `docs/evidence/V3_CODEX_CLEAN_INSTALL.md` | clean ARM64 Lima VM installation and bounded probes |
+| Codex adapter | `companion/codex.go`, Companion tests, VM run scripts | bounded one-shot local adapter, not a production agent service |
+| Physical Codex return | `docs/evidence/V2_V6_CODEX_PHYSICAL_RETURN_PROGRESS.md`, `docs/evidence/V6_INTEGRATED_DEMO.md` | owner-observed `BOOTMUX_READY` return; repeatability/copy remain separate |
+| HID Mirror | `companion/mirror.go`, tests, VM launchers, evidence records | implemented and locally tested; physical acceptance pending |
+| Judge Mode | `judge/`, `companion/judge/`, `dist/bootmux-judge-macos-arm64/` | no-build terminal/session/copy experience; not physical BLE/HID proof |
+| Tool-use evidence | `docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md` | public-safe mapping of Codex, GPT-5.6, and human roles |
+| Submission package | `README.md`, `docs/PROJECT_STORY.md`, `docs/submission/` | public project and submission materials |
 
-No private session transcript, account data, private path, hostname, device serial, or guessed date is part of this public ledger.
+## Evidence rules
+
+- Code presence is not automatically physical proof.
+- A BLE or firmware acknowledgement is not independently observed target output.
+- Judge Replay proves only the replayed terminal/session/copy experience.
+- Owner-observed physical claims must remain bounded to the recorded hardware slice.
+- Private `/feedback` identifiers, credentials, local endpoints, account details, device identifiers, and signing material do not belong in this ledger.
+- Unknown private pre-history is left unresolved rather than guessed.
+
+## Current final boundary
+
+Supported as public submission-period work:
+
+- major software, firmware, VM, Judge Mode, evidence, and submission layers were built or materially repaired during the repository development period;
+- Codex served as the implementation and execution engine;
+- GPT-5.6 served as architecture, adversarial review, root-cause analysis, and convergence control;
+- the human selected the product direction, performed hardware setup and observations, edited the video, and approved every final claim.
+
+Not inferred from this ledger:
+
+- exact hours saved;
+- autonomous ownership by either AI system;
+- production readiness;
+- completion of unresolved physical acceptance gates;
+- absence of any private idea before the public repository unless separately confirmed.
