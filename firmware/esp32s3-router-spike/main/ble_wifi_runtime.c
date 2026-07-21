@@ -27,6 +27,7 @@
 #include "esp_nimble_hci.h"
 #include "class/hid/hid.h"
 #include "tusb.h"
+#include "usb_router.h"
 
 #define BMX_MAX_FRAME 520
 #define BMX_FRAME_QUEUE 32
@@ -431,6 +432,7 @@ static void wifi_task(void *arg) {
                 s_wifi_deadline = 0;
                 s_wifi_attempts = 0;
                 set_wifi_state(WIFI_ONLINE);
+                if (bootmux_usb_router_enable_napt() != ESP_OK) notify_error(0, "napt_enable_failed");
             }
         }
         wifi_command_t command;
@@ -683,6 +685,8 @@ esp_err_t bootmux_ble_wifi_init(void) {
 
     esp_err_t error = esp_netif_init();
     if (error != ESP_OK) return runtime_failure("NETIF_INIT", error);
+    error = bootmux_usb_router_init();
+    if (error != ESP_OK) return runtime_failure("USB_ROUTER", error);
     error = esp_event_loop_create_default();
     if (error != ESP_OK) return runtime_failure("EVENT_LOOP", error);
     error = esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL);

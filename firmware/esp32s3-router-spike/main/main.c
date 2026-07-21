@@ -6,7 +6,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "tinyusb.h"
-#include "tinyusb_net.h"
 #include "tusb.h"
 #include "class/hid/hid.h"
 #include "class/hid/hid_device.h"
@@ -17,23 +16,6 @@
 #ifndef CONFIG_BOOTMUX_R7A_HID_PROBE
 #define CONFIG_BOOTMUX_R7A_HID_PROBE 0
 #endif
-
-static esp_err_t on_usb_packet(void *buffer, uint16_t length, void *context) {
-    (void)buffer;
-    (void)length;
-    (void)context;
-    return ESP_OK;
-}
-
-static void on_usb_tx_buffer_free(void *buffer, void *context) {
-    (void)buffer;
-    (void)context;
-}
-
-static void on_usb_network_ready(void *context) {
-    (void)context;
-    puts("BOOTMUX_USB_ETHERNET_READY");
-}
 
 #if CONFIG_BOOTMUX_R7A_HID_PROBE
 static void send_ascii_probe(void) {
@@ -82,14 +64,6 @@ void app_main(void) {
     ESP_ERROR_CHECK(tinyusb_driver_install(&usb_config));
     puts("BOOT_STAGE_USB_OK");
 
-    const tinyusb_net_config_t net_config = {
-        .mac_addr = {0x02, 0x42, 0x4f, 0x4f, 0x54, 0x01},
-        .on_recv_callback = on_usb_packet,
-        .free_tx_buffer = on_usb_tx_buffer_free,
-        .on_init_callback = on_usb_network_ready,
-        .user_context = NULL,
-    };
-    ESP_ERROR_CHECK(tinyusb_net_init(TINYUSB_USBDEV_0, &net_config));
     esp_err_t runtime_error = bootmux_ble_wifi_init();
     if (runtime_error == ESP_OK) {
         puts("BOOTMUX_RUNTIME_READY");

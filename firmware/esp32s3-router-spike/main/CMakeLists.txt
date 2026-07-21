@@ -1,7 +1,7 @@
 idf_component_register(
-    SRCS "main.c" "usb_descriptors.c" "ble_wifi_runtime.c"
+    SRCS "main.c" "usb_descriptors.c" "ble_wifi_runtime.c" "usb_router.c"
     INCLUDE_DIRS "."
-    REQUIRES esp_tinyusb bt esp_wifi esp_event esp_netif nvs_flash json mbedtls
+    REQUIRES esp_tinyusb bt esp_wifi esp_event esp_netif nvs_flash json mbedtls lwip
 )
 
 target_include_directories(${COMPONENT_LIB} PRIVATE
