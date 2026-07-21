@@ -67,6 +67,18 @@ Do not expose the remote-bind mode directly to an untrusted network. The Compani
 
 The current firmware scope is US ANSI QWERTY printable ASCII plus typed controls. Unicode HID and mouse support are not implemented.
 
+## Experimental router controls
+
+The Settings screen retains a visible **Network Bridge — Experimental** section for the independent `firmware/esp32s3-router-spike/` research path. That router experiment uses a different RX/TX characteristic profile from the demonstrated core keyboard bridge.
+
+In the Build Week core iPhone build:
+
+- the app connects to the demonstrated core keyboard profile;
+- router Wi-Fi and proxy controls are visibly labeled experimental;
+- router mutation controls are disabled fail-closed;
+- router framing and parsing code remains available for isolated research and tests;
+- Wi-Fi, USB Ethernet, proxy routing, and complete recovery routing are not part of the current public claim.
+
 ## Bounds and safety
 
 - terminal history is capped at 131072 UTF-8 bytes and evicts oldest text;

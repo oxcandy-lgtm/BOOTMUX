@@ -105,6 +105,7 @@ struct ContentView: View {
         }
         .onAppear {
             if endpoint.isEmpty { endpoint = lastSuccessfulEndpoint }
+            ble.forgetSavedWiFi()
         }
         .onChange(of: session.state) { _, state in
             if case .connected = state { persistEndpointIfSafe() }
@@ -250,7 +251,10 @@ struct ContentView: View {
                         Task { if await session.sendInput(value) { command = "" } }
                     }
                 }
-                Section("Network Bridge") {
+                Section("Network Bridge — Experimental") {
+                    Text("Router-spike profile required. Disabled in this Build Week core keyboard build.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Text(BOOTMUXStatusText.ble(ble.state.uiLabel))
                         .font(.caption.monospaced())
                     Text(BOOTMUXStatusText.wifi(ble.wifiState.rawValue))
@@ -271,13 +275,15 @@ struct ContentView: View {
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
                     }
-                    Text("USB ETHERNET: R7A composite preserved")
+                    Text("ROUTER PROFILE: not active")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                     TextField("Wi-Fi SSID", text: $wifiSSID)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .disabled(!ble.isOpenForWiFi)
                     SecureField("Wi-Fi password", text: $wifiPassword)
+                        .disabled(!ble.isOpenForWiFi)
                     Text(ble.wifiStatusMessage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -397,6 +403,6 @@ private extension BLEBridgeSession.State {
 
 private extension BLEBridgeSession {
     var isOpenForWiFi: Bool {
-        state == .on || state == .stopped
+        false
     }
 }
