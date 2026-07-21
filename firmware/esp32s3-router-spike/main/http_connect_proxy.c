@@ -27,6 +27,7 @@ static volatile bool s_proxy_stop;
 static int s_listen_fd = -1;
 static int s_client_fd = -1;
 static uint32_t s_connection_id;
+static uint32_t s_bound_address;
 
 static void close_fd(int *fd) {
     if (*fd >= 0) {
@@ -203,17 +204,39 @@ done:
     vTaskDelete(NULL);
 }
 
-esp_err_t bootmux_http_proxy_start(esp_netif_t *sta_netif) {
+esp_err_t bootmux_http_proxy_start(esp_netif_t *sta_netif, uint32_t epoch) {
+    (void)epoch;
     if (!sta_netif || s_proxy_task) return ESP_ERR_INVALID_STATE;
     esp_netif_ip_info_t info;
     esp_err_t error = esp_netif_get_ip_info(sta_netif, &info);
     if (error != ESP_OK || info.ip.addr == 0) return ESP_ERR_INVALID_STATE;
     s_proxy_stop = false;
-    return xTaskCreate(proxy_task, "bmx_proxy", 8192, (void *)(uintptr_t)info.ip.addr, 5, &s_proxy_task) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
+    s_bound_address = info.ip.addr;
+    if (xTaskCreate(proxy_task, "bmx_proxy", 8192, (void *)(uintptr_t)info.ip.addr, 5, &s_proxy_task) != pdPASS) return ESP_ERR_NO_MEM;
+    for (int attempt = 0; attempt < 200; ++attempt) {
+        if (bootmux_http_proxy_is_ready()) return ESP_OK;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    bootmux_http_proxy_stop();
+    return ESP_ERR_TIMEOUT;
 }
 
 void bootmux_http_proxy_stop(void) {
     s_proxy_stop = true;
     close_fd(&s_client_fd);
     close_fd(&s_listen_fd);
+    for (int attempt = 0; s_proxy_task && attempt < 100; ++attempt) vTaskDelay(pdMS_TO_TICKS(10));
+    s_bound_address = 0;
+}
+
+bool bootmux_http_proxy_is_ready(void) {
+    return s_proxy_task != NULL && s_listen_fd >= 0 && s_bound_address != 0;
+}
+
+bool bootmux_http_proxy_get_endpoint(char *buffer, size_t buffer_size) {
+    if (!buffer || buffer_size == 0 || !bootmux_http_proxy_is_ready()) return false;
+    struct in_addr address = {.s_addr = s_bound_address};
+    const char *text = inet_ntoa(address);
+    if (!text || snprintf(buffer, buffer_size, "%s:%u", text, BOOTMUX_PROXY_PORT) >= (int)buffer_size) return false;
+    return true;
 }

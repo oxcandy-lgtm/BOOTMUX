@@ -36,7 +36,13 @@ disconnect. Hostnames, URLs, credentials, device codes, and tokens are not
 logged.
 
 BLE status is reported as `BMX1|PROXY_STATUS|session|sequence|STATUS`.
-The current runtime emits `PROXY_OFFLINE`, `PROXY_READY`, and
+When the live Wi-Fi address and listener are both valid, the runtime extends
+the response without breaking the legacy form:
+`BMX1|PROXY_STATUS|session|sequence|PROXY_READY|ENDPOINT=<private-ipv4>:3128|EPOCH=<decimal>`.
+The endpoint is RAM-only, is returned over BLE rather than serial diagnostics,
+and is cleared on Wi-Fi disconnect or listener failure. The iPhone accepts
+the legacy response but only enables endpoint display/copy for a validated
+private IPv4 endpoint on port 3128. The current runtime emits `PROXY_OFFLINE`, `PROXY_READY`, and
 `PROXY_ERROR`; `PROXY_ACTIVE` is reserved in the protocol for a future
 per-tunnel notification and is not claimed as emitted by this implementation.
 

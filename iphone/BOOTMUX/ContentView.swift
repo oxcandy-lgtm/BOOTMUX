@@ -257,6 +257,20 @@ struct ContentView: View {
                         .font(.caption.monospaced())
                     Text("BOOTMUX PROXY: \(ble.proxyState.rawValue)")
                         .font(.caption.monospaced())
+                    Text("ENDPOINT: \(ble.proxyEndpoint ?? "unavailable")")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(ble.proxyEndpoint == nil ? .secondary : .primary)
+                    if let endpoint = ble.proxyEndpoint {
+                        Text("EPOCH: \(ble.proxyEpoch.map(String.init) ?? "unknown")")
+                            .font(.caption.monospaced())
+                        Button("COPY ENDPOINT") {
+                            UIPasteboard.general.string = endpoint
+                        }
+                    } else {
+                        Text("COPY ENDPOINT unavailable")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
                     Text("USB ETHERNET: R7A composite preserved")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)

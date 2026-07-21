@@ -47,7 +47,15 @@ final class TerminalTests: XCTestCase {
 
     func testProxyStatusParsingIsTypedAndBounded() {
         let event = BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|0|PROXY_READY".utf8))
-        XCTAssertEqual(event, BLEProxyEvent(session: "s", sequence: 0, state: .ready))
+        XCTAssertEqual(event, BLEProxyEvent(session: "s", sequence: 0, state: .ready, endpoint: nil, epoch: nil))
+        let current = BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|7|PROXY_READY|ENDPOINT=192.168.1.42:3128|EPOCH=3".utf8))
+        XCTAssertEqual(current, BLEProxyEvent(session: "s", sequence: 7, state: .ready, endpoint: "192.168.1.42:3128", epoch: 3))
+        XCTAssertNil(BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|7|PROXY_READY|ENDPOINT=host:3128|EPOCH=3".utf8)))
+        XCTAssertNil(BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|7|PROXY_READY|ENDPOINT=8.8.8.8:3128|EPOCH=3".utf8)))
+        XCTAssertNil(BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|7|PROXY_READY|ENDPOINT=192.168.1.42:80|EPOCH=3".utf8)))
+        XCTAssertNil(BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|7|PROXY_READY|ENDPOINT=192.168.1.42:3128|EPOCH=x".utf8)))
+        let offline = BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|8|PROXY_OFFLINE".utf8))
+        XCTAssertEqual(offline, BLEProxyEvent(session: "s", sequence: 8, state: .offline, endpoint: nil, epoch: nil))
         XCTAssertNil(BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|0|hostname".utf8)))
         XCTAssertTrue((try? BLEProtocol.proxyStatus(session: "s", sequence: 1))?.count ?? 0 > 0)
     }

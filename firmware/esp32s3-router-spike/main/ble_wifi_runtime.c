@@ -44,6 +44,7 @@
 #define BMX_WIFI_TRIES 3
 #define BMX_WIFI_EVENT_QUEUE 8
 #define BMX_HID_REPORT_TIMEOUT_MS 250
+#define BMX_PROXY_PORT 3128
 
 static const char *kDeviceName = "BOOTMUX Bridge";
 static const char *TAG = "bootmux_r7b";
@@ -82,6 +83,14 @@ typedef enum {
     WIFI_CLEARED,
 } wifi_state_t;
 
+typedef struct {
+    bool wifi_has_ip;
+    bool proxy_listener_ready;
+    uint32_t wifi_epoch;
+    uint32_t sta_ipv4_be;
+    uint16_t proxy_port;
+} bootmux_proxy_endpoint_state_t;
+
 static QueueHandle_t s_frames;
 static QueueHandle_t s_notifications;
 static QueueHandle_t s_wifi_commands;
@@ -100,6 +109,7 @@ static wifi_state_t s_wifi_state = WIFI_IDLE;
 static int64_t s_wifi_deadline;
 static uint8_t s_wifi_attempts;
 static bool s_proxy_ready;
+static bootmux_proxy_endpoint_state_t s_proxy_endpoint;
 
 static uint32_t s_completed[16];
 static size_t s_completed_index;
@@ -177,7 +187,19 @@ static void notify_network(void) {
 
 static void notify_proxy_status(const char *status) {
     char message[192];
-    snprintf(message, sizeof(message), "BMX1|PROXY_STATUS|%s|0|%s", s_session, status);
+    if (strcmp(status, "PROXY_READY") == 0 &&
+        s_proxy_endpoint.wifi_has_ip && s_proxy_endpoint.proxy_listener_ready &&
+        s_proxy_endpoint.sta_ipv4_be != 0 && bootmux_http_proxy_is_ready()) {
+        char endpoint[32] = {0};
+        if (bootmux_http_proxy_get_endpoint(endpoint, sizeof(endpoint))) {
+            snprintf(message, sizeof(message), "BMX1|PROXY_STATUS|%s|0|PROXY_READY|ENDPOINT=%s|EPOCH=%lu",
+                     s_session, endpoint, (unsigned long)s_proxy_endpoint.wifi_epoch);
+        } else {
+            snprintf(message, sizeof(message), "BMX1|PROXY_STATUS|%s|0|PROXY_OFFLINE", s_session);
+        }
+    } else {
+        snprintf(message, sizeof(message), "BMX1|PROXY_STATUS|%s|0|%s", s_session, status);
+    }
     (void)notify_enqueue(message);
 }
 
@@ -429,6 +451,9 @@ static void wifi_task(void *arg) {
             } else if (event.event_id == WIFI_EVENT_STA_DISCONNECTED) {
                 bootmux_http_proxy_stop();
                 s_proxy_ready = false;
+                s_proxy_endpoint.wifi_has_ip = false;
+                s_proxy_endpoint.proxy_listener_ready = false;
+                s_proxy_endpoint.sta_ipv4_be = 0;
                 notify_proxy_status("PROXY_OFFLINE");
                 if (event.reason == WIFI_REASON_AUTH_FAIL || event.reason == WIFI_REASON_AUTH_EXPIRE || event.reason == WIFI_REASON_HANDSHAKE_TIMEOUT) {
                     s_wifi_deadline = 0;
@@ -442,12 +467,31 @@ static void wifi_task(void *arg) {
             } else if (event.event_id == IP_EVENT_STA_GOT_IP) {
                 s_wifi_deadline = 0;
                 s_wifi_attempts = 0;
+                esp_netif_ip_info_t info = {0};
+                if (esp_netif_get_ip_info(s_sta_netif, &info) != ESP_OK || info.ip.addr == 0) {
+                    s_proxy_ready = false;
+                    s_proxy_endpoint.wifi_has_ip = false;
+                    s_proxy_endpoint.proxy_listener_ready = false;
+                    s_proxy_endpoint.sta_ipv4_be = 0;
+                    notify_proxy_status("PROXY_ERROR");
+                    continue;
+                }
+                ++s_proxy_endpoint.wifi_epoch;
+                if (s_proxy_endpoint.wifi_epoch == 0) ++s_proxy_endpoint.wifi_epoch;
+                s_proxy_endpoint.wifi_has_ip = true;
+                s_proxy_endpoint.proxy_listener_ready = false;
+                s_proxy_endpoint.sta_ipv4_be = info.ip.addr;
+                s_proxy_endpoint.proxy_port = BMX_PROXY_PORT;
                 set_wifi_state(WIFI_ONLINE);
                 if (bootmux_usb_router_enable_napt() != ESP_OK) notify_error(0, "napt_enable_failed");
-                if (bootmux_http_proxy_start(s_sta_netif) == ESP_OK) {
+                if (bootmux_http_proxy_start(s_sta_netif, s_proxy_endpoint.wifi_epoch) == ESP_OK && bootmux_http_proxy_is_ready()) {
+                    s_proxy_endpoint.proxy_listener_ready = true;
                     s_proxy_ready = true;
                     notify_proxy_status("PROXY_READY");
                 } else {
+                    s_proxy_endpoint.proxy_listener_ready = false;
+                    s_proxy_endpoint.sta_ipv4_be = 0;
+                    s_proxy_ready = false;
                     notify_proxy_status("PROXY_ERROR");
                     notify_error(0, "proxy_start_failed");
                 }
@@ -566,6 +610,7 @@ static void handle_frame(const bmx_frame_t *frame) {
     }
     if (strcmp(fields[1], "WIFI_STATUS") == 0 && count == 5) { notify_network(); notify_ack(sequence, "APPLIED"); return; }
     if (strcmp(fields[1], "PROXY_STATUS") == 0 && count == 5) {
+        s_proxy_ready = s_proxy_endpoint.wifi_has_ip && s_proxy_endpoint.proxy_listener_ready && bootmux_http_proxy_is_ready();
         notify_proxy_status(s_proxy_ready ? "PROXY_READY" : "PROXY_OFFLINE");
         notify_ack(sequence, "APPLIED");
         return;
@@ -580,6 +625,9 @@ static void handle_frame(const bmx_frame_t *frame) {
         s_wifi_deadline = 0;
         bootmux_http_proxy_stop();
         s_proxy_ready = false;
+        s_proxy_endpoint.wifi_has_ip = false;
+        s_proxy_endpoint.proxy_listener_ready = false;
+        s_proxy_endpoint.sta_ipv4_be = 0;
         notify_proxy_status("PROXY_OFFLINE");
         set_wifi_state(WIFI_CLEARED);
         notify_ack(sequence, "APPLIED");

@@ -21,6 +21,8 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     @Published private(set) var wifiState: BLENetworkState = .idle
     @Published private(set) var wifiStatusMessage = "Wi-Fi status unavailable."
     @Published private(set) var proxyState: BLEProxyState = .offline
+    @Published private(set) var proxyEndpoint: String?
+    @Published private(set) var proxyEpoch: UInt32?
 
     private func log(_ message: String) {
         let entry = "\(Date().formatted(date: .omitted, time: .standard))  \(message)"
@@ -49,6 +51,7 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     private var opening = false
     private var preserveOpeningError = false
     private var lastNetworkSequence: UInt32 = 0
+    private var lastProxyEpoch: UInt32?
 
     static func supportsASCIIHIDText(_ text: String) -> Bool {
         text.utf8.allSatisfy { $0 >= 0x20 && $0 <= 0x7e }
@@ -84,6 +87,9 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         peripheral = nil; rx = nil; tx = nil; sessionID = ""
         wifiState = .idle
         proxyState = .offline
+        proxyEndpoint = nil
+        proxyEpoch = nil
+        lastProxyEpoch = nil
         wifiStatusMessage = "Wi-Fi credentials cleared locally."
         lastNetworkSequence = 0
         state = .off
@@ -102,6 +108,10 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         writeInFlight = false
         opening = false
         peripheral = nil; rx = nil; tx = nil; sessionID = ""
+        proxyState = .offline
+        proxyEndpoint = nil
+        proxyEpoch = nil
+        lastProxyEpoch = nil
         state = .error("BLE transport disconnected.")
         statusMessage = "BLE transport disconnected. Tap BLE ON to retry."
         log("transport cleanup complete")
@@ -311,7 +321,18 @@ final class BLEBridgeSession: NSObject, ObservableObject {
 
     private func handleProxy(_ event: BLEProxyEvent) {
         guard event.session == sessionID else { log("ignored proxy status for another session"); return }
+        if let epoch = event.epoch {
+            guard lastProxyEpoch.map({ epoch >= $0 }) ?? true else {
+                log("ignored stale proxy endpoint epoch")
+                return
+            }
+            lastProxyEpoch = epoch
+        } else if event.state == .offline || event.state == .error {
+            lastProxyEpoch = nil
+        }
         proxyState = event.state
+        proxyEndpoint = event.endpoint
+        proxyEpoch = event.epoch
         log("proxy status: \(event.state.rawValue)")
     }
 }

@@ -56,6 +56,8 @@ struct BLEProxyEvent: Equatable {
     let session: String
     let sequence: UInt32
     let state: BLEProxyState
+    let endpoint: String?
+    let epoch: UInt32?
 }
 
 enum BLEAckContract {
@@ -157,8 +159,29 @@ enum BLEProtocol {
         guard let value = String(data: data, encoding: .utf8) else { return nil }
         let fields = value.split(separator: "|", omittingEmptySubsequences: false)
         guard fields.count == 5, fields[0] == "BMX1", fields[1] == "PROXY_STATUS",
-              let sequence = UInt32(fields[3]), let state = BLEProxyState(rawValue: String(fields[4])) else { return nil }
-        return BLEProxyEvent(session: String(fields[2]), sequence: sequence, state: state)
+              let sequence = UInt32(fields[3]), let state = BLEProxyState(rawValue: String(fields[4])) else {
+            guard fields.count == 7, fields[0] == "BMX1", fields[1] == "PROXY_STATUS",
+                  let extendedSequence = UInt32(fields[3]), fields[4] == "PROXY_READY",
+                  fields[5].hasPrefix("ENDPOINT="), fields[6].hasPrefix("EPOCH=") else { return nil }
+            let endpoint = String(fields[5].dropFirst("ENDPOINT=".count))
+            let epoch = String(fields[6].dropFirst("EPOCH=".count))
+            guard validProxyEndpoint(endpoint), let parsedEpoch = UInt32(epoch) else { return nil }
+            return BLEProxyEvent(session: String(fields[2]), sequence: extendedSequence, state: .ready, endpoint: endpoint, epoch: parsedEpoch)
+        }
+        return BLEProxyEvent(session: String(fields[2]), sequence: sequence, state: state, endpoint: nil, epoch: nil)
+    }
+
+    private static func validProxyEndpoint(_ value: String) -> Bool {
+        let parts = value.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2, parts[1] == "3128", parts[0].utf8.count <= 15 else { return false }
+        let octets = parts[0].split(separator: ".", omittingEmptySubsequences: false)
+        guard octets.count == 4 else { return false }
+        guard octets.allSatisfy({ part in
+            guard !part.isEmpty, part.count <= 3, part.allSatisfy({ $0.isNumber }), let number = Int(part) else { return false }
+            return number >= 0 && number <= 255
+        }) else { return false }
+        guard let first = Int(octets[0]), let second = Int(octets[1]) else { return false }
+        return first == 10 || (first == 172 && (16...31).contains(second)) || (first == 192 && second == 168)
     }
 
     private static func validSession(_ value: String) throws -> String {
