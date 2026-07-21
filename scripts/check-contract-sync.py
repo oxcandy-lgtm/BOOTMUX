@@ -84,6 +84,11 @@ def main() -> int:
     )
     require(
         errors,
+        ".onAppear {\n            if endpoint.isEmpty { endpoint = lastSuccessfulEndpoint }\n            ble.forgetSavedWiFi()\n        }" in content_view,
+        "core iPhone build no longer clears inactive router credentials at launch",
+    )
+    require(
+        errors,
         "## Experimental router controls" in iphone_readme,
         "iPhone README missing the experimental router boundary",
     )
