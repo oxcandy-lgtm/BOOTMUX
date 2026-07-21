@@ -4,6 +4,8 @@ BOOTMUX is a physical bootstrap interface for a computer whose normal AI, SSH, o
 
 This document separates the **implemented Build Week slice** from the **future product architecture**. Only the current slice is a public implementation claim. Exact evidence boundaries are maintained in the [Claim and Evidence Matrix](submission/CLAIM_EVIDENCE_MATRIX.md).
 
+The complete original product and recovery-system design remains available in [Architecture Blueprint](ARCHITECTURE_BLUEPRINT.md). That blueprint is a design document, not a statement that every illustrated component is implemented.
+
 ## Implemented Build Week slice
 
 ### Physical input
