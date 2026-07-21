@@ -11,11 +11,12 @@ supporting_faq: https://openai.devpost.com/details/faqs
 submission_deadline:
   pacific: 2026-07-21T17:00:00-07:00
   japan: 2026-07-22T09:00:00+09:00
+submission_status: SUBMITTED_OWNER_CONFIRMED
 ```
 
 ## Required submission package
 
-BOOTMUX's working interpretation of the official requirements is:
+BOOTMUX's working interpretation of the official requirements was:
 
 1. build a real, non-trivial project with Codex and GPT-5.6;
 2. explain the project and both tools' meaningful contributions;
@@ -79,7 +80,7 @@ Judges can test without rebuilding the hardware stack:
 
 Installation and platform details are in the root README and `judge/README.md`.
 
-## Current closeout state
+## Final closeout state
 
 ```yaml
 registration:
@@ -104,18 +105,21 @@ bootmux_ready:
   physical_iphone_return: PASS
 video:
   final_master_complete: true
-  public_youtube_url_verified: PENDING
-final_submission: NOT_CONFIRMED
+  public_youtube_url: https://www.youtube.com/watch?v=BNWTRxrVM6M
+  public_upload: GREEN_OWNER_CONFIRMED
+  linked_in_devpost: true
+final_submission:
+  status: GREEN_OWNER_CONFIRMED
+  submitted_before_deadline: true
+repository:
+  public: true
+  submitted_url_points_to_main: true
 production_ready: false
 ```
 
-## Remaining external actions
+## Submission closeout
 
-- upload or finalize the video on YouTube;
-- verify public visibility, sub-three-minute duration, audible narration, and the signed-out URL;
-- confirm the narration explains the project, Codex, and GPT-5.6;
-- place the final video URL in Devpost and the repository submission map;
-- accept the terms and confirm successful final submission.
+All submission-critical external actions are complete by owner confirmation. The repository and public video should remain available through judging. No further feature work is required for the submitted entry.
 
 ## Unresolved technical gates
 
@@ -135,5 +139,6 @@ These are not submission-package failures, but they remain outside the completed
 - [Official Rules](https://openai.devpost.com/rules)
 - [Official FAQ](https://openai.devpost.com/details/faqs)
 - [Build Week overview](https://openai.devpost.com/)
+- [Public BOOTMUX demo](https://www.youtube.com/watch?v=BNWTRxrVM6M)
 
 Current repository status is maintained in [Build Week Status](submission/BUILD_WEEK_STATUS.md), [Final Checklist](submission/FINAL_CHECKLIST.md), and [Claim and Evidence Matrix](submission/CLAIM_EVIDENCE_MATRIX.md).
