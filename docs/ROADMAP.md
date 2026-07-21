@@ -2,6 +2,8 @@
 
 This is the current roadmap after the Build Week integration merge. Historical gate plans and intermediate task states remain available in Git history; current public claims are controlled by the [Claim and Evidence Matrix](submission/CLAIM_EVIDENCE_MATRIX.md).
 
+The complete original long-range plan is preserved in [Roadmap Blueprint](ROADMAP_BLUEPRINT.md). That blueprint includes speculative product and research stages and must not be read as current implementation status.
+
 ## Current state
 
 ```yaml
@@ -84,7 +86,7 @@ Potential future work includes Unicode insertion after Companion startup, mouse 
 
 ## Research boundary
 
-The SAI-originated research program is preserved in [SAI Research Hypotheses](SAI_RESEARCH_HYPOTHESES.md) and [SAI Research Roadmap](SAI_RESEARCH_ROADMAP.md). Those documents describe concepts and evidence gates, not completed product features.
+The SAI-originated research program is preserved in [SAI Research Hypotheses](SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](SAI_RESEARCH_ROADMAP.md), and the full [SAI Research Blueprint](SAI_RESEARCH_BLUEPRINT.md). Those documents describe concepts and evidence gates, not completed product features.
 
 ## Roadmap rules
 
