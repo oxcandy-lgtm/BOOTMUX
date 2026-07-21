@@ -16,13 +16,13 @@ required_tool_evidence:
     majority_core_work: COMPLETE
     feedback_receipt: CAPTURED_PRIVATELY_AND_ENTERED_IN_DEVPOST
     readme_explanation: GREEN
-    demo_narration: FINAL_MASTER_COMPLETE_OWNER_REPORTED
+    demo_narration: COMPLETE_OWNER_CONFIRMED
   gpt_5_6:
     meaningful_contribution: GREEN_PUBLIC_EVIDENCE_MAPPING
     architecture_evidence: GREEN
     verification_evidence: GREEN
     readme_explanation: GREEN
-    demo_narration: FINAL_MASTER_COMPLETE_OWNER_REPORTED
+    demo_narration: COMPLETE_OWNER_CONFIRMED
   human_decision_boundary: GREEN_DOCUMENTED
 
 submission:
@@ -34,12 +34,14 @@ submission:
   installation_instructions: GREEN
   supported_platforms: GREEN
   no_rebuild_judge_path: GREEN
-  devpost_fields: PREPARED
-  video_master: COMPLETE_OWNER_REPORTED
-  video_public_upload: PENDING_CONFIRMATION
-  final_devpost_link_review: PENDING
-  terms_acceptance: PENDING
-  final_submission: NOT_CONFIRMED
+  devpost_fields: SUBMITTED
+  video_master: COMPLETE_OWNER_CONFIRMED
+  video_public_upload: GREEN_OWNER_CONFIRMED
+  video_url: https://www.youtube.com/watch?v=BNWTRxrVM6M
+  repository_url_points_to_main: GREEN_OWNER_CONFIRMED
+  final_devpost_link_review: GREEN_OWNER_CONFIRMED
+  terms_acceptance: GREEN_OWNER_CONFIRMED_BY_SUCCESSFUL_SUBMISSION
+  final_submission: GREEN_OWNER_CONFIRMED
 
 privacy:
   session_id_in_repository: false
@@ -57,25 +59,22 @@ owner_acceptance:
   repeatability: PENDING
 ```
 
-## Remaining submission-critical actions
+## Submission-critical actions
 
-1. Upload the completed final master to YouTube as **Public**.
-2. Confirm the final video is under three minutes.
-3. Play it from beginning to end and verify that the voiceover clearly explains:
-   - what BOOTMUX does;
-   - how Codex was used;
-   - how GPT-5.6 was used.
-4. Check audio balance, subtitles, redactions, and private information.
-5. Open the YouTube URL in a signed-out or private browser window.
-6. Enter the final YouTube URL in Devpost.
-7. Re-open every repository, Judge Mode, and project link from the form.
-8. Accept the Official Rules and Devpost Terms of Service.
-9. Select **Submit project**.
-10. Confirm the project no longer appears as a Devpost draft and save a completion screenshot.
+All organizer-facing submission-critical actions are complete by owner confirmation:
+
+1. the narrated demo was uploaded publicly to YouTube;
+2. the final video URL was entered in Devpost;
+3. the public repository URL points to `main`;
+4. the private `/feedback` Session ID was entered;
+5. the rules and terms were accepted as part of successful submission;
+6. **Submit project** was completed before the deadline.
+
+Public demo video: https://www.youtube.com/watch?v=BNWTRxrVM6M
 
 ## Non-blocking technical follow-up
 
-The following improve the product but are not required to represent the current bounded Build Week demo honestly:
+The following improve the product but were not required to represent the bounded Build Week demo honestly:
 
 - physical selectable-copy acceptance;
 - visible CLEAR acceptance;
