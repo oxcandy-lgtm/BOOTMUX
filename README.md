@@ -6,6 +6,10 @@ It combines an iPhone, an ESP32-S3, USB HID, BLE, a terminal bridge, and a targe
 
 > The first path for AI into any computer.
 
+## Project Story
+
+Read the canonical [BOOTMUX Project Story](docs/PROJECT_STORY.md) for the problem, demonstrated system, Codex + GPT-5.6 development loop, challenges, evidence boundary, and next steps.
+
 ## What BOOTMUX Does
 
 BOOTMUX provides a target-side PTY Companion and a native iPhone terminal client for bootstrapping work on a computer that is not ready to run AI. The current submission slice proves a local WebSocket terminal, a bounded physical ASCII keyboard path, physical `BOOTMUX_READY` return, and a no-rebuild Judge Mode. Copy confirmation, visible CLEAR feedback, and repeatability remain explicitly pending.
@@ -248,7 +252,7 @@ For Hackathon V1:
 
 For the full architecture, a deterministic policy gate, structured execution, explicit approval, evidence verification, and abstention remain part of the post-V1 roadmap.
 
-See [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), [Roadmap](docs/ROADMAP.md), [OpenAI Build Week Requirements](docs/OPENAI_BUILD_WEEK.md), [Build Week Submission Roadmap](docs/BUILD_WEEK_SUBMISSION_ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
+See [Project Story](docs/PROJECT_STORY.md), [Architecture](docs/ARCHITECTURE.md), [Hackathon V1](docs/HACKATHON_V1.md), [Roadmap](docs/ROADMAP.md), [OpenAI Build Week Requirements](docs/OPENAI_BUILD_WEEK.md), [Build Week Submission Roadmap](docs/BUILD_WEEK_SUBMISSION_ROADMAP.md), [SAI Research Hypotheses](docs/SAI_RESEARCH_HYPOTHESES.md), [SAI Research Roadmap](docs/SAI_RESEARCH_ROADMAP.md), [Publication Safety](docs/PUBLICATION_SAFETY.md), and [Security](SECURITY.md).
 
 ## Known Limitations
 
