@@ -2,7 +2,7 @@ import CoreBluetooth
 import Foundation
 import Security
 
-private enum BOOTMUXWiFiKeychain {
+enum BOOTMUXWiFiKeychain {
     private static let service = "BOOTMUX.WiFiProvisioning"
     private static let ssidAccount = "wifi-ssid"
     private static let passwordAccount = "wifi-password"

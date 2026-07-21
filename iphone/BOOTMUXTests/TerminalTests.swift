@@ -112,6 +112,16 @@ final class TerminalTests: XCTestCase {
         XCTAssertFalse(payload.contains("password123"))
     }
 
+    func testWiFiKeychainSaveLoadAndForgetUsesOnlyDummyValues() {
+        BOOTMUXWiFiKeychain.clear()
+        XCTAssertNil(BOOTMUXWiFiKeychain.load())
+        BOOTMUXWiFiKeychain.save(ssid: "TEST_WIFI", password: "test-password-123")
+        XCTAssertEqual(BOOTMUXWiFiKeychain.load()?.ssid, "TEST_WIFI")
+        XCTAssertEqual(BOOTMUXWiFiKeychain.load()?.password, "test-password-123")
+        BOOTMUXWiFiKeychain.clear()
+        XCTAssertNil(BOOTMUXWiFiKeychain.load())
+    }
+
     func testHIDTextRejectsNonASCIIBeforeBLEOperation() {
         XCTAssertTrue(BLEBridgeSession.supportsASCIIHIDText("echo BOOTMUX_HID"))
         XCTAssertFalse(BLEBridgeSession.supportsASCIIHIDText("日本語"))
