@@ -1,44 +1,43 @@
-# BOOTMUX Next Implementation Task — Submission Spine
+# BOOTMUX Current Next Task
 
-## Status
+This file records the current post-integration task. The previous pre-merge task contract is preserved in Git history and is no longer an instruction for the repository.
 
 ```yaml
-previous_task:
-  task_id: BOOTMUX-S81-SUBMISSION-CLOSEOUT
-  status: YELLOW_SUBMISSION_READY
-  final_head_sha: 66c99c35d7ea714e9a013319ed3ac7d871715031
-current_task:
-  task_id: BOOTMUX-R4-PHYSICAL-DEMO-REPEATABILITY-HID-MIRROR-VIDEO
-  implementation_status: IMPLEMENTED_LOCAL_MIRROR_AND_USABILITY_CONTROLS_PHYSICAL_COPY_CLEAR_REPEATABILITY_PENDING
-  feature_development: BOUNDED_DEMO_SCOPE_ONLY
-  submission_baseline_preserved: true
-next_technical_task:
-  task_id: BOOTMUX-R4-PHYSICAL-DEMO-OWNER-ACCEPTANCE
-  status: BLOCKED_PENDING_OWNER_COPY_CLEAR_AND_REPEATABILITY_CONFIRMATION
-pull_request: 1
-branch: agent/bootstrap-design-roadmap
+status_as_of: 2026-07-22_JST
+integration_pr:
+  number: 1
+  state: MERGED
+  merge_commit: 024e384ff60956a5be9abfb45d056d6b2d6ff150
+current_branch_of_record: main
+submission_package: GREEN_WITH_EXTERNAL_CLOSEOUT_PENDING
 ```
 
-This task is limited to a repeatable physical-demo slice. The Submission Closeout baseline remains preserved. The implementation adds bounded iPhone usability controls, an ASCII fail-fast boundary, and a read-only HID mirror beside the existing PTY path. It does not claim Unicode HID, mouse/trackpad, a full terminal emulator, production readiness, or a completed owner acceptance receipt.
+## Immediate external closeout
 
-## Required artifacts
+The repository-side Build Week package is complete. The remaining organizer-facing actions are:
 
-- `docs/submission/BUILD_WEEK_STATUS.md`
-- `docs/submission/BUILD_WEEK_SCOPE_LEDGER.md`
-- `docs/submission/CODEX_GPT56_EVIDENCE_LEDGER.md`
-- `docs/submission/CLAIM_EVIDENCE_MATRIX.md`
-- README sections for scope, Codex, GPT-5.6, human decisions, and pre-existing work
-- an append-only update to existing Draft PR #1
+1. publish the final narrated video to YouTube;
+2. verify public visibility, duration, narration, and the signed-out link;
+3. place the final video URL in Devpost and the repository submission map;
+4. accept the Devpost terms and confirm the final submission.
 
-## Non-negotiable boundaries
+The real `/feedback` Session ID remains private and must not be committed.
 
-- Do not read, search, create, edit, comment on, or call APIs for GitHub Issues.
-- Do not create, inspect, run, rerun, or depend on GitHub Actions; do not add `.github/workflows/`.
-- Do not choose or add a repository license in this task.
-- Do not run `/feedback` or publish a real Session ID, account data, private paths, hostnames, device serials, or screenshots.
-- Do not implement V0B, iPhone, BLE, USB HID, Codex bootstrap, or hardware features here.
-- Keep PR #1 Draft, open, and unmerged; do not create another PR, merge, mark ready, force-push, or push to `main`.
+## Next technical task after submission
 
-## Local acceptance
+```yaml
+task_id: BOOTMUX-POST-BUILD-WEEK-PHYSICAL-ACCEPTANCE
+scope:
+  - repeatable physical BLE and USB HID run
+  - physical selectable-copy and exact-paste acceptance
+  - visible CLEAR acceptance
+  - physical HID Mirror acceptance
+  - reproducible evidence receipt
+not_in_scope:
+  - production-readiness claim
+  - Unicode HID
+  - mouse support
+  - full terminal emulation
+```
 
-Run the Companion tests, race tests, vet, Markdown/path and public-safety checks, `git diff --check`, complete diff inspection, commit/push, and exact remote-head verification. The final report must distinguish implemented evidence from human confirmation still pending.
+Current public claims remain governed by [Claim and Evidence Matrix](submission/CLAIM_EVIDENCE_MATRIX.md) and [Build Week Status](submission/BUILD_WEEK_STATUS.md).
