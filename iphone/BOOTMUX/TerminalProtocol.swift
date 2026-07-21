@@ -1,5 +1,39 @@
 import Foundation
 
+enum CodexRecoveryArtifacts {
+    static let maxURLBytes = 2 * 1024
+    static let maxDeviceCodeBytes = 128
+
+    static func extractHTTPSURL(from text: String) -> URL? {
+        let pattern = #"https://[^\s<>\"']+"#
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        for match in expression.matches(in: text, range: range).reversed() {
+            guard let matchRange = Range(match.range, in: text) else { continue }
+            var candidate = String(text[matchRange])
+            while candidate.last.map({ ".,);]".contains($0) }) == true { candidate.removeLast() }
+            guard candidate.utf8.count <= maxURLBytes, let url = URL(string: candidate),
+                  url.scheme?.lowercased() == "https", url.host != nil,
+                  url.user == nil, url.password == nil,
+                  !candidate.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7f }) else { continue }
+            return url
+        }
+        return nil
+    }
+
+    static func extractDeviceCode(from text: String) -> String? {
+        let pattern = #"(?i)(?:device\s+code|code)\s*[:=]?\s*([A-Z0-9]{4,8}(?:-[A-Z0-9]{4,8}){1,3})\b"#
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        for match in expression.matches(in: text, range: range).reversed() {
+            guard match.numberOfRanges > 1, let codeRange = Range(match.range(at: 1), in: text) else { continue }
+            let code = String(text[codeRange]).uppercased()
+            if code.utf8.count <= maxDeviceCodeBytes { return code }
+        }
+        return nil
+    }
+}
+
 enum TerminalProtocolLimits {
     static let webSocketMessageBytes = 16 * 1024
     static let jsonMessageBytes = 12 * 1024

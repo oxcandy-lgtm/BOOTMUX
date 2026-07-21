@@ -45,6 +45,13 @@ final class TerminalTests: XCTestCase {
         XCTAssertEqual(BOOTMUXStatusText.wifi("WIFI_ONLINE"), "L11 UPLINK: WIFI_ONLINE")
     }
 
+    func testProxyStatusParsingIsTypedAndBounded() {
+        let event = BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|0|PROXY_READY".utf8))
+        XCTAssertEqual(event, BLEProxyEvent(session: "s", sequence: 0, state: .ready))
+        XCTAssertNil(BLEProtocol.parseProxyStatus(Data("BMX1|PROXY_STATUS|s|0|hostname".utf8)))
+        XCTAssertTrue((try? BLEProtocol.proxyStatus(session: "s", sequence: 1))?.count ?? 0 > 0)
+    }
+
     func testBLEChunkerBatchesCommittedASCIIAndUsesFewerWritesThanCharacters() throws {
         let frames = try BLEChunker(maximumWriteBytes: 64).frames(session: "s", sequence: 1, text: "echo BOOTMUX_HID")
         XCTAssertLessThan(frames.count, "echo BOOTMUX_HID".utf8.count)
@@ -153,6 +160,20 @@ final class TerminalTests: XCTestCase {
         XCTAssertEqual("\u{7F}".utf8.count, 1)
     }
 
+    func testCodexRecoveryArtifactsOnlyAcceptHTTPSAndLabeledDeviceCodes() {
+        XCTAssertEqual(
+            CodexRecoveryArtifacts.extractHTTPSURL(from: "Open https://example.test/auth?state=demo now."),
+            URL(string: "https://example.test/auth?state=demo")
+        )
+        XCTAssertNil(CodexRecoveryArtifacts.extractHTTPSURL(from: "http://example.test/auth"))
+        XCTAssertNil(CodexRecoveryArtifacts.extractHTTPSURL(from: "custom://example.test/auth"))
+        XCTAssertEqual(
+            CodexRecoveryArtifacts.extractDeviceCode(from: "Device code: ab12-CD34-ef56"),
+            "AB12-CD34-EF56"
+        )
+        XCTAssertNil(CodexRecoveryArtifacts.extractDeviceCode(from: "random AB12-CD34 text"))
+    }
+
     func testBoundedUTF8BufferEvictsOldestTextWithoutBreakingJapanese() {
         var buffer = TerminalBuffer(maxBytes: 12)
         buffer.append("古い")
@@ -254,7 +275,7 @@ final class TerminalTests: XCTestCase {
     }
 
     func testScenePhasePolicyDoesNotDisconnectForInactive() {
-        XCTAssertFalse(BOOTMUXScenePhasePolicy.disconnects(for: .inactive))
+        XCTAssertTrue(BOOTMUXScenePhasePolicy.disconnects(for: .inactive))
         XCTAssertTrue(BOOTMUXScenePhasePolicy.disconnects(for: .background))
         XCTAssertFalse(BOOTMUXScenePhasePolicy.disconnects(for: .active))
     }

@@ -65,6 +65,8 @@ final class TerminalSession: ObservableObject {
     @Published private(set) var codexState = "IDLE"
     @Published private(set) var sourceLabel = "DIRECT PTY"
     @Published private(set) var hasPendingPublication = false
+    @Published private(set) var latestAuthURL: URL?
+    @Published private(set) var latestDeviceCode: String?
 
     private let transportFactory: (URL) -> any TerminalTransport
     private let publishDelayNanoseconds: UInt64
@@ -126,6 +128,8 @@ final class TerminalSession: ObservableObject {
         buffer.clear()
         terminalText = ""
         codexState = "IDLE"
+        latestAuthURL = nil
+        latestDeviceCode = nil
         sourceLabel = "DIRECT PTY"
         sanitizer = ANSISanitizer()
         state = .connecting
@@ -256,6 +260,8 @@ final class TerminalSession: ObservableObject {
     func clearVisibleHistory() {
         buffer.clear()
         terminalText = ""
+        latestAuthURL = nil
+        latestDeviceCode = nil
         publishToken += 1
         publishTask?.cancel()
         publishTask = nil
@@ -316,12 +322,14 @@ final class TerminalSession: ObservableObject {
             return .continueReceiving
         case .output(let sessionID, let text):
             guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            recordRecoveryArtifacts(in: text)
             buffer.append(sanitizer.consume(text))
             schedulePublish(for: messageGeneration)
             return .continueReceiving
         case .mirrorOutput(let sessionID, let text):
             guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
             guard isMirror else { throw ProtocolError.wrongSession }
+            recordRecoveryArtifacts(in: text)
             buffer.append(sanitizer.consume(text))
             schedulePublish(for: messageGeneration)
             return .continueReceiving
@@ -350,6 +358,7 @@ final class TerminalSession: ObservableObject {
             return .continueReceiving
         case .codexOutput(let sessionID, _, let text):
             guard case let .connected(expected) = state, expected == sessionID else { throw ProtocolError.wrongSession }
+            recordRecoveryArtifacts(in: text)
             buffer.append(sanitizer.consume(text))
             schedulePublish(for: messageGeneration)
             return .continueReceiving
@@ -369,6 +378,11 @@ final class TerminalSession: ObservableObject {
     private var currentSessionID: String? {
         if case let .connected(sessionID) = state { return sessionID }
         return nil
+    }
+
+    private func recordRecoveryArtifacts(in text: String) {
+        if let url = CodexRecoveryArtifacts.extractHTTPSURL(from: text) { latestAuthURL = url }
+        if let code = CodexRecoveryArtifacts.extractDeviceCode(from: text) { latestDeviceCode = code }
     }
 
     private func schedulePublish(for loopGeneration: Int) {

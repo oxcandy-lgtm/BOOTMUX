@@ -9,7 +9,7 @@ enum BOOTMUXClientMode: String {
 
 enum BOOTMUXScenePhasePolicy {
     static func disconnects(for phase: ScenePhase) -> Bool {
-        phase == .background
+        phase == .inactive || phase == .background
     }
 }
 
@@ -196,6 +196,22 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
+            if let authURL = session.latestAuthURL {
+                HStack(spacing: 6) {
+                    Button("OPEN AUTH URL") {
+                        UIApplication.shared.open(authURL)
+                    }
+                    Button("COPY DEVICE CODE") {
+                        if let code = session.latestDeviceCode {
+                            UIPasteboard.general.string = code
+                            showFeedback("DEVICE CODE COPIED")
+                        }
+                    }
+                    .disabled(session.latestDeviceCode == nil)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
         }
     }
 
@@ -239,6 +255,8 @@ struct ContentView: View {
                         .font(.caption.monospaced())
                     Text(BOOTMUXStatusText.wifi(ble.wifiState.rawValue))
                         .font(.caption.monospaced())
+                    Text("BOOTMUX PROXY: \(ble.proxyState.rawValue)")
+                        .font(.caption.monospaced())
                     Text("USB ETHERNET: R7A composite preserved")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
@@ -258,6 +276,8 @@ struct ContentView: View {
                     }
                     .disabled(!ble.isOpenForWiFi || wifiSSID.isEmpty)
                     Button("CHECK UPLINK") { ble.requestWiFiStatus() }
+                        .disabled(!ble.isOpenForWiFi)
+                    Button("CHECK BOOTMUX PROXY") { ble.requestProxyStatus() }
                         .disabled(!ble.isOpenForWiFi)
                     Button("DISCONNECT / CLEAR") {
                         ble.clearWiFi { _ in clearWiFiForm() }

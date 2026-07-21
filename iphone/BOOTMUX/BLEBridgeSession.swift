@@ -20,6 +20,7 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     @Published private(set) var eventLog = ["BLE off."]
     @Published private(set) var wifiState: BLENetworkState = .idle
     @Published private(set) var wifiStatusMessage = "Wi-Fi status unavailable."
+    @Published private(set) var proxyState: BLEProxyState = .offline
 
     private func log(_ message: String) {
         let entry = "\(Date().formatted(date: .omitted, time: .standard))  \(message)"
@@ -82,6 +83,7 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         if let peripheral { central.cancelPeripheralConnection(peripheral) }
         peripheral = nil; rx = nil; tx = nil; sessionID = ""
         wifiState = .idle
+        proxyState = .offline
         wifiStatusMessage = "Wi-Fi credentials cleared locally."
         lastNetworkSequence = 0
         state = .off
@@ -176,6 +178,10 @@ final class BLEBridgeSession: NSObject, ObservableObject {
 
     func clearWiFi(completion: @escaping (Bool) -> Void = { _ in }) {
         startWiFiControl(kind: .wifiClear, completion: completion) { try BLEProtocol.wifiClear(session: self.sessionID, sequence: self.sequence) }
+    }
+
+    func requestProxyStatus(completion: @escaping (Bool) -> Void = { _ in }) {
+        startWiFiControl(kind: .proxyStatus, completion: completion) { try BLEProtocol.proxyStatus(session: self.sessionID, sequence: self.sequence) }
     }
 
     private func startWiFiControl(kind: BLEOperationKind, completion: @escaping (Bool) -> Void, frameBuilder: () throws -> Data) {
@@ -302,6 +308,12 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         wifiState = event.state
         wifiStatusMessage = event.state.rawValue.replacingOccurrences(of: "_", with: " ")
     }
+
+    private func handleProxy(_ event: BLEProxyEvent) {
+        guard event.session == sessionID else { log("ignored proxy status for another session"); return }
+        proxyState = event.state
+        log("proxy status: \(event.state.rawValue)")
+    }
 }
 
 extension BLEBridgeSession: CBCentralManagerDelegate {
@@ -411,6 +423,8 @@ extension BLEBridgeSession: CBPeripheralDelegate {
             Task { @MainActor [weak self] in self?.handleAck(ack) }
         } else if let event = BLEProtocol.parseNetwork(data) {
             Task { @MainActor [weak self] in self?.handleNetwork(event) }
+        } else if let event = BLEProtocol.parseProxyStatus(data) {
+            Task { @MainActor [weak self] in self?.handleProxy(event) }
         }
     }
 }

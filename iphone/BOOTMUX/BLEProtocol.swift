@@ -25,6 +25,7 @@ enum BLEOperationKind {
     case wifiProvision
     case wifiStatus
     case wifiClear
+    case proxyStatus
 }
 
 enum BLENetworkState: String, Equatable {
@@ -42,6 +43,19 @@ struct BLENetworkEvent: Equatable {
     let session: String
     let sequence: UInt32
     let state: BLENetworkState
+}
+
+enum BLEProxyState: String, Equatable {
+    case offline = "PROXY_OFFLINE"
+    case ready = "PROXY_READY"
+    case active = "PROXY_ACTIVE"
+    case error = "PROXY_ERROR"
+}
+
+struct BLEProxyEvent: Equatable {
+    let session: String
+    let sequence: UInt32
+    let state: BLEProxyState
 }
 
 enum BLEAckContract {
@@ -106,6 +120,10 @@ enum BLEProtocol {
         try frame(["BMX1", "WIFI_CLEAR", validSession(session), String(sequence), "CLEAR"])
     }
 
+    static func proxyStatus(session: String, sequence: UInt32) throws -> Data {
+        try frame(["BMX1", "PROXY_STATUS", validSession(session), String(sequence), "STATUS"])
+    }
+
     static func wifiPayload(ssid: String, password: String) throws -> String {
         let ssidBytes = Array(ssid.utf8)
         let passwordBytes = Array(password.utf8)
@@ -133,6 +151,14 @@ enum BLEProtocol {
         guard fields.count == 5, fields[0] == "BMX1", fields[1] == "NET",
               let sequence = UInt32(fields[3]), let state = BLENetworkState(rawValue: String(fields[4])) else { return nil }
         return BLENetworkEvent(session: String(fields[2]), sequence: sequence, state: state)
+    }
+
+    static func parseProxyStatus(_ data: Data) -> BLEProxyEvent? {
+        guard let value = String(data: data, encoding: .utf8) else { return nil }
+        let fields = value.split(separator: "|", omittingEmptySubsequences: false)
+        guard fields.count == 5, fields[0] == "BMX1", fields[1] == "PROXY_STATUS",
+              let sequence = UInt32(fields[3]), let state = BLEProxyState(rawValue: String(fields[4])) else { return nil }
+        return BLEProxyEvent(session: String(fields[2]), sequence: sequence, state: state)
     }
 
     private static func validSession(_ value: String) throws -> String {

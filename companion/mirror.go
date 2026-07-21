@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -13,6 +14,7 @@ type mirrorObserver struct {
 	offset  int64
 	batch   int64
 	modTime int64
+	prefix  []byte
 }
 
 func newMirrorObserver(path string, batch int) *mirrorObserver {
@@ -39,6 +41,15 @@ func (o *mirrorObserver) readNew() ([]byte, error) {
 		return nil, errMirrorSourceUnavailable
 	}
 	defer file.Close()
+	if info.Size() == o.offset && len(o.prefix) > 0 {
+		currentPrefix := make([]byte, len(o.prefix))
+		if _, err := io.ReadFull(file, currentPrefix); err == nil && !bytes.Equal(currentPrefix, o.prefix) {
+			o.offset = 0
+		}
+		if _, err := file.Seek(o.offset, io.SeekStart); err != nil {
+			return nil, err
+		}
+	}
 	if _, err := file.Seek(o.offset, io.SeekStart); err != nil {
 		return nil, err
 	}
@@ -48,5 +59,8 @@ func (o *mirrorObserver) readNew() ([]byte, error) {
 	}
 	o.offset += int64(len(data))
 	o.modTime = modTime
+	if len(o.prefix) == 0 && len(data) > 0 {
+		o.prefix = append([]byte(nil), data...)
+	}
 	return data, nil
 }

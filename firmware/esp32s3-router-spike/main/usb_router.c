@@ -1,5 +1,6 @@
 #include "usb_router.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,6 +17,7 @@
 
 static const char *TAG = "bootmux_usb_router";
 static esp_netif_t *s_usb_netif;
+static bool s_napt_enabled;
 static uint8_t s_usb_mac[6] = {0x02, 0x42, 0x4f, 0x4f, 0x54, 0x01};
 
 static void on_usb_ready(void *context) {
@@ -100,9 +102,11 @@ esp_err_t bootmux_usb_router_init(void) {
 }
 
 esp_err_t bootmux_usb_router_enable_napt(void) {
+    if (s_napt_enabled) return ESP_OK;
     if (!s_usb_netif) return ESP_ERR_INVALID_STATE;
     esp_err_t error = esp_netif_napt_enable(s_usb_netif);
     if (error == ESP_OK) puts("BOOTMUX_NAPT_READY");
     else ESP_LOGE(TAG, "NAPT enable failed code=%s", esp_err_to_name(error));
+    if (error == ESP_OK) s_napt_enabled = true;
     return error;
 }

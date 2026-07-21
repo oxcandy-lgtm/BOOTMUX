@@ -28,6 +28,7 @@
 #include "class/hid/hid.h"
 #include "tusb.h"
 #include "usb_router.h"
+#include "http_connect_proxy.h"
 
 #define BMX_MAX_FRAME 520
 #define BMX_FRAME_QUEUE 32
@@ -98,6 +99,7 @@ static bool s_stopped;
 static wifi_state_t s_wifi_state = WIFI_IDLE;
 static int64_t s_wifi_deadline;
 static uint8_t s_wifi_attempts;
+static bool s_proxy_ready;
 
 static uint32_t s_completed[16];
 static size_t s_completed_index;
@@ -170,6 +172,12 @@ static void notify_network(void) {
     char message[192];
     snprintf(message, sizeof(message), "BMX1|NET|%s|0|%s", s_session,
              wifi_state_name(s_wifi_state));
+    (void)notify_enqueue(message);
+}
+
+static void notify_proxy_status(const char *status) {
+    char message[192];
+    snprintf(message, sizeof(message), "BMX1|PROXY_STATUS|%s|0|%s", s_session, status);
     (void)notify_enqueue(message);
 }
 
@@ -419,6 +427,9 @@ static void wifi_task(void *arg) {
             if (event.event_id == WIFI_EVENT_STA_START) {
                 set_wifi_state(WIFI_CONNECTING);
             } else if (event.event_id == WIFI_EVENT_STA_DISCONNECTED) {
+                bootmux_http_proxy_stop();
+                s_proxy_ready = false;
+                notify_proxy_status("PROXY_OFFLINE");
                 if (event.reason == WIFI_REASON_AUTH_FAIL || event.reason == WIFI_REASON_AUTH_EXPIRE || event.reason == WIFI_REASON_HANDSHAKE_TIMEOUT) {
                     s_wifi_deadline = 0;
                     set_wifi_state(WIFI_AUTH_FAILED);
@@ -433,6 +444,13 @@ static void wifi_task(void *arg) {
                 s_wifi_attempts = 0;
                 set_wifi_state(WIFI_ONLINE);
                 if (bootmux_usb_router_enable_napt() != ESP_OK) notify_error(0, "napt_enable_failed");
+                if (bootmux_http_proxy_start(s_sta_netif) == ESP_OK) {
+                    s_proxy_ready = true;
+                    notify_proxy_status("PROXY_READY");
+                } else {
+                    notify_proxy_status("PROXY_ERROR");
+                    notify_error(0, "proxy_start_failed");
+                }
             }
         }
         wifi_command_t command;
@@ -547,6 +565,11 @@ static void handle_frame(const bmx_frame_t *frame) {
         return;
     }
     if (strcmp(fields[1], "WIFI_STATUS") == 0 && count == 5) { notify_network(); notify_ack(sequence, "APPLIED"); return; }
+    if (strcmp(fields[1], "PROXY_STATUS") == 0 && count == 5) {
+        notify_proxy_status(s_proxy_ready ? "PROXY_READY" : "PROXY_OFFLINE");
+        notify_ack(sequence, "APPLIED");
+        return;
+    }
     if (strcmp(fields[1], "WIFI_CLEAR") == 0 && count == 5) {
         wifi_config_t empty = {0};
         esp_err_t error = esp_wifi_disconnect();
@@ -555,6 +578,9 @@ static void handle_frame(const bmx_frame_t *frame) {
         secure_zero(&empty, sizeof(empty));
         if (error != ESP_OK) { notify_error(sequence, "wifi_clear_failed"); return; }
         s_wifi_deadline = 0;
+        bootmux_http_proxy_stop();
+        s_proxy_ready = false;
+        notify_proxy_status("PROXY_OFFLINE");
         set_wifi_state(WIFI_CLEARED);
         notify_ack(sequence, "APPLIED");
         return;
