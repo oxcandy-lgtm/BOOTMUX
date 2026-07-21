@@ -11,8 +11,8 @@ ble_device_name: BOOTMUX Keyboard
 keyboard_layout: US_ANSI_QWERTY
 character_scope: printable_ASCII
 service_uuid: 7c1b0001-4b4f-4d55-9a01-42584d583101
-rx_write_uuid: 7c1b0002-4b4f-4d55-9a01-42584d583102
-tx_notify_uuid: 7c1b0003-4b4f-4d55-9a01-42584d583103
+rx_write_uuid: 7c1b0002-4b4f-4d55-9a01-42584d583101
+tx_notify_uuid: 7c1b0003-4b4f-4d55-9a01-42584d583101
 ```
 
 The wire format is the core keyboard profile of [BMX1](../../docs/protocol/BMX1.md), with `OPEN`, batched `TEXT`, typed `CTRL`, and ACK/ERR notifications.
@@ -34,3 +34,5 @@ The native USB HID proof requires the ESP32-S3 native USB connector, not the COM
 ## Evidence boundary
 
 The repository supports an owner-observed bounded ASCII physical path. It does not claim full control-key acceptance, reconnect repeatability, Unicode HID, mouse support, production readiness, or independently observed target output from a BLE acknowledgement alone.
+
+The independent `esp32s3-router-spike` uses a separate experimental characteristic profile. It is not the firmware used for the Build Week core keyboard claim.
