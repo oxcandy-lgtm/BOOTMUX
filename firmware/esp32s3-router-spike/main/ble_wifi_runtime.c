@@ -279,12 +279,12 @@ static bool hid_key_for_ascii(char value, uint8_t *key, uint8_t *modifier) {
         case '0': *key = HID_KEY_0; return true;
         case ' ': *key = HID_KEY_SPACE; return true;
         case '!': *key = HID_KEY_1; *modifier = 0x02; return true;
-        case '"': *key = HID_KEY_2; *modifier = 0x02; return true;
+        case '"': *key = HID_KEY_APOSTROPHE; *modifier = 0x02; return true;
         case '#': *key = HID_KEY_3; *modifier = 0x02; return true;
         case '$': *key = HID_KEY_4; *modifier = 0x02; return true;
         case '%': *key = HID_KEY_5; *modifier = 0x02; return true;
         case '&': *key = HID_KEY_7; *modifier = 0x02; return true;
-        case '\'': *key = HID_KEY_8; return true;
+        case '\'': *key = HID_KEY_APOSTROPHE; return true;
         case '(': *key = HID_KEY_9; *modifier = 0x02; return true;
         case ')': *key = HID_KEY_0; *modifier = 0x02; return true;
         case '*': *key = HID_KEY_8; *modifier = 0x02; return true;
