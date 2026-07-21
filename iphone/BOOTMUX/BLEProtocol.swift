@@ -82,8 +82,8 @@ enum BLEAckContract {
 
 enum BLEProtocol {
     static let serviceUUID = "7C1B0001-4B4F-4D55-9A01-42584D583101"
-    static let rxUUID = "7C1B0002-4B4F-4D55-9A01-42584D583102"
-    static let txUUID = "7C1B0003-4B4F-4D55-9A01-42584D583103"
+    static let rxUUID = "7C1B0002-4B4F-4D55-9A01-42584D583101"
+    static let txUUID = "7C1B0003-4B4F-4D55-9A01-42584D583101"
     static let maximumCommittedBytes = 512
     static let maximumParts = 32
 
