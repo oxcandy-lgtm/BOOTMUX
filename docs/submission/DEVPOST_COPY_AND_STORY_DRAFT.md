@@ -1,12 +1,16 @@
-# Devpost Copy and Story Draft
+# Archived Devpost Copy and Story Source
 
-Status: working draft for OpenAI Build Week submission. This file is not the final submission copy.
+Status: historical source material. This file is **not** the canonical submission copy.
 
-This document contains public-safe copy only. Do not add the real `/feedback` Session ID, account information, private paths, hostnames, device serial numbers, or unpublished credentials.
+Use these current sources instead:
 
-## Project summary — maximum 200 characters
+- [Canonical Project Story](../PROJECT_STORY.md)
+- [Devpost Submission Map](DEVPOST_FINAL_DRAFT.md)
+- [Claim and Evidence Matrix](CLAIM_EVIDENCE_MATRIX.md)
 
-Character count: 191, including spaces and punctuation.
+This document is retained because it contains the builder's original Japanese motivation and the early public-safe positioning from which the canonical English story was developed. Do not add the real `/feedback` Session ID, account information, private paths, hostnames, device serial numbers, endpoints, or credentials.
+
+## Early project summary
 
 > Codex built BOOTMUX, a physical first mile for Codex: iPhone text crosses BLE and ESP32-S3 USB HID, while independently observed terminal output returns to the phone—architected with GPT-5.6.
 
@@ -14,23 +18,19 @@ Character count: 191, including spaces and punctuation.
 
 > **The physical first mile for Codex. Built by Codex. Architected and hardened with GPT-5.6.**
 
-BOOTMUX is not another remote-terminal frontend. It addresses the moment before the normal developer path is ready: bare-metal setup, recovery, a clean VM, a headless machine, or a broken SSH route.
+BOOTMUX is not another remote-terminal frontend. It addresses the moment before the normal developer path is ready: initial setup, recovery, a clean VM, a headless machine, or a broken SSH route.
 
 ```text
 physical input:
-iPhone → BLE → ESP32-S3 → USB HID → target
+iPhone → BLE → ESP32-S3 → native USB HID → target
 
 independently observed return:
-target PTY / Codex output → BOOTMUX Companion → WebSocket → iPhone
+target PTY / Codex output → BOOTMUX Companion → local WebSocket → iPhone
 ```
 
-Codex built the major software, firmware, VM, testing, and repair layers. GPT-5.6 designed the asymmetric architecture, bounded contracts, adversarial reviews, and evidence boundaries. The human owner selected the problem and product direction, performed the physical setup and acceptance, and owns the final claims.
+Codex built the major software, firmware, VM, testing, and repair layers. GPT-5.6 designed the asymmetric architecture, bounded contracts, adversarial reviews, and evidence boundaries. The human owner selected the problem and product direction, performed physical setup and observation, edited the final video, and owns every final claim.
 
-The central Build Week story is:
-
-> Codex helped build the path that extends Codex itself into a computer before the normal AI workflow is ready.
-
-## Story draft — original Japanese source
+## Original Japanese motivation
 
 動機は実に単純でしたが、私に有り余るほどのエネルギーを与えてくれました。サーバーPCの初期セットアップです。
 
@@ -42,40 +42,29 @@ The central Build Week story is:
 
 はっきり言いますが、人類に今一番必要なツールです。OSにネイティブAIが搭載されるか、このBOOTMUXを使うかの二択です。そしてこの問いは非常に簡単で、あなたならすぐ解けるはずです。AIを使わずともね。
 
-## Final English story requirements
+## Current public boundary
 
-The final English version should preserve the personal voice and highway-median metaphor while accurately covering:
+Publishable:
 
-- the real server-PC setup and recovery problem;
-- why photographing a dirty terminal display breaks the normal AI workflow;
-- why BOOTMUX differs from SSH and ordinary remote terminals;
-- the demonstrated iPhone, BLE, ESP32-S3 USB HID, VM, Companion, Codex, and terminal-return path;
-- how Codex implemented the major project layers;
-- how GPT-5.6 materially designed and hardened the architecture;
-- the human product and physical-acceptance decisions;
-- the distinction between observed capabilities and future roadmap claims.
+- Codex built the major Go, SwiftUI, firmware, VM, Judge Mode, testing, and repair layers;
+- GPT-5.6 materially contributed to architecture, contracts, root-cause review, and claim safety;
+- bounded physical ASCII BLE and native USB HID input was owner-observed;
+- Codex was installed and invoked in a clean ARM64 VM;
+- `BOOTMUX_READY` returned through the Companion to the physical iPhone;
+- Judge Mode is available without rebuilding.
 
-## Current publishable claims
+Still pending:
 
-```yaml
-publishable:
-  - Codex built the major Go, SwiftUI, firmware, VM, testing, and repair layers
-  - GPT-5.6 materially contributed to architecture, contracts, review, and claim safety
-  - bounded physical ASCII BLE and USB HID input was owner-observed
-  - Codex was installed and invoked in a clean ARM64 VM
-  - BOOTMUX_READY returned through the Companion to the physical iPhone
-  - Judge Mode is available without rebuilding
+- physical selectable-copy and exact paste acceptance;
+- visible CLEAR acceptance;
+- physical HID Mirror acceptance;
+- repeatability receipt.
 
-pending:
-  - selectable copy and exact paste owner confirmation
-  - visible CLEAR owner confirmation
-  - physical HID Mirror confirmation
-  - repeatability receipt
+Not claimed:
 
-not_claimed:
-  - Unicode HID
-  - mouse support
-  - fully offline target operation
-  - full terminal emulation
-  - production readiness
-```
+- Unicode HID;
+- mouse support;
+- fully offline target operation;
+- full terminal emulation;
+- continued post-bootstrap operation;
+- production readiness.
