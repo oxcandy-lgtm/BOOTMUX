@@ -1,6 +1,6 @@
 # Build Week Status
 
-This is the public-safe operational status for the OpenAI Build Week submission path. `GREEN` means repository evidence exists. Human-only and organizer-facing actions are not marked complete without explicit confirmation.
+This is the public-safe operational status for the OpenAI Build Week submission path. `GREEN` means repository evidence exists or an organizer-facing action was explicitly confirmed by the human owner. Private submission identifiers are not stored here.
 
 ```yaml
 status_as_of: 2026-07-22_JST
@@ -11,13 +11,13 @@ submission_sprint:
   iphone_client: IMPLEMENTED_PHYSICAL_BOOTMUX_READY_OBSERVED
   physical_bridge: BOUNDED_PHYSICAL_ASCII_PATH_OBSERVED
   codex_ready: CLEAN_VM_AND_PHYSICAL_RETURN_OBSERVED
-  submission_package: READY_PUBLIC_UPLOAD_AND_FINAL_SUBMIT_PENDING
-feature_development: FROZEN_OUTSIDE_SUBMISSION_BLOCKERS
+  submission_package: GREEN_SUBMITTED
+feature_development: FROZEN_FOR_JUDGING
 ```
 
 ## Gate status
 
-| Gate | Status | Evidence or remaining action |
+| Gate | Status | Evidence or closeout |
 | --- | --- | --- |
 | BW0 — registration and category | GREEN_OWNER_CONFIRMED | Individual entry, Japan, Developer Tools selected in Devpost |
 | BW1 — Codex and GPT-5.6 evidence | GREEN | Public evidence ledger plus private Primary Build Thread receipt |
@@ -26,9 +26,9 @@ feature_development: FROZEN_OUTSIDE_SUBMISSION_BLOCKERS
 | BW4 — no-build judge path | GREEN | Standalone replay plus packaged/live Companion Judge Mode |
 | BW5 — repository package | GREEN | MIT license, README, setup, supported platforms, and testing path |
 | BW6 — `/feedback` | GREEN_PRIVATE_CAPTURED_AND_ENTERED | Real Session ID intentionally excluded from the public repository |
-| BW7 — narrated demo | FINAL_MASTER_COMPLETE_OWNER_REPORTED | Public YouTube upload, visibility, duration, audio, and signed-out link check remain |
-| BW8 — Devpost fields | READY_FINAL_LINK_REVIEW | Project copy, category, repository, judge instructions, and developer-tool testing path populated |
-| BW9 — final submission | OPEN | Terms acceptance and successful `Submit project` confirmation remain human actions |
+| BW7 — narrated demo | GREEN_OWNER_CONFIRMED | Public video: https://www.youtube.com/watch?v=BNWTRxrVM6M |
+| BW8 — Devpost fields | GREEN_OWNER_CONFIRMED | Project copy, category, repository, judge instructions, testing path, and video URL submitted |
+| BW9 — final submission | GREEN_OWNER_CONFIRMED | Entry submitted before the deadline |
 
 ## Competition positioning
 
@@ -89,24 +89,18 @@ feedback:
   public_session_id: false
 video:
   final_master_complete: true
+  public_youtube_upload: GREEN_OWNER_CONFIRMED
+  public_url: https://www.youtube.com/watch?v=BNWTRxrVM6M
+  linked_in_devpost: true
   completion_source: OWNER_CONFIRMATION
-  public_youtube_upload: PENDING_CONFIRMATION
-  public_visibility_check: PENDING
-  under_three_minutes_check: PENDING_FINAL_VERIFICATION
-  narration_covers_product_codex_and_gpt_5_6: PENDING_FINAL_PLAYBACK_VERIFICATION
 devpost:
-  form_fields_prepared: true
-  terms_accepted: PENDING
-  final_submit_confirmed: false
+  form_fields_submitted: true
+  repository_points_to_main: true
+  terms_accepted: GREEN_OWNER_CONFIRMED_BY_SUCCESSFUL_SUBMISSION
+  final_submit_confirmed: true
+  status: SUBMITTED
 github_actions_used: false
 github_issues_used: false
 ```
 
-The remaining submission-critical sequence is:
-
-1. upload the final master to YouTube as **Public**;
-2. verify duration, narration, audio, and visibility in a signed-out browser;
-3. add the final video URL to Devpost and optionally to this repository;
-4. recheck all public links;
-5. accept the rules and terms;
-6. submit and confirm that the Devpost entry is no longer a draft.
+The Build Week submission path is closed. The repository and public video should remain available through judging. Post-submission engineering remains separate from the submitted evidence boundary.
