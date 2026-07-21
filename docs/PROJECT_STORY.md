@@ -148,12 +148,12 @@ Codex supplied implementation velocity. GPT-5.6 supplied architectural and verif
 
 ## Try it and judge instructions
 
-The full source and setup documentation are available in the [BOOTMUX GitHub repository](https://github.com/oxcandy-lgtm/BOOTMUX/tree/agent/bootstrap-design-roadmap).
+The full source and setup documentation are available in the [BOOTMUX GitHub repository](https://github.com/oxcandy-lgtm/BOOTMUX).
 
 Judges can inspect the terminal experience without rebuilding the project:
 
-- Open [`judge/index.html`](https://github.com/oxcandy-lgtm/BOOTMUX/blob/agent/bootstrap-design-roadmap/judge/index.html) for the standalone offline replay.
-- Follow the [Judge Mode instructions](https://github.com/oxcandy-lgtm/BOOTMUX/blob/agent/bootstrap-design-roadmap/judge/README.md) for the packaged macOS arm64 or live local Companion path.
+- Download or clone the repository and open [`judge/index.html`](https://github.com/oxcandy-lgtm/BOOTMUX/blob/main/judge/index.html) locally for the standalone offline replay.
+- Follow the [Judge Mode instructions](https://github.com/oxcandy-lgtm/BOOTMUX/blob/main/judge/README.md) for the packaged macOS arm64 or live local Companion path.
 
 Judge Mode demonstrates the terminal, session, selection, and copy experience. It is clearly labeled and is **not** presented as proof of the physical BLE or USB HID path.
 
