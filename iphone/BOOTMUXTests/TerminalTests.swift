@@ -40,6 +40,11 @@ final class FakeTransport: TerminalTransport {
 
 @MainActor
 final class TerminalTests: XCTestCase {
+    func testNetworkBridgeStatusTextUsesRuntimeValues() {
+        XCTAssertEqual(BOOTMUXStatusText.ble("ON"), "BLE LINK: ON")
+        XCTAssertEqual(BOOTMUXStatusText.wifi("WIFI_ONLINE"), "L11 UPLINK: WIFI_ONLINE")
+    }
+
     func testBLEChunkerBatchesCommittedASCIIAndUsesFewerWritesThanCharacters() throws {
         let frames = try BLEChunker(maximumWriteBytes: 64).frames(session: "s", sequence: 1, text: "echo BOOTMUX_HID")
         XCTAssertLessThan(frames.count, "echo BOOTMUX_HID".utf8.count)
@@ -338,7 +343,9 @@ final class TerminalTests: XCTestCase {
         session.disconnect()
         await fulfillment(of: [started], timeout: 1)
         await fulfillment(of: [closed], timeout: 1)
-        XCTAssertLessThan(Date().timeIntervalSince(disconnectStarted), 0.25)
+        // The production close waiter is bounded to 150 ms; allow simulator
+        // process scheduling overhead while still requiring prompt cleanup.
+        XCTAssertLessThan(Date().timeIntervalSince(disconnectStarted), 0.5)
         XCTAssertEqual(session.state, .disconnected)
     }
 

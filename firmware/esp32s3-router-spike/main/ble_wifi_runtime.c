@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include "driver/gpio.h"
 #include "esp_event.h"
+#include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -16,6 +17,7 @@
 #include "host/ble_hs.h"
 #include "host/ble_hs_id.h"
 #include "host/ble_gatt.h"
+#include "host/util/util.h"
 #include "mbedtls/base64.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
@@ -38,8 +40,10 @@
 #define BMX_REASSEMBLY_TIMEOUT_MS 2000
 #define BMX_WIFI_TIMEOUT_MS 15000
 #define BMX_WIFI_TRIES 3
+#define BMX_WIFI_EVENT_QUEUE 8
 
 static const char *kDeviceName = "BOOTMUX Bridge";
+static const char *TAG = "bootmux_r7b";
 
 typedef struct {
     uint16_t length;
@@ -59,6 +63,11 @@ typedef struct {
     uint16_t length;
 } wifi_command_t;
 
+typedef struct {
+    int32_t event_id;
+    uint8_t reason;
+} wifi_runtime_event_t;
+
 typedef enum {
     WIFI_IDLE,
     WIFI_CONNECTING,
@@ -73,10 +82,14 @@ typedef enum {
 static QueueHandle_t s_frames;
 static QueueHandle_t s_notifications;
 static QueueHandle_t s_wifi_commands;
+static QueueHandle_t s_wifi_events;
+static bool s_tasks_started;
+static esp_netif_t *s_sta_netif;
 static volatile bool s_queue_overflow;
 static volatile bool s_connected;
 static uint16_t s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
 static uint16_t s_tx_handle;
+static uint8_t s_own_addr_type;
 static char s_session[64];
 static bool s_output_enabled;
 static bool s_stopped;
@@ -247,33 +260,72 @@ static void release_all(void) {
     if (tud_hid_ready()) tud_hid_report(0, report, sizeof(report));
 }
 
-static uint8_t hid_key_for_ascii(char value, bool *shift) {
-    *shift = false;
-    if (value >= 'a' && value <= 'z') return (uint8_t)(HID_KEY_A + value - 'a');
-    if (value >= 'A' && value <= 'Z') { *shift = true; return (uint8_t)(HID_KEY_A + value - 'A'); }
-    if (value >= '1' && value <= '9') return (uint8_t)(HID_KEY_1 + value - '1');
-    if (value == '0') return HID_KEY_0;
-    if (value == ' ') return HID_KEY_SPACE;
-    if (value == '-') return HID_KEY_MINUS;
-    if (value == '_') { *shift = true; return HID_KEY_MINUS; }
-    if (value == '.') return HID_KEY_PERIOD;
-    if (value == '/') return HID_KEY_SLASH;
-    return 0;
+static bool hid_key_for_ascii(char value, uint8_t *key, uint8_t *modifier) {
+    *key = 0; *modifier = 0;
+    if (value >= 'a' && value <= 'z') { *key = (uint8_t)(HID_KEY_A + value - 'a'); return true; }
+    if (value >= 'A' && value <= 'Z') { *key = (uint8_t)(HID_KEY_A + value - 'A'); *modifier = 0x02; return true; }
+    if (value >= '1' && value <= '9') { *key = (uint8_t)(HID_KEY_1 + value - '1'); return true; }
+    switch (value) {
+        case '0': *key = HID_KEY_0; return true;
+        case ' ': *key = HID_KEY_SPACE; return true;
+        case '!': *key = HID_KEY_1; *modifier = 0x02; return true;
+        case '"': *key = HID_KEY_2; *modifier = 0x02; return true;
+        case '#': *key = HID_KEY_3; *modifier = 0x02; return true;
+        case '$': *key = HID_KEY_4; *modifier = 0x02; return true;
+        case '%': *key = HID_KEY_5; *modifier = 0x02; return true;
+        case '&': *key = HID_KEY_7; *modifier = 0x02; return true;
+        case '\'': *key = HID_KEY_8; return true;
+        case '(': *key = HID_KEY_9; *modifier = 0x02; return true;
+        case ')': *key = HID_KEY_0; *modifier = 0x02; return true;
+        case '*': *key = HID_KEY_8; *modifier = 0x02; return true;
+        case '+': *key = HID_KEY_EQUAL; *modifier = 0x02; return true;
+        case ',': *key = HID_KEY_COMMA; return true;
+        case '-': *key = HID_KEY_MINUS; return true;
+        case '.': *key = HID_KEY_PERIOD; return true;
+        case '/': *key = HID_KEY_SLASH; return true;
+        case ':': *key = HID_KEY_SEMICOLON; *modifier = 0x02; return true;
+        case ';': *key = HID_KEY_SEMICOLON; return true;
+        case '<': *key = HID_KEY_COMMA; *modifier = 0x02; return true;
+        case '=': *key = HID_KEY_EQUAL; return true;
+        case '>': *key = HID_KEY_PERIOD; *modifier = 0x02; return true;
+        case '?': *key = HID_KEY_SLASH; *modifier = 0x02; return true;
+        case '@': *key = HID_KEY_2; *modifier = 0x02; return true;
+        case '[': *key = HID_KEY_BRACKET_LEFT; return true;
+        case '\\': *key = HID_KEY_BACKSLASH; return true;
+        case ']': *key = HID_KEY_BRACKET_RIGHT; return true;
+        case '^': *key = HID_KEY_6; *modifier = 0x02; return true;
+        case '_': *key = HID_KEY_MINUS; *modifier = 0x02; return true;
+        case '`': *key = HID_KEY_GRAVE; return true;
+        case '{': *key = HID_KEY_BRACKET_LEFT; *modifier = 0x02; return true;
+        case '|': *key = HID_KEY_BACKSLASH; *modifier = 0x02; return true;
+        case '}': *key = HID_KEY_BRACKET_RIGHT; *modifier = 0x02; return true;
+        case '~': *key = HID_KEY_GRAVE; *modifier = 0x02; return true;
+        default: return false;
+    }
 }
 
-static void type_ascii(const char *text, size_t length) {
-    if (!s_output_enabled || !tud_hid_ready()) return;
+static bool validate_ascii_text(const char *text, size_t length) {
     for (size_t i = 0; i < length; ++i) {
-        bool shift = false;
-        uint8_t key = hid_key_for_ascii(text[i], &shift);
-        if (!key) continue;
+        uint8_t key, modifier;
+        if ((uint8_t)text[i] < 0x20 || (uint8_t)text[i] > 0x7e || !hid_key_for_ascii(text[i], &key, &modifier)) return false;
+    }
+    return true;
+}
+
+static bool type_ascii(const char *text, size_t length) {
+    if (!s_output_enabled || !tud_hid_ready() || !validate_ascii_text(text, length)) return false;
+    for (size_t i = 0; i < length; ++i) {
+        uint8_t key, modifier;
+        (void)hid_key_for_ascii(text[i], &key, &modifier);
         uint8_t report[8] = {0};
-        report[0] = shift ? 0x02 : 0;
+        report[0] = modifier;
         report[2] = key;
         tud_hid_report(0, report, sizeof(report));
         vTaskDelay(pdMS_TO_TICKS(2));
         release_all();
+        vTaskDelay(pdMS_TO_TICKS(2));
     }
+    return true;
 }
 
 static void apply_control(const char *session, uint32_t sequence, const char *control) {
@@ -307,7 +359,7 @@ static void finish_text(uint32_t sequence) {
         if (used + part_length > BMX_MAX_PAYLOAD) { clear_text_reassembly(); release_all(); notify_error(sequence, "oversized_text"); return; }
         memcpy(text + used, s_text_parts[i], part_length); used += part_length;
     }
-    type_ascii(text, used);
+    if (!type_ascii(text, used)) { secure_zero(text, sizeof(text)); clear_text_reassembly(); release_all(); notify_error(sequence, "hid_not_ready_or_unsupported"); return; }
     secure_zero(text, sizeof(text)); clear_text_reassembly(); remember_sequence(sequence); notify_ack(sequence, "APPLIED");
 }
 
@@ -327,6 +379,8 @@ static bool decode_wifi_json(const char *encoded, size_t length, char *ssid, siz
         valid = ssid_length > 0 && ssid_length <= 32 && password_length <= 63 && (password_length == 0 || password_length >= 8) && !memchr(ssid_item->valuestring, 0, ssid_length) && !memchr(password_item->valuestring, 0, password_length);
         if (valid) { memcpy(ssid, ssid_item->valuestring, ssid_length); ssid[ssid_length] = 0; memcpy(password, password_item->valuestring, password_length); password[password_length] = 0; }
     }
+    if (ssid_item && ssid_item->valuestring) secure_zero(ssid_item->valuestring, strlen(ssid_item->valuestring));
+    if (password_item && password_item->valuestring) secure_zero(password_item->valuestring, strlen(password_item->valuestring));
     if (root) cJSON_Delete(root);
     secure_zero(decoded, sizeof(decoded));
     return valid;
@@ -335,22 +389,41 @@ static bool decode_wifi_json(const char *encoded, size_t length, char *ssid, siz
 static void handle_wifi_command(const wifi_command_t *command);
 
 static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data) {
-    (void)arg; (void)data;
-    if (base == WIFI_EVENT) {
-        if (id == WIFI_EVENT_STA_START) set_wifi_state(WIFI_CONNECTING);
-        else if (id == WIFI_EVENT_STA_DISCONNECTED && s_wifi_state != WIFI_AUTH_FAILED && s_wifi_state != WIFI_AP_NOT_FOUND && s_wifi_state != WIFI_NO_IP) set_wifi_state(WIFI_DISCONNECTED);
-    } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
-        s_wifi_deadline = 0;
-        s_wifi_attempts = 0;
-        set_wifi_state(WIFI_ONLINE);
+    (void)arg;
+    if (!s_wifi_events) return;
+    wifi_runtime_event_t event = { .event_id = id, .reason = 0 };
+    if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED && data) {
+        const wifi_event_sta_disconnected_t *disconnected = data;
+        event.reason = disconnected->reason;
     }
+    (void)xQueueSend(s_wifi_events, &event, 0);
 }
 
 static void wifi_task(void *arg) {
     (void)arg;
     for (;;) {
+        wifi_runtime_event_t event;
+        if (xQueueReceive(s_wifi_events, &event, pdMS_TO_TICKS(250)) == pdTRUE) {
+            if (event.event_id == WIFI_EVENT_STA_START) {
+                set_wifi_state(WIFI_CONNECTING);
+            } else if (event.event_id == WIFI_EVENT_STA_DISCONNECTED) {
+                if (event.reason == WIFI_REASON_AUTH_FAIL || event.reason == WIFI_REASON_AUTH_EXPIRE || event.reason == WIFI_REASON_HANDSHAKE_TIMEOUT) {
+                    s_wifi_deadline = 0;
+                    set_wifi_state(WIFI_AUTH_FAILED);
+                } else if (event.reason == WIFI_REASON_NO_AP_FOUND || event.reason == WIFI_REASON_NO_AP_FOUND_W_COMPATIBLE_SECURITY) {
+                    s_wifi_deadline = 0;
+                    set_wifi_state(WIFI_AP_NOT_FOUND);
+                } else if (s_wifi_state != WIFI_AUTH_FAILED && s_wifi_state != WIFI_AP_NOT_FOUND && s_wifi_state != WIFI_NO_IP) {
+                    set_wifi_state(WIFI_DISCONNECTED);
+                }
+            } else if (event.event_id == IP_EVENT_STA_GOT_IP) {
+                s_wifi_deadline = 0;
+                s_wifi_attempts = 0;
+                set_wifi_state(WIFI_ONLINE);
+            }
+        }
         wifi_command_t command;
-        if (xQueueReceive(s_wifi_commands, &command, pdMS_TO_TICKS(250)) == pdTRUE) {
+        if (xQueueReceive(s_wifi_commands, &command, 0) == pdTRUE) {
             handle_wifi_command(&command);
             secure_zero(&command, sizeof(command));
         }
@@ -358,11 +431,25 @@ static void wifi_task(void *arg) {
             if (s_wifi_attempts < BMX_WIFI_TRIES) {
                 ++s_wifi_attempts;
                 s_wifi_deadline = (esp_timer_get_time() / 1000) + BMX_WIFI_TIMEOUT_MS;
-                esp_wifi_disconnect();
-                esp_wifi_connect();
+                esp_err_t disconnect_error = esp_wifi_disconnect();
+                if (disconnect_error != ESP_OK && disconnect_error != ESP_ERR_WIFI_NOT_CONNECT) {
+                    s_wifi_deadline = 0;
+                    set_wifi_state(WIFI_NO_IP);
+                    notify_error(0, "wifi_disconnect_failed");
+                    continue;
+                }
+                esp_err_t connect_error = esp_wifi_connect();
+                if (connect_error != ESP_OK) {
+                    s_wifi_deadline = 0;
+                    set_wifi_state(WIFI_NO_IP);
+                    notify_error(0, "wifi_connect_start_failed");
+                }
             } else {
                 s_wifi_deadline = 0;
-                esp_wifi_disconnect();
+                esp_err_t disconnect_error = esp_wifi_disconnect();
+                if (disconnect_error != ESP_OK && disconnect_error != ESP_ERR_WIFI_NOT_CONNECT) {
+                    notify_error(0, "wifi_disconnect_failed");
+                }
                 set_wifi_state(WIFI_NO_IP);
             }
         }
@@ -377,14 +464,18 @@ static void handle_wifi_command(const wifi_command_t *command) {
     wifi_config_t config = {0};
     memcpy(config.sta.ssid, ssid, strlen(ssid)); memcpy(config.sta.password, password, strlen(password));
     secure_zero(ssid, sizeof(ssid)); secure_zero(password, sizeof(password));
-    esp_wifi_set_storage(WIFI_STORAGE_RAM);
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_set_config(WIFI_IF_STA, &config);
+    esp_err_t error = esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    if (error != ESP_OK) { secure_zero(&config, sizeof(config)); notify_error(command->sequence, "wifi_storage_failed"); return; }
+    error = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (error != ESP_OK) { secure_zero(&config, sizeof(config)); notify_error(command->sequence, "wifi_mode_failed"); return; }
+    error = esp_wifi_set_config(WIFI_IF_STA, &config);
     secure_zero(&config, sizeof(config));
+    if (error != ESP_OK) { notify_error(command->sequence, "wifi_config_failed"); return; }
     set_wifi_state(WIFI_CONNECTING);
     s_wifi_attempts = 1;
     s_wifi_deadline = (esp_timer_get_time() / 1000) + BMX_WIFI_TIMEOUT_MS;
-    esp_wifi_connect();
+    error = esp_wifi_connect();
+    if (error != ESP_OK) { s_wifi_deadline = 0; notify_error(command->sequence, "wifi_connect_start_failed"); return; }
     notify_ack(command->sequence, "APPLIED");
 }
 
@@ -445,9 +536,11 @@ static void handle_frame(const bmx_frame_t *frame) {
     if (strcmp(fields[1], "WIFI_STATUS") == 0 && count == 5) { notify_network(); notify_ack(sequence, "APPLIED"); return; }
     if (strcmp(fields[1], "WIFI_CLEAR") == 0 && count == 5) {
         wifi_config_t empty = {0};
-        esp_wifi_disconnect();
-        esp_wifi_set_config(WIFI_IF_STA, &empty);
+        esp_err_t error = esp_wifi_disconnect();
+        if (error != ESP_OK && error != ESP_ERR_WIFI_NOT_CONNECT) { secure_zero(&empty, sizeof(empty)); notify_error(sequence, "wifi_disconnect_failed"); return; }
+        error = esp_wifi_set_config(WIFI_IF_STA, &empty);
         secure_zero(&empty, sizeof(empty));
+        if (error != ESP_OK) { notify_error(sequence, "wifi_clear_failed"); return; }
         s_wifi_deadline = 0;
         set_wifi_state(WIFI_CLEARED);
         notify_ack(sequence, "APPLIED");
@@ -466,36 +559,64 @@ static int rx_write_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_ga
 static const struct ble_gatt_svc_def s_services[] = {
     { .type = BLE_GATT_SVC_TYPE_PRIMARY, .uuid = &s_service_uuid.u, .characteristics = (struct ble_gatt_chr_def[]) {
         { .uuid = &s_rx_uuid.u, .access_cb = rx_write_cb, .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_NO_RSP },
-        { .uuid = &s_tx_uuid.u, .val_handle = &s_tx_handle, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY },
+        { .uuid = &s_tx_uuid.u, .val_handle = &s_tx_handle, .flags = BLE_GATT_CHR_F_NOTIFY },
         { 0 }
     } },
     { 0 }
 };
 
+static int ble_advertise(void);
+
+static void restart_advertising(void) {
+    int rc = ble_advertise();
+    if (rc != 0) ESP_LOGE(TAG, "BLE re-advertise failed rc=%d", rc);
+}
+
 static int gap_event(struct ble_gap_event *event, void *arg) {
     (void)arg;
     if (event->type == BLE_GAP_EVENT_CONNECT) {
         if (event->connect.status == 0) { s_connected = true; s_conn_handle = event->connect.conn_handle; }
-        else ble_gap_adv_start(BLE_OWN_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, NULL, gap_event, NULL);
+        else restart_advertising();
     } else if (event->type == BLE_GAP_EVENT_DISCONNECT) {
         s_connected = false; s_conn_handle = BLE_HS_CONN_HANDLE_NONE; s_session[0] = 0; s_output_enabled = false; s_stopped = false; clear_text_reassembly(); clear_wifi_reassembly(); release_all();
-        ble_gap_adv_start(BLE_OWN_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, NULL, gap_event, NULL);
+        restart_advertising();
     } else if (event->type == BLE_GAP_EVENT_ADV_COMPLETE) {
-        ble_gap_adv_start(BLE_OWN_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, NULL, gap_event, NULL);
+        restart_advertising();
     }
     return 0;
 }
 
-static void ble_advertise(void) {
+static int ble_advertise(void) {
     struct ble_hs_adv_fields fields = {0};
-    fields.name = (uint8_t *)kDeviceName; fields.name_len = strlen(kDeviceName); fields.name_is_complete = 1;
-    fields.uuids128 = (ble_uuid128_t *)&s_service_uuid; fields.num_uuids128 = 1; fields.uuids128_is_complete = 1;
-    ble_gap_adv_set_fields(&fields);
-    struct ble_gap_adv_params params = {0}; params.conn_mode = BLE_GAP_CONN_MODE_UND; params.disc_mode = BLE_GAP_DISC_MODE_GEN;
-    ble_gap_adv_start(BLE_OWN_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, &params, gap_event, NULL);
+    fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
+    fields.uuids128 = (ble_uuid128_t *)&s_service_uuid;
+    fields.num_uuids128 = 1;
+    fields.uuids128_is_complete = 1;
+    int rc = ble_gap_adv_set_fields(&fields);
+    if (rc != 0) return rc;
+
+    struct ble_hs_adv_fields scan_response = {0};
+    scan_response.name = (uint8_t *)kDeviceName;
+    scan_response.name_len = strlen(kDeviceName);
+    scan_response.name_is_complete = 1;
+    rc = ble_gap_adv_rsp_set_fields(&scan_response);
+    if (rc != 0) return rc;
+
+    struct ble_gap_adv_params params = {0};
+    params.conn_mode = BLE_GAP_CONN_MODE_UND;
+    params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+    return ble_gap_adv_start(s_own_addr_type, NULL, BLE_HS_FOREVER, &params, gap_event, NULL);
 }
 
-static void ble_on_sync(void) { uint8_t address_type; ble_hs_id_infer_auto(0, &address_type); ble_advertise(); }
+static void ble_on_sync(void) {
+    int rc = ble_hs_util_ensure_addr(0);
+    if (rc != 0) { ESP_LOGE(TAG, "ensure BLE addr failed rc=%d", rc); return; }
+    rc = ble_hs_id_infer_auto(0, &s_own_addr_type);
+    if (rc != 0) { ESP_LOGE(TAG, "infer BLE addr failed rc=%d", rc); return; }
+    rc = ble_advertise();
+    if (rc != 0) { ESP_LOGE(TAG, "BLE advertise failed rc=%d", rc); return; }
+    puts("BOOT_STAGE_ADV_OK");
+}
 
 static void ble_host_task(void *param) { (void)param; nimble_port_run(); nimble_port_freertos_deinit(); }
 
@@ -521,25 +642,74 @@ static void dispatcher_task(void *arg) {
     }
 }
 
-void bootmux_ble_wifi_init(void) {
+static esp_err_t runtime_failure(const char *stage, esp_err_t error) {
+    /* Queues are reclaimed only before any consumer task can run.  Once task
+       creation begins, retaining them is safer than deleting live queues; the
+       app remains in its USB-only loop and reports the failed stage. */
+    if (!s_tasks_started) {
+        if (s_frames) { vQueueDelete(s_frames); s_frames = NULL; }
+        if (s_notifications) { vQueueDelete(s_notifications); s_notifications = NULL; }
+        if (s_wifi_commands) { vQueueDelete(s_wifi_commands); s_wifi_commands = NULL; }
+        if (s_wifi_events) { vQueueDelete(s_wifi_events); s_wifi_events = NULL; }
+    }
+    ESP_LOGE(TAG, "runtime init failed stage=%s code=%s", stage, esp_err_to_name(error));
+    printf("BOOTMUX_RUNTIME_FAILED stage=%s code=%s\n", stage, esp_err_to_name(error));
+    return error;
+}
+
+esp_err_t bootmux_ble_wifi_init(void) {
     s_frames = xQueueCreate(BMX_FRAME_QUEUE, sizeof(bmx_frame_t));
     s_notifications = xQueueCreate(BMX_NOTIFY_QUEUE, sizeof(bmx_notification_t));
     s_wifi_commands = xQueueCreate(BMX_WIFI_QUEUE, sizeof(wifi_command_t));
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_wifi_init(&(wifi_init_config_t)WIFI_INIT_CONFIG_DEFAULT()));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
-    nimble_port_init(); ble_svc_gap_init(); ble_svc_gatt_init(); ble_svc_gap_device_name_set(kDeviceName);
-    ESP_ERROR_CHECK(ble_gatts_count_cfg(s_services)); ESP_ERROR_CHECK(ble_gatts_add_svcs(s_services));
+    s_wifi_events = xQueueCreate(BMX_WIFI_EVENT_QUEUE, sizeof(wifi_runtime_event_t));
+    if (!s_frames || !s_notifications || !s_wifi_commands || !s_wifi_events) return runtime_failure("QUEUE", ESP_ERR_NO_MEM);
+    puts("BOOT_STAGE_QUEUE_OK");
+
+    esp_err_t error = esp_netif_init();
+    if (error != ESP_OK) return runtime_failure("NETIF_INIT", error);
+    error = esp_event_loop_create_default();
+    if (error != ESP_OK) return runtime_failure("EVENT_LOOP", error);
+    error = esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL);
+    if (error != ESP_OK) return runtime_failure("WIFI_EVENT_HANDLER", error);
+    error = esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler, NULL);
+    if (error != ESP_OK) return runtime_failure("IP_EVENT_HANDLER", error);
+    s_sta_netif = esp_netif_create_default_wifi_sta();
+    if (!s_sta_netif) return runtime_failure("NETIF_CREATE", ESP_FAIL);
+    puts("BOOT_STAGE_NETIF_OK");
+
+    wifi_init_config_t wifi_config = WIFI_INIT_CONFIG_DEFAULT();
+    wifi_config.nvs_enable = 0;
+    puts("BOOT_STAGE_WIFI_NVS_DISABLED");
+    error = esp_wifi_init(&wifi_config);
+    if (error != ESP_OK) return runtime_failure("WIFI_INIT", error);
+    error = esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    if (error != ESP_OK) return runtime_failure("WIFI_STORAGE", error);
+    error = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (error != ESP_OK) return runtime_failure("WIFI_MODE", error);
+    error = esp_wifi_start();
+    if (error != ESP_OK) return runtime_failure("WIFI_START", error);
+    puts("BOOT_STAGE_WIFI_OK");
+
+    error = nimble_port_init();
+    if (error != ESP_OK) return runtime_failure("NIMBLE", error);
+    puts("BOOT_STAGE_NIMBLE_OK");
+    ble_svc_gap_init();
+    ble_svc_gatt_init();
+    int ble_error = ble_svc_gap_device_name_set(kDeviceName);
+    if (ble_error != 0) return runtime_failure("GAP_NAME", ESP_FAIL);
+    ble_error = ble_gatts_count_cfg(s_services);
+    if (ble_error != 0) return runtime_failure("GATT_COUNT", ESP_FAIL);
+    ble_error = ble_gatts_add_svcs(s_services);
+    if (ble_error != 0) return runtime_failure("GATT_ADD", ESP_FAIL);
+    puts("BOOT_STAGE_GATT_OK");
     ble_hs_cfg.sync_cb = ble_on_sync;
     nimble_port_freertos_init(ble_host_task);
-    xTaskCreate(dispatcher_task, "bmx_dispatch", 8192, NULL, 5, NULL);
-    xTaskCreate(notify_task, "bmx_notify", 4096, NULL, 5, NULL);
-    xTaskCreate(wifi_task, "bmx_wifi", 6144, NULL, 4, NULL);
+    s_tasks_started = true;
+    if (xTaskCreate(dispatcher_task, "bmx_dispatch", 8192, NULL, 5, NULL) != pdPASS) return runtime_failure("DISPATCH_TASK", ESP_ERR_NO_MEM);
+    if (xTaskCreate(notify_task, "bmx_notify", 4096, NULL, 5, NULL) != pdPASS) return runtime_failure("NOTIFY_TASK", ESP_ERR_NO_MEM);
+    if (xTaskCreate(wifi_task, "bmx_wifi", 6144, NULL, 4, NULL) != pdPASS) return runtime_failure("WIFI_TASK", ESP_ERR_NO_MEM);
+    puts("BOOT_STAGE_TASKS_OK");
+    return ESP_OK;
 }
 
 void bootmux_ble_wifi_hid_loop(void) { vTaskDelay(pdMS_TO_TICKS(100)); }

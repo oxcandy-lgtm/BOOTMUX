@@ -69,6 +69,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id,
 }
 
 void app_main(void) {
+    puts("BOOT_STAGE_APP_START");
     const tinyusb_config_t usb_config = {
         .device_descriptor = &bootmux_device_descriptor,
         .string_descriptor = bootmux_string_descriptors,
@@ -79,6 +80,7 @@ void app_main(void) {
         .vbus_monitor_io = -1,
     };
     ESP_ERROR_CHECK(tinyusb_driver_install(&usb_config));
+    puts("BOOT_STAGE_USB_OK");
 
     const tinyusb_net_config_t net_config = {
         .mac_addr = {0x02, 0x42, 0x4f, 0x4f, 0x54, 0x01},
@@ -88,7 +90,12 @@ void app_main(void) {
         .user_context = NULL,
     };
     ESP_ERROR_CHECK(tinyusb_net_init(TINYUSB_USBDEV_0, &net_config));
-    bootmux_ble_wifi_init();
+    esp_err_t runtime_error = bootmux_ble_wifi_init();
+    if (runtime_error == ESP_OK) {
+        puts("BOOTMUX_RUNTIME_READY");
+    } else {
+        printf("BOOTMUX_RUNTIME_FAILED code=%s\n", esp_err_to_name(runtime_error));
+    }
     puts("BOOTMUX_ROUTER_SPIKE_STARTED");
 
 #if CONFIG_BOOTMUX_R7A_HID_PROBE

@@ -13,6 +13,16 @@ enum BOOTMUXScenePhasePolicy {
     }
 }
 
+enum BOOTMUXStatusText {
+    static func ble(_ label: String) -> String {
+        "BLE LINK: \(label)"
+    }
+
+    static func wifi(_ rawValue: String) -> String {
+        "L11 UPLINK: \(rawValue)"
+    }
+}
+
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var session = TerminalSession()
@@ -225,9 +235,9 @@ struct ContentView: View {
                     }
                 }
                 Section("Network Bridge") {
-                    Text("BLE LINK: (ble.state.uiLabel)")
+                    Text(BOOTMUXStatusText.ble(ble.state.uiLabel))
                         .font(.caption.monospaced())
-                    Text("L11 UPLINK: (ble.wifiState.rawValue)")
+                    Text(BOOTMUXStatusText.wifi(ble.wifiState.rawValue))
                         .font(.caption.monospaced())
                     Text("USB ETHERNET: R7A composite preserved")
                         .font(.caption.monospaced())
