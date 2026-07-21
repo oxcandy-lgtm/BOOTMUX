@@ -232,7 +232,7 @@ struct ContentView: View {
                 Section("Terminal") {
                     TextField("WebSocket endpoint", text: $endpoint)
                         .focused($focusedField, equals: .endpoint)
-                        .textInputAutapitalization(.never)
+                        .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     Text("TERM \(session.state.label)")
                         .font(.caption.monospaced())
