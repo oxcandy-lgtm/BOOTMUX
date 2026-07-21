@@ -6,6 +6,10 @@
 
 BOOTMUX gives an iPhone a bounded physical path into a computer before the normal AI, SSH, or remote-development path is ready. Committed text travels through Bluetooth Low Energy and an ESP32-S3 that appears to the target as a native USB HID keyboard. Independently observed terminal and Codex output returns through a target-side Companion to the iPhone.
 
+## Demo video
+
+[Watch the public narrated BOOTMUX demo on YouTube](https://www.youtube.com/watch?v=BNWTRxrVM6M).
+
 ## Quick judge test — no build required
 
 1. Download or clone this repository.
@@ -162,9 +166,9 @@ Not claimed as complete:
 
 ## Build Week submission state
 
-The narrated demo master is complete. The Developer Tools form, private `/feedback` receipt, MIT license, setup instructions, supported-platform details, and no-build judge path are prepared. Public video upload/link verification and the final Devpost submit confirmation remain organizer-facing actions and are not represented as completed by this repository.
+The public narrated demo is available on YouTube, the Developer Tools entry was submitted on Devpost before the deadline, and the private `/feedback` Session ID was entered in the form. The repository, MIT license, setup instructions, supported-platform details, and no-build Judge Mode remain available for judging.
 
-See [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md) and [Final Checklist](docs/submission/FINAL_CHECKLIST.md) for the public-safe closeout state.
+See [Build Week Status](docs/submission/BUILD_WEEK_STATUS.md) and [Final Checklist](docs/submission/FINAL_CHECKLIST.md) for the public-safe closeout record.
 
 ## Security and privacy
 
