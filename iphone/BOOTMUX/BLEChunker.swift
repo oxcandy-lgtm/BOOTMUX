@@ -26,4 +26,33 @@ struct BLEChunker {
             try BLEProtocol.text(session: session, sequence: sequence, part: index, total: chunks.count, payload: chunk)
         }
     }
+
+    func wifiFrames(session: String, sequence: UInt32, payload: String) throws -> [Data] {
+        let bytes = Array(payload.utf8)
+        guard !bytes.isEmpty else { throw BLEProtocolError.oversizedWiFiPayload }
+        var chunks: [String] = []
+        var offset = 0
+        while offset < bytes.count {
+            var low = 1
+            var high = bytes.count - offset
+            var best = 0
+            while low <= high {
+                let mid = (low + high) / 2
+                let candidate = String(decoding: bytes[offset..<(offset + mid)], as: UTF8.self)
+                do {
+                    // Size against the largest legal frame header. The actual
+                    // part/total values can only make a final frame shorter.
+                    let frame = try BLEProtocol.wifiProvision(session: session, sequence: sequence, part: 15, total: 16, payload: candidate)
+                    if frame.count <= maximumWriteBytes { best = mid; low = mid + 1 } else { high = mid - 1 }
+                } catch { high = mid - 1 }
+            }
+            guard best > 0 else { throw BLEProtocolError.oversizedWiFiPayload }
+            chunks.append(String(decoding: bytes[offset..<(offset + best)], as: UTF8.self))
+            offset += best
+        }
+        guard chunks.count <= 16 else { throw BLEProtocolError.tooManyParts }
+        return try chunks.enumerated().map { index, chunk in
+            try BLEProtocol.wifiProvision(session: session, sequence: sequence, part: index, total: chunks.count, payload: chunk)
+        }
+    }
 }

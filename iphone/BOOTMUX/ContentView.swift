@@ -27,6 +27,8 @@ struct ContentView: View {
     @State private var feedbackToken = 0
     @State private var showSettings = false
     @State private var showDiagnostics = false
+    @State private var wifiSSID = ""
+    @State private var wifiPassword = ""
     @FocusState private var focusedField: InputField?
 
     private enum InputField { case command, endpoint }
@@ -88,6 +90,7 @@ struct ContentView: View {
             if BOOTMUXScenePhasePolicy.disconnects(for: phase) {
                 session.disconnect()
                 ble.disconnect()
+                clearWiFiForm()
             }
         }
         .onAppear {
@@ -221,9 +224,40 @@ struct ContentView: View {
                         Task { if await session.sendInput(value) { command = "" } }
                     }
                 }
+                Section("Network Bridge") {
+                    Text("BLE LINK: (ble.state.uiLabel)")
+                        .font(.caption.monospaced())
+                    Text("L11 UPLINK: (ble.wifiState.rawValue)")
+                        .font(.caption.monospaced())
+                    Text("USB ETHERNET: R7A composite preserved")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                    TextField("Wi-Fi SSID", text: $wifiSSID)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    SecureField("Wi-Fi password", text: $wifiPassword)
+                    Text(ble.wifiStatusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("CONNECT S3 TO WI-FI") {
+                        let ssid = wifiSSID
+                        let password = wifiPassword
+                        ble.provisionWiFi(ssid: ssid, password: password) { success in
+                            if success { wifiPassword = "" }
+                        }
+                    }
+                    .disabled(!ble.isOpenForWiFi || wifiSSID.isEmpty)
+                    Button("CHECK UPLINK") { ble.requestWiFiStatus() }
+                        .disabled(!ble.isOpenForWiFi)
+                    Button("DISCONNECT / CLEAR") {
+                        ble.clearWiFi { _ in clearWiFiForm() }
+                    }
+                    .disabled(!ble.isOpenForWiFi)
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .onDisappear { clearWiFiForm() }
         }
         .presentationDetents([.medium])
     }
@@ -283,6 +317,12 @@ struct ContentView: View {
         showFeedback("CLEARED")
     }
 
+    private func clearWiFiForm() {
+        wifiSSID = ""
+        wifiPassword = ""
+        ble.clearLocalWiFiCredentials()
+    }
+
     private func showFeedback(_ message: String) {
         visibleFeedback = message
         let token = feedbackToken
@@ -304,5 +344,11 @@ private extension BLEBridgeSession.State {
         case .stopped: return "STOPPED"
         case .error: return "ERROR"
         }
+    }
+}
+
+private extension BLEBridgeSession {
+    var isOpenForWiFi: Bool {
+        state == .on || state == .stopped
     }
 }

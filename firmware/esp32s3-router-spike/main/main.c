@@ -12,6 +12,11 @@
 #include "class/hid/hid_device.h"
 
 #include "usb_descriptors.h"
+#include "ble_wifi_runtime.h"
+
+#ifndef CONFIG_BOOTMUX_R7A_HID_PROBE
+#define CONFIG_BOOTMUX_R7A_HID_PROBE 0
+#endif
 
 static esp_err_t on_usb_packet(void *buffer, uint16_t length, void *context) {
     (void)buffer;
@@ -30,6 +35,7 @@ static void on_usb_network_ready(void *context) {
     puts("BOOTMUX_USB_ETHERNET_READY");
 }
 
+#if CONFIG_BOOTMUX_R7A_HID_PROBE
 static void send_ascii_probe(void) {
     uint8_t report[8] = {0};
     report[2] = HID_KEY_B;
@@ -39,6 +45,7 @@ static void send_ascii_probe(void) {
     tud_hid_report(0, report, sizeof(report));
     puts("BOOTMUX_HID_READY");
 }
+#endif
 
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id,
                                hid_report_type_t report_type, uint8_t *buffer,
@@ -81,14 +88,19 @@ void app_main(void) {
         .user_context = NULL,
     };
     ESP_ERROR_CHECK(tinyusb_net_init(TINYUSB_USBDEV_0, &net_config));
+    bootmux_ble_wifi_init();
     puts("BOOTMUX_ROUTER_SPIKE_STARTED");
 
+#if CONFIG_BOOTMUX_R7A_HID_PROBE
     bool hid_probe_sent = false;
+#endif
     while (true) {
+#if CONFIG_BOOTMUX_R7A_HID_PROBE
         if (!hid_probe_sent && tud_mounted() && tud_hid_ready()) {
             send_ascii_probe();
             hid_probe_sent = true;
         }
+#endif
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }

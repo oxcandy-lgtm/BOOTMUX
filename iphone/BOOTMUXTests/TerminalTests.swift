@@ -71,6 +71,27 @@ final class TerminalTests: XCTestCase {
         XCTAssertFalse(BLEAckContract.accepts("STOPPED", for: .control(.enter)))
     }
 
+    func testWiFiProvisioningFramesAndNetworkEventsAreBoundedAndTyped() throws {
+        let payload = try BLEProtocol.wifiPayload(ssid: "L11", password: "password123")
+        let frames = try BLEChunker(maximumWriteBytes: 64).wifiFrames(session: "s", sequence: 9, payload: payload)
+        XCTAssertLessThanOrEqual(frames.count, 16)
+        XCTAssertTrue(frames.allSatisfy { $0.count <= 64 })
+        XCTAssertEqual(String(decoding: try BLEProtocol.wifiStatus(session: "s", sequence: 10), as: UTF8.self), "BMX1|WIFI_STATUS|s|10|STATUS")
+        XCTAssertEqual(String(decoding: try BLEProtocol.wifiClear(session: "s", sequence: 11), as: UTF8.self), "BMX1|WIFI_CLEAR|s|11|CLEAR")
+        let event = BLEProtocol.parseNetwork(Data("BMX1|NET|s|0|WIFI_ONLINE".utf8))
+        XCTAssertEqual(event, BLENetworkEvent(session: "s", sequence: 0, state: .online))
+        XCTAssertNil(BLEProtocol.parseNetwork(Data("BMX1|NET|s|0|password123".utf8)))
+    }
+
+    func testWiFiCredentialsValidateWithoutStorageOrLogging() throws {
+        XCTAssertThrowsError(try BLEProtocol.wifiPayload(ssid: "", password: "password123"))
+        XCTAssertThrowsError(try BLEProtocol.wifiPayload(ssid: "L11", password: "short"))
+        XCTAssertThrowsError(try BLEProtocol.wifiPayload(ssid: String(repeating: "s", count: 33), password: "password123"))
+        let payload = try BLEProtocol.wifiPayload(ssid: "L11", password: "password123")
+        XCTAssertFalse(payload.contains("L11"))
+        XCTAssertFalse(payload.contains("password123"))
+    }
+
     func testHIDTextRejectsNonASCIIBeforeBLEOperation() {
         XCTAssertTrue(BLEBridgeSession.supportsASCIIHIDText("echo BOOTMUX_HID"))
         XCTAssertFalse(BLEBridgeSession.supportsASCIIHIDText("日本語"))
@@ -327,7 +348,7 @@ final class TerminalTests: XCTestCase {
         session.connect(endpoint: "ws://local/v1/terminal")
         fake.push(.string("{\"v\":1,\"type\":\"hello\",\"session_id\":\"s\"}"))
         fake.push(.string("{\"v\":1,\"type\":\"output\",\"session_id\":\"s\",\"stream\":\"pty\",\"text\":\"old\"}"))
-        try await waitUntil { fake.receiveCount >= 2 }
+        try await waitUntil { session.hasPendingPublication }
         session.clearVisibleHistory()
         try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertEqual(session.terminalText, "")

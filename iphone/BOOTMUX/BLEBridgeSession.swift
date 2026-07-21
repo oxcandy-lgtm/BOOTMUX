@@ -18,6 +18,8 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     @Published private(set) var state: State = .off
     @Published private(set) var statusMessage = "BLE off."
     @Published private(set) var eventLog = ["BLE off."]
+    @Published private(set) var wifiState: BLENetworkState = .idle
+    @Published private(set) var wifiStatusMessage = "Wi-Fi status unavailable."
 
     private func log(_ message: String) {
         let entry = "\(Date().formatted(date: .omitted, time: .standard))  \(message)"
@@ -45,6 +47,7 @@ final class BLEBridgeSession: NSObject, ObservableObject {
     private var writeInFlight = false
     private var opening = false
     private var preserveOpeningError = false
+    private var lastNetworkSequence: UInt32 = 0
 
     static func supportsASCIIHIDText(_ text: String) -> Bool {
         text.utf8.allSatisfy { $0 >= 0x20 && $0 <= 0x7e }
@@ -78,6 +81,9 @@ final class BLEBridgeSession: NSObject, ObservableObject {
         opening = false
         if let peripheral { central.cancelPeripheralConnection(peripheral) }
         peripheral = nil; rx = nil; tx = nil; sessionID = ""
+        wifiState = .idle
+        wifiStatusMessage = "Wi-Fi credentials cleared locally."
+        lastNetworkSequence = 0
         state = .off
         statusMessage = "BLE disconnected."
         log("session cleared")
@@ -143,6 +149,52 @@ final class BLEBridgeSession: NSObject, ObservableObject {
             statusMessage = "HID control rejected."
             completion(false)
         }
+    }
+
+    func provisionWiFi(ssid: String, password: String, completion: @escaping (Bool) -> Void = { _ in }) {
+        guard state == .on || state == .stopped, pendingOperation == nil, let peripheral else {
+            statusMessage = "Open BLE before provisioning Wi-Fi."
+            completion(false)
+            return
+        }
+        do {
+            let payload = try BLEProtocol.wifiPayload(ssid: ssid, password: password)
+            sequence &+= 1
+            let maximum = max(20, peripheral.maximumWriteValueLength(for: .withResponse))
+            let frames = try BLEChunker(maximumWriteBytes: maximum).wifiFrames(session: sessionID, sequence: sequence, payload: payload)
+            pendingOperation = PendingOperation(session: sessionID, sequence: sequence, kind: .wifiProvision, frames: frames, nextFrame: 0, originalCommand: nil, completion: completion)
+            pumpOperation()
+        } catch {
+            statusMessage = "Wi-Fi credentials rejected."
+            completion(false)
+        }
+    }
+
+    func requestWiFiStatus(completion: @escaping (Bool) -> Void = { _ in }) {
+        startWiFiControl(kind: .wifiStatus, completion: completion) { try BLEProtocol.wifiStatus(session: self.sessionID, sequence: self.sequence) }
+    }
+
+    func clearWiFi(completion: @escaping (Bool) -> Void = { _ in }) {
+        startWiFiControl(kind: .wifiClear, completion: completion) { try BLEProtocol.wifiClear(session: self.sessionID, sequence: self.sequence) }
+    }
+
+    private func startWiFiControl(kind: BLEOperationKind, completion: @escaping (Bool) -> Void, frameBuilder: () throws -> Data) {
+        guard state == .on || state == .stopped, pendingOperation == nil else {
+            statusMessage = "Open BLE before changing Wi-Fi."
+            completion(false)
+            return
+        }
+        sequence &+= 1
+        do {
+            pendingOperation = PendingOperation(session: sessionID, sequence: sequence, kind: kind, frames: [try frameBuilder()], nextFrame: 0, originalCommand: nil, completion: completion)
+            pumpOperation()
+        } catch {
+            completion(false)
+        }
+    }
+
+    func clearLocalWiFiCredentials() {
+        wifiStatusMessage = "Wi-Fi credentials cleared locally."
     }
 
     private func pumpOperation() {
@@ -221,6 +273,8 @@ final class BLEBridgeSession: NSObject, ObservableObject {
                 return
             }
             if case .control(.stop) = operation.kind { state = .stopped }
+            if case .wifiClear = operation.kind { wifiState = .cleared; wifiStatusMessage = "Wi-Fi credentials cleared." }
+            if case .wifiProvision = operation.kind { wifiStatusMessage = "Wi-Fi credentials accepted; waiting for network status." }
             finishPendingOperation(success: true, message: ack.result == "DUPLICATE" ? "HID operation already applied." : "HID operation applied.")
         case "RESUMED":
             guard case .control(.resume) = operation.kind else {
@@ -239,6 +293,14 @@ final class BLEBridgeSession: NSObject, ObservableObject {
             }
         default: break
         }
+    }
+
+    private func handleNetwork(_ event: BLENetworkEvent) {
+        guard event.session == sessionID else { log("ignored NET for another session"); return }
+        guard event.sequence >= lastNetworkSequence else { log("ignored stale NET event"); return }
+        lastNetworkSequence = event.sequence
+        wifiState = event.state
+        wifiStatusMessage = event.state.rawValue.replacingOccurrences(of: "_", with: " ")
     }
 }
 
@@ -263,6 +325,7 @@ extension BLEBridgeSession: CBCentralManagerDelegate {
             guard let self else { return }
             self.log("didConnect")
             self.sessionID = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            self.lastNetworkSequence = 0
             peripheral.discoverServices([CBUUID(string: BLEProtocol.serviceUUID)])
         }
     }
@@ -330,7 +393,11 @@ extension BLEBridgeSession: CBPeripheralDelegate {
     }
 
     nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard error == nil, let data = characteristic.value, let ack = BLEProtocol.parseAck(data) else { return }
-        Task { @MainActor [weak self] in self?.handleAck(ack) }
+        guard error == nil, let data = characteristic.value else { return }
+        if let ack = BLEProtocol.parseAck(data) {
+            Task { @MainActor [weak self] in self?.handleAck(ack) }
+        } else if let event = BLEProtocol.parseNetwork(data) {
+            Task { @MainActor [weak self] in self?.handleNetwork(event) }
+        }
     }
 }

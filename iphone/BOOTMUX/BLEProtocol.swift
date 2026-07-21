@@ -6,6 +6,9 @@ enum BLEProtocolError: Error, Equatable {
     case oversizedText
     case tooManyParts
     case malformedAck
+    case malformedNetwork
+    case invalidWiFiCredentials
+    case oversizedWiFiPayload
 }
 
 enum BLEControl: String {
@@ -19,6 +22,26 @@ enum BLEControl: String {
 enum BLEOperationKind {
     case text
     case control(BLEControl)
+    case wifiProvision
+    case wifiStatus
+    case wifiClear
+}
+
+enum BLENetworkState: String, Equatable {
+    case idle = "WIFI_IDLE"
+    case connecting = "WIFI_CONNECTING"
+    case online = "WIFI_ONLINE"
+    case authFailed = "WIFI_AUTH_FAILED"
+    case apNotFound = "WIFI_AP_NOT_FOUND"
+    case noIP = "WIFI_NO_IP"
+    case disconnected = "WIFI_DISCONNECTED"
+    case cleared = "WIFI_CLEARED"
+}
+
+struct BLENetworkEvent: Equatable {
+    let session: String
+    let sequence: UInt32
+    let state: BLENetworkState
 }
 
 enum BLEAckContract {
@@ -31,8 +54,10 @@ enum BLEAckContract {
             if case .control(.stop) = operation { return true }
             return false
         case "APPLIED", "DUPLICATE":
-            if case .control(.resume) = operation { return false }
-            return true
+            switch operation {
+            case .control(.resume): return false
+            default: return true
+            }
         default:
             return false
         }
@@ -66,11 +91,48 @@ enum BLEProtocol {
         try frame(["BMX1", "CTRL", validSession(session), String(sequence), control.rawValue])
     }
 
+    static func wifiProvision(session: String, sequence: UInt32, part: Int, total: Int, payload: String) throws -> Data {
+        guard total > 0, total <= 16, part >= 0, part < total, payload.utf8.allSatisfy({ $0 >= 0x20 && $0 <= 0x7e }) else {
+            throw BLEProtocolError.oversizedWiFiPayload
+        }
+        return try frame(["BMX1", "WIFI", validSession(session), String(sequence), String(part), String(total), payload])
+    }
+
+    static func wifiStatus(session: String, sequence: UInt32) throws -> Data {
+        try frame(["BMX1", "WIFI_STATUS", validSession(session), String(sequence), "STATUS"])
+    }
+
+    static func wifiClear(session: String, sequence: UInt32) throws -> Data {
+        try frame(["BMX1", "WIFI_CLEAR", validSession(session), String(sequence), "CLEAR"])
+    }
+
+    static func wifiPayload(ssid: String, password: String) throws -> String {
+        let ssidBytes = Array(ssid.utf8)
+        let passwordBytes = Array(password.utf8)
+        guard !ssid.isEmpty, ssidBytes.count <= 32, !ssidBytes.contains(0), passwordBytes.count <= 63,
+              password.isEmpty || passwordBytes.count >= 8, !passwordBytes.contains(0) else {
+            throw BLEProtocolError.invalidWiFiCredentials
+        }
+        let object: [String: String] = ["ssid": ssid, "password": password]
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        let encoded = data.base64EncodedString()
+        guard encoded.utf8.count <= 16 * 480 else { throw BLEProtocolError.oversizedWiFiPayload }
+        return encoded
+    }
+
     static func parseAck(_ data: Data) -> (session: String, sequence: UInt32, result: String)? {
         guard let value = String(data: data, encoding: .utf8) else { return nil }
         let fields = value.split(separator: "|", omittingEmptySubsequences: false)
         guard fields.count == 5, fields[0] == "BMX1", fields[1] == "ACK", let sequence = UInt32(fields[3]) else { return nil }
         return (String(fields[2]), sequence, String(fields[4]))
+    }
+
+    static func parseNetwork(_ data: Data) -> BLENetworkEvent? {
+        guard let value = String(data: data, encoding: .utf8) else { return nil }
+        let fields = value.split(separator: "|", omittingEmptySubsequences: false)
+        guard fields.count == 5, fields[0] == "BMX1", fields[1] == "NET",
+              let sequence = UInt32(fields[3]), let state = BLENetworkState(rawValue: String(fields[4])) else { return nil }
+        return BLENetworkEvent(session: String(fields[2]), sequence: sequence, state: state)
     }
 
     private static func validSession(_ value: String) throws -> String {
