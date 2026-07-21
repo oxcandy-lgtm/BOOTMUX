@@ -357,7 +357,18 @@ extension BLEBridgeSession: CBPeripheralDelegate {
 
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         Task { @MainActor [weak self] in
-            guard let self, let characteristics = service.characteristics else { return }
+            guard let self else { return }
+            if let error {
+                self.log("BLE characteristic discovery failed: \((error as NSError).code)")
+                self.state = .error("BOOTMUX BLE characteristic discovery failed.")
+                return
+            }
+            guard let characteristics = service.characteristics else {
+                self.log("BLE characteristic discovery returned no characteristics")
+                self.state = .error("BOOTMUX BLE characteristics unavailable.")
+                return
+            }
+            self.log("BLE characteristics found: \(characteristics.map { $0.uuid.uuidString }.joined(separator: ","))")
             self.rx = characteristics.first(where: { $0.uuid == CBUUID(string: BLEProtocol.rxUUID) })
             self.tx = characteristics.first(where: { $0.uuid == CBUUID(string: BLEProtocol.txUUID) })
             guard let tx = self.tx, self.rx != nil else { self.log("required BLE characteristic missing"); self.state = .error("BOOTMUX BLE characteristic missing."); return }
