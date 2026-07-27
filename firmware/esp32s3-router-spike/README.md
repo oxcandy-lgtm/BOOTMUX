@@ -84,15 +84,17 @@ Wi-Fi association are byte-for-byte unchanged before and after attachment.
 
 ## Recover a Mac affected by the previous build
 
-Unplug the S3, then run:
+Keep the affected S3 attached long enough for the script to identify the active
+`10.77.0.0/24` interface, then run:
 
 ```sh
 scripts/macos/recover-bootmux-usb-network.sh --apply
 ```
 
-The script only targets an interface in `10.77.0.0/24`, disables the associated
-macOS network service, removes a `10.77.0.1` default route if present, renews the
-Wi-Fi DHCP lease, and toggles Wi-Fi once. It does not delete saved Wi-Fi
+After it reports PASS, unplug the old firmware or flash the safe image. The
+script only targets an interface in `10.77.0.0/24`, disables the associated
+macOS network service, removes a `10.77.0.1` default route if present, renews
+the Wi-Fi DHCP lease, and toggles Wi-Fi once. It does not delete saved Wi-Fi
 credentials.
 
 ## Physical validation boundary
