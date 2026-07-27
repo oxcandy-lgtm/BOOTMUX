@@ -14,9 +14,15 @@
 #if CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL
 #define BOOTMUX_USB_PRODUCT "BOOTMUX Bridge Experimental"
 #define BOOTMUX_USB_SERIAL "BOOTMUX-R7A-NCM"
+#define BOOTMUX_USB_DEVICE_CLASS TUSB_CLASS_MISC
+#define BOOTMUX_USB_DEVICE_SUBCLASS MISC_SUBCLASS_COMMON
+#define BOOTMUX_USB_DEVICE_PROTOCOL MISC_PROTOCOL_IAD
 #else
 #define BOOTMUX_USB_PRODUCT "BOOTMUX Keyboard Safe"
 #define BOOTMUX_USB_SERIAL "BOOTMUX-HID-SAFE"
+#define BOOTMUX_USB_DEVICE_CLASS 0x00
+#define BOOTMUX_USB_DEVICE_SUBCLASS 0x00
+#define BOOTMUX_USB_DEVICE_PROTOCOL 0x00
 #endif
 
 enum {
@@ -54,9 +60,9 @@ const tusb_desc_device_t bootmux_device_descriptor = {
     .bLength = sizeof(tusb_desc_device_t),
     .bDescriptorType = TUSB_DESC_DEVICE,
     .bcdUSB = 0x0200,
-    .bDeviceClass = TUSB_CLASS_MISC,
-    .bDeviceSubClass = MISC_SUBCLASS_COMMON,
-    .bDeviceProtocol = MISC_PROTOCOL_IAD,
+    .bDeviceClass = BOOTMUX_USB_DEVICE_CLASS,
+    .bDeviceSubClass = BOOTMUX_USB_DEVICE_SUBCLASS,
+    .bDeviceProtocol = BOOTMUX_USB_DEVICE_PROTOCOL,
     .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
     .idVendor = BOOTMUX_USB_VID,
     .idProduct = BOOTMUX_USB_PID,
