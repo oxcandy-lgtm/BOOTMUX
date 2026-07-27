@@ -26,6 +26,7 @@ service_for_device() {
     /^\([0-9]+\) / {
       service=$0
       sub(/^\([0-9]+\) /, "", service)
+      sub(/^\*/, "", service)
       next
     }
     /Device: / && index($0, "Device: " wanted ")") {
@@ -51,8 +52,9 @@ WIFI_DEVICE="$(wifi_device)"
 }
 
 CANDIDATES=()
-DEFAULT_GATEWAY="$(route -n get default 2>/dev/null | awk '/gateway:/{print $2; exit}')"
-DEFAULT_INTERFACE="$(route -n get default 2>/dev/null | awk '/interface:/{print $2; exit}')"
+DEFAULT_INFO="$(route -n get default 2>/dev/null || true)"
+DEFAULT_GATEWAY="$(printf '%s\n' "$DEFAULT_INFO" | awk '/gateway:/{print $2; exit}')"
+DEFAULT_INTERFACE="$(printf '%s\n' "$DEFAULT_INFO" | awk '/interface:/{print $2; exit}')"
 
 if [[ "$DEFAULT_GATEWAY" == "10.77.0.1" ]]; then
   add_candidate "$DEFAULT_INTERFACE"
@@ -111,8 +113,9 @@ sudo networksetup -setairportpower "$WIFI_DEVICE" on
 sleep 3
 sudo ipconfig set "$WIFI_DEVICE" DHCP || true
 
-NEW_GATEWAY="$(route -n get default 2>/dev/null | awk '/gateway:/{print $2; exit}')"
-NEW_INTERFACE="$(route -n get default 2>/dev/null | awk '/interface:/{print $2; exit}')"
+NEW_INFO="$(route -n get default 2>/dev/null || true)"
+NEW_GATEWAY="$(printf '%s\n' "$NEW_INFO" | awk '/gateway:/{print $2; exit}')"
+NEW_INTERFACE="$(printf '%s\n' "$NEW_INFO" | awk '/interface:/{print $2; exit}')"
 
 echo "BOOTMUX_USB_RECOVERY_RESULT"
 echo "default_gateway=${NEW_GATEWAY:-none}"
