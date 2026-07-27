@@ -88,7 +88,7 @@ Keep the affected S3 attached long enough for the script to identify the active
 `10.77.0.0/24` interface, then run:
 
 ```sh
-scripts/macos/recover-bootmux-usb-network.sh --apply
+bash scripts/macos/recover-bootmux-usb-network.sh --apply
 ```
 
 After it reports PASS, unplug the old firmware or flash the safe image. The
