@@ -25,6 +25,7 @@
 
 static const char *TAG = "bootmux_usb_router";
 static esp_netif_t *s_usb_netif;
+static bool s_netif_started;
 static bool s_napt_enabled;
 static uint8_t s_usb_mac[6] = {0x02, 0x42, 0x4f, 0x4f, 0x54, 0x01};
 
@@ -111,31 +112,114 @@ esp_err_t bootmux_usb_router_init(void) {
     memcpy(s_usb_mac, net_config.mac_addr, sizeof(s_usb_mac));
     error = esp_netif_set_mac(s_usb_netif, s_usb_mac);
     if (error != ESP_OK) return error;
-    esp_netif_action_start(s_usb_netif, 0, 0, 0);
+    /*
+     * R7C-P1 S3: do NOT start the netif at boot.  The management-path gate owns
+     * start/stop and only starts it while all four conditions hold.  Boot state
+     * is fully DOWN.
+     */
+    s_netif_started = false;
+    s_napt_enabled = false;
     puts("BOOTMUX_USB_NETIF_READY_EXPERIMENTAL");
+    puts("BOOTMUX_USB_NETIF_DOWN_AT_BOOT_EXPERIMENTAL");
     puts("BOOTMUX_USB_NETWORK_NO_DHCP_NO_DEFAULT_ROUTE");
     return ESP_OK;
 }
 
-esp_err_t bootmux_usb_router_enable_napt(void) {
-    if (s_napt_enabled) return ESP_OK;
+esp_err_t bootmux_usb_router_start(void) {
+    if (s_netif_started) return ESP_OK; /* idempotent */
     if (!s_usb_netif) return ESP_ERR_INVALID_STATE;
+    /* esp_netif_action_start returns void; verify via the netif up flag. */
+    esp_netif_action_start(s_usb_netif, 0, 0, 0);
+    if (!esp_netif_is_netif_up(s_usb_netif)) {
+        ESP_LOGE(TAG, "USB netif start failed");
+        return ESP_FAIL;
+    }
+    s_netif_started = true;
+    puts("BOOTMUX_USB_NETIF_STARTED_EXPERIMENTAL");
+    return ESP_OK;
+}
+
+esp_err_t bootmux_usb_router_stop(void) {
+    if (!s_netif_started) return ESP_OK; /* idempotent */
+    /* Withdraw NAPT before the netif so no partial forwarding state lingers. */
+    if (s_napt_enabled) {
+        (void)bootmux_usb_router_disable_napt();
+    }
+    if (s_usb_netif) esp_netif_action_stop(s_usb_netif, 0, 0, 0);
+    s_netif_started = false;
+    puts("BOOTMUX_USB_NETIF_STOPPED_EXPERIMENTAL");
+    return ESP_OK;
+}
+
+esp_err_t bootmux_usb_router_enable_napt(void) {
+    if (s_napt_enabled) return ESP_OK; /* idempotent */
+    if (!s_usb_netif || !s_netif_started) return ESP_ERR_INVALID_STATE;
     esp_err_t error = esp_netif_napt_enable(s_usb_netif);
-    if (error == ESP_OK) puts("BOOTMUX_NAPT_READY_EXPERIMENTAL");
-    else ESP_LOGE(TAG, "NAPT enable failed code=%s", esp_err_to_name(error));
-    if (error == ESP_OK) s_napt_enabled = true;
-    return error;
+    if (error != ESP_OK) {
+        ESP_LOGE(TAG, "NAPT enable failed code=%s", esp_err_to_name(error));
+        return error;
+    }
+    s_napt_enabled = true;
+    puts("BOOTMUX_NAPT_ENABLED_EXPERIMENTAL");
+    return ESP_OK;
+}
+
+esp_err_t bootmux_usb_router_disable_napt(void) {
+    if (!s_napt_enabled) return ESP_OK; /* idempotent */
+    if (s_usb_netif) {
+        esp_err_t error = esp_netif_napt_disable(s_usb_netif);
+        if (error != ESP_OK) {
+            ESP_LOGE(TAG, "NAPT disable failed code=%s", esp_err_to_name(error));
+            return error;
+        }
+    }
+    s_napt_enabled = false;
+    puts("BOOTMUX_NAPT_DISABLED_EXPERIMENTAL");
+    return ESP_OK;
+}
+
+bool bootmux_usb_router_is_started(void) {
+    return s_netif_started;
+}
+
+bool bootmux_usb_router_is_napt_enabled(void) {
+    return s_napt_enabled;
 }
 
 #else
+
+/*
+ * Safe HID-only profile: there is no USB network descriptor at all, so every
+ * router API is a side-effect-free stub.  The management path can never open.
+ */
 
 esp_err_t bootmux_usb_router_init(void) {
     puts("BOOTMUX_USB_NETWORK_SAFE_OFF");
     return ESP_OK;
 }
 
+esp_err_t bootmux_usb_router_start(void) {
+    return ESP_OK;
+}
+
+esp_err_t bootmux_usb_router_stop(void) {
+    return ESP_OK;
+}
+
 esp_err_t bootmux_usb_router_enable_napt(void) {
     return ESP_OK;
+}
+
+esp_err_t bootmux_usb_router_disable_napt(void) {
+    return ESP_OK;
+}
+
+bool bootmux_usb_router_is_started(void) {
+    return false;
+}
+
+bool bootmux_usb_router_is_napt_enabled(void) {
+    return false;
 }
 
 #endif

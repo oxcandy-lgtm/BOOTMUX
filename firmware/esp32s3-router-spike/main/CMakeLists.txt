@@ -1,10 +1,11 @@
 idf_component_register(
-    SRCS "main.c" "usb_descriptors.c" "ble_wifi_runtime.c" "usb_router.c" "http_connect_proxy.c"
+    SRCS "main.c" "usb_descriptors.c" "ble_wifi_runtime.c" "usb_router.c" "http_connect_proxy.c" "management_gate.c" "target_probe.c"
     INCLUDE_DIRS "."
     REQUIRES esp_tinyusb bt esp_wifi esp_event esp_netif nvs_flash json mbedtls lwip
 )
 
 target_include_directories(${COMPONENT_LIB} PRIVATE
+    "$ENV{IDF_PATH}/components/lwip/include/apps/ping"
     "$ENV{IDF_PATH}/components/bt/host/nimble/nimble/nimble/include"
     "$ENV{IDF_PATH}/components/bt/host/nimble/nimble/nimble/host/include"
     "$ENV{IDF_PATH}/components/bt/host/nimble/nimble/nimble/host/services/gap/include"
