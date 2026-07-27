@@ -37,6 +37,13 @@ def main() -> int:
     iphone_readme = read("iphone/README.md")
     bridge = read("firmware/esp32s3-bridge/src/main.cpp")
     bridge_readme = read("firmware/esp32s3-bridge/README.md")
+    router_kconfig = read("firmware/esp32s3-router-spike/main/Kconfig.projbuild")
+    router_sdkconfig = read("firmware/esp32s3-router-spike/sdkconfig.defaults")
+    router_experimental_sdkconfig = read("firmware/esp32s3-router-spike/sdkconfig.usb-network.defaults")
+    router_descriptors = read("firmware/esp32s3-router-spike/main/usb_descriptors.c")
+    router_usb = read("firmware/esp32s3-router-spike/main/usb_router.c")
+    router_readme = read("firmware/esp32s3-router-spike/README.md")
+    mac_recovery = read("scripts/macos/recover-bootmux-usb-network.sh")
     bmx1 = read("docs/protocol/BMX1.md")
     server = read("companion/server.go")
     companion_protocol = read("docs/COMPANION_PROTOCOL_V1.md")
@@ -91,6 +98,71 @@ def main() -> int:
         errors,
         "## Experimental router controls" in iphone_readme,
         "iPhone README missing the experimental router boundary",
+    )
+
+    # Normal S3 attachment must be host-network inert. USB Ethernet is an
+    # explicit research profile, never a default side effect of keyboard use.
+    require(
+        errors,
+        "config BOOTMUX_USB_NETWORK_EXPERIMENTAL" in router_kconfig
+        and re.search(r"config BOOTMUX_USB_NETWORK_EXPERIMENTAL.*?default n", router_kconfig, re.S) is not None,
+        "router-spike USB networking is no longer opt-in/default-off",
+    )
+    require(
+        errors,
+        "CONFIG_TINYUSB_NET_MODE_NONE=y" in router_sdkconfig,
+        "normal router-spike build no longer selects TinyUSB network mode None",
+    )
+    require(
+        errors,
+        "CONFIG_TINYUSB_NET_MODE_NCM=y" not in router_sdkconfig,
+        "normal router-spike build unexpectedly enables NCM",
+    )
+    require(
+        errors,
+        "# CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL is not set" in router_sdkconfig,
+        "normal router-spike build unexpectedly enables USB networking",
+    )
+    require(
+        errors,
+        "CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL=y" in router_experimental_sdkconfig
+        and "CONFIG_TINYUSB_NET_MODE_NCM=y" in router_experimental_sdkconfig,
+        "explicit USB-network experiment profile is incomplete",
+    )
+    require(
+        errors,
+        "#if CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL" in router_descriptors
+        and ".iSerialNumber = BOOTMUX_STR_SERIAL" in router_descriptors
+        and "BOOTMUX Keyboard Safe" in router_descriptors,
+        "USB descriptors no longer enforce a distinct HID-only safe profile",
+    )
+    require(
+        errors,
+        "ESP_NETIF_DHCP_SERVER" not in router_usb,
+        "USB experiment reintroduced a DHCP server that can hijack host routing",
+    )
+    require(
+        errors,
+        ".gw = { .addr = 0 }" in router_usb
+        and "BOOTMUX_USB_NETWORK_NO_DHCP_NO_DEFAULT_ROUTE" in router_usb,
+        "USB experiment can again advertise itself as a host default route",
+    )
+    require(
+        errors,
+        "BOOTMUX_USB_NETWORK_SAFE_OFF" in router_usb,
+        "normal firmware is missing the USB-network-safe marker",
+    )
+    require(
+        errors,
+        "USB HID-only" in router_readme and "must not enumerate a USB Ethernet interface" in router_readme,
+        "router-spike README no longer documents the host-network-safe default",
+    )
+    require(
+        errors,
+        "10.77.0.1" in mac_recovery
+        and "-setairportpower" in mac_recovery
+        and "-setnetworkserviceenabled" in mac_recovery,
+        "macOS no-reboot recovery script lost required controls",
     )
 
     for frame in ("BMX1|OPEN", "BMX1|TEXT", "BMX1|CTRL", "BMX1|ACK", "BMX1|ERR"):
