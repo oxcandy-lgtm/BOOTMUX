@@ -1,5 +1,13 @@
 #include "usb_router.h"
 
+#include <stdio.h>
+
+#ifndef CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL
+#define CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL 0
+#endif
+
+#if CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +30,7 @@ static uint8_t s_usb_mac[6] = {0x02, 0x42, 0x4f, 0x4f, 0x54, 0x01};
 
 static void on_usb_ready(void *context) {
     (void)context;
-    puts("BOOTMUX_USB_ETHERNET_READY");
+    puts("BOOTMUX_USB_ETHERNET_READY_EXPERIMENTAL");
 }
 
 static esp_err_t on_usb_receive(void *buffer, uint16_t length, void *context) {
@@ -62,17 +70,25 @@ esp_err_t bootmux_usb_router_init(void) {
     esp_err_t error = tinyusb_net_init(TINYUSB_USBDEV_0, &net_config);
     if (error != ESP_OK) return error;
 
+    /*
+     * The USB link is deliberately static and non-authoritative.  In
+     * particular, do not run a DHCP server and do not advertise this device as
+     * a default gateway or DNS server.  A host that opts into this experiment
+     * must assign its own 10.77.0.x address and add only destination-scoped
+     * routes.  This prevents a Mac from replacing its Wi-Fi route merely
+     * because BOOTMUX was plugged in.
+     */
     static esp_netif_ip_info_t ip_info = {
         .ip = { .addr = BOOTMUX_USB_IP },
-        .gw = { .addr = BOOTMUX_USB_IP },
+        .gw = { .addr = 0 },
         .netmask = { .addr = BOOTMUX_USB_NETMASK },
     };
     static esp_netif_inherent_config_t base_config = {
-        .flags = ESP_NETIF_DHCP_SERVER | ESP_NETIF_FLAG_AUTOUP,
+        .flags = ESP_NETIF_FLAG_AUTOUP,
         .ip_info = &ip_info,
         .if_key = "usb",
-        .if_desc = "BOOTMUX USB Ethernet",
-        .route_prio = 10,
+        .if_desc = "BOOTMUX USB Ethernet Experimental",
+        .route_prio = 250,
     };
     static esp_netif_driver_ifconfig_t driver_config = {
         .handle = (void *)1,
@@ -96,8 +112,8 @@ esp_err_t bootmux_usb_router_init(void) {
     error = esp_netif_set_mac(s_usb_netif, s_usb_mac);
     if (error != ESP_OK) return error;
     esp_netif_action_start(s_usb_netif, 0, 0, 0);
-    puts("BOOTMUX_USB_NETIF_READY");
-    puts("BOOTMUX_USB_LAN_READY");
+    puts("BOOTMUX_USB_NETIF_READY_EXPERIMENTAL");
+    puts("BOOTMUX_USB_NETWORK_NO_DHCP_NO_DEFAULT_ROUTE");
     return ESP_OK;
 }
 
@@ -105,8 +121,21 @@ esp_err_t bootmux_usb_router_enable_napt(void) {
     if (s_napt_enabled) return ESP_OK;
     if (!s_usb_netif) return ESP_ERR_INVALID_STATE;
     esp_err_t error = esp_netif_napt_enable(s_usb_netif);
-    if (error == ESP_OK) puts("BOOTMUX_NAPT_READY");
+    if (error == ESP_OK) puts("BOOTMUX_NAPT_READY_EXPERIMENTAL");
     else ESP_LOGE(TAG, "NAPT enable failed code=%s", esp_err_to_name(error));
     if (error == ESP_OK) s_napt_enabled = true;
     return error;
 }
+
+#else
+
+esp_err_t bootmux_usb_router_init(void) {
+    puts("BOOTMUX_USB_NETWORK_SAFE_OFF");
+    return ESP_OK;
+}
+
+esp_err_t bootmux_usb_router_enable_napt(void) {
+    return ESP_OK;
+}
+
+#endif
