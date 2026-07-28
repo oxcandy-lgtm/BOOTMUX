@@ -207,10 +207,12 @@ def check_rom_download_mode(port: str, timeout: float = 5.0) -> Tuple[bool, str]
 # Flash operations
 # ---------------------------------------------------------------------------
 
-def find_esptool(bundle_dir: Optional[Path] = None) -> Optional[List[str]]:
+def find_esptool(bundle_dir: Optional[Path] = None) -> Optional[Tuple[List[str], Optional[Dict[str, str]]]]:
     """Find esptool.py — bundle-local first, then system.
 
-    Returns argv-compatible list for subprocess.run, or None if not found.
+    Returns (argv, env) tuple for subprocess.run, or None if not found.
+    - argv: list of command + args (e.g. ['python3', '/path/esptool.py'])
+    - env: dict with PYTHONPATH bundled pyserial, or None for host tools.
     When bundle_dir is provided, checks tools/tool-esptoolpy/ first.
     Verifies the tool by running 'version' before returning.
     """
@@ -255,8 +257,8 @@ def find_esptool(bundle_dir: Optional[Path] = None) -> Optional[List[str]]:
         if not path.exists():
             continue
         try:
-            # For bundle-local esptool, set env to find bundled pyserial
-            extra_env = None
+            # For bundle-local esptool, build env to find bundled pyserial
+            extra_env: Optional[Dict[str, str]] = None
             if label.startswith("BUNDLE"):
                 tools_dir = path.parent.parent  # tools/tool-esptoolpy/ -> tools/
                 if (tools_dir / "serial").exists():
@@ -268,7 +270,8 @@ def find_esptool(bundle_dir: Optional[Path] = None) -> Optional[List[str]]:
                 capture_output=True, text=True, timeout=10,
                 env=extra_env)
             if result.returncode == 0:
-                return [sys.executable, str(path)]
+                # Return (argv, env) — env propagates to all esptool invocations
+                return ([sys.executable, str(path)], extra_env)
         except (subprocess.TimeoutExpired, OSError):
             continue
 
@@ -276,7 +279,7 @@ def find_esptool(bundle_dir: Optional[Path] = None) -> Optional[List[str]]:
     try:
         result = subprocess.run(["which", "esptool.py"], capture_output=True, text=True)
         if result.returncode == 0:
-            return [result.stdout.strip()]
+            return ([result.stdout.strip()], None)
     except OSError:
         pass
 
@@ -285,21 +288,24 @@ def find_esptool(bundle_dir: Optional[Path] = None) -> Optional[List[str]]:
         result = subprocess.run([sys.executable, "-m", "esptool", "version"],
                                 capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
-            return [sys.executable, "-m", "esptool"]
+            return ([sys.executable, "-m", "esptool"], None)
     except (subprocess.TimeoutExpired, OSError):
         pass
 
     return None
 
 
-def build_flash_command(esptool_cmd: List[str], port: str, manifest: Dict[str, Any],
-                        build_dir: Path) -> List[str]:
+def build_flash_command(esptool_data: Tuple[List[str], Optional[Dict[str, str]]],
+                        port: str, manifest: Dict[str, Any],
+                        build_dir: Path) -> Tuple[List[str], Optional[Dict[str, str]]]:
     """Build the esptool flash command from manifest.
 
-    esptool_cmd is an argv list (e.g. ['python3', '/path/to/esptool.py']).
+    esptool_data is a (argv, env) tuple from find_esptool().
+    Returns (cmd_list, env) — env carries PYTHONPATH for bundle-local pyserial.
     Note: artifact paths in the manifest are relative to FIRMWARE_DIR
     (they include the build-dir prefix), so we join with build_dir.parent.
     """
+    esptool_cmd, env = esptool_data
     flash_params = manifest.get("flash_params", {})
     cmd = list(esptool_cmd) + [
         "--chip", "esp32s3",
@@ -314,16 +320,17 @@ def build_flash_command(esptool_cmd: List[str], port: str, manifest: Dict[str, A
     ]
     for art in manifest.get("artifacts", []):
         cmd.extend([art["offset"], str(build_dir.parent / art["path"])])
-    return cmd
+    return (cmd, env)
 
 
 def verify_flash_sha(port: str, manifest: Dict[str, Any],
                      build_dir: Path) -> Dict[str, Any]:
     """Read back flash and verify SHA-256 (post-flash verification)."""
-    esptool_cmd = find_esptool()
-    if not esptool_cmd:
+    esptool_data = find_esptool()
+    if not esptool_data:
         return {"status": "YELLOW", "reason": "ESPTOOL_MISSING"}
 
+    esptool_cmd, env = esptool_data
     results = []
     for art in manifest.get("artifacts", []):
         offset = int(art["offset"], 16)
@@ -333,7 +340,7 @@ def verify_flash_sha(port: str, manifest: Dict[str, Any],
             "--chip", "esp32s3", "--port", port,
             "read_flash", hex(offset), str(size), "/tmp/bootmux-readback.bin",
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=env)
         if proc.returncode != 0:
             results.append({"name": art["name"], "status": "RED",
                             "reason": f"read_flash failed: {proc.stderr[:200]}"})
@@ -578,14 +585,14 @@ class SafeFlashRunner:
             self.journal.append("FLASH", {"dry_run": True, "port": self.serial_port})
             return "GREEN_DRY_RUN"
 
-        esptool_cmd = find_esptool()
-        if not esptool_cmd:
+        esptool_data = find_esptool()
+        if not esptool_data:
             self.journal.append("FLASH", {"error": "esptool not found"}, status="RED")
             return "RED:ESPTOOL_MISSING"
 
-        cmd = build_flash_command(esptool_cmd, self.serial_port, self.manifest, self.build_dir)
-        self.journal.append("FLASH_START", {"cmd": " ".join(cmd[:10]) + "..."})
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        flash_cmd, flash_env = build_flash_command(esptool_data, self.serial_port, self.manifest, self.build_dir)
+        self.journal.append("FLASH_START", {"cmd": " ".join(flash_cmd[:10]) + "..."})
+        proc = subprocess.run(flash_cmd, capture_output=True, text=True, timeout=300, env=flash_env)
         ok = proc.returncode == 0
         self.journal.append("FLASH", {"ok": ok, "returncode": proc.returncode,
                                       "stderr_tail": proc.stderr[-500:]},
@@ -691,9 +698,10 @@ class SafeFlashRunner:
 
         # Step 1: Bundle-local esptool availability
         bundle_dir = FIRMWARE_DIR.parent if FIRMWARE_DIR.exists() else None
-        esptool_cmd = find_esptool(bundle_dir)
-        if esptool_cmd:
-            print(f"[BUNDLE_ESPTOOL] ... {' '.join(esptool_cmd)}")
+        esptool_data = find_esptool(bundle_dir)
+        if esptool_data:
+            esptool_argv, esptool_env = esptool_data
+            print(f"[BUNDLE_ESPTOOL] ... {' '.join(esptool_argv)}")
             results["BUNDLE_ESPTOOL"] = "GREEN"
         else:
             print("[BUNDLE_ESPTOOL] ... RED (no esptool found)")
@@ -838,8 +846,12 @@ def main() -> int:
         print(f"TTL_SECONDS={TTL_SECONDS}")
         print(f"MANIFEST={MANIFEST_PATH}")
         print(f"MANIFEST_EXISTS={MANIFEST_PATH.exists()}")
-        esptool_cmd = find_esptool()
-        print(f"ESPTOOL={'FOUND:' + esptool_cmd[0] if esptool_cmd else 'NOT_FOUND'}")
+        esptool_data = find_esptool()
+        if esptool_data:
+            esptool_argv, _ = esptool_data
+            print(f"ESPTOOL=FOUND:{' '.join(esptool_argv)}")
+        else:
+            print("ESPTOOL=NOT_FOUND")
         return 0
 
     if args.resume:

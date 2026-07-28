@@ -25,5 +25,18 @@
     "serial_opened": false,
     "write_flash_reached": false
   },
-  "known_limitation": "bundle-local esptool requires pyserial (bundled at tools/serial/)"
+  "known_limitation": "bundle-local esptool requires pyserial (bundled at tools/serial/)",
+  "fix_version": "P4-R1D-FIX",
+  "fix_changes": {
+    "esptool_return_type": "(argv, env) tuple \u2014 env propagates to all esptool invocations",
+    "env_propagation": {
+      "version_check": true,
+      "write_flash": true,
+      "read_flash": true,
+      "no_global_os_environ": true,
+      "no_shell_execution": true
+    },
+    "bundle_no_green_missing": true,
+    "bundle_missing_tool_exit": "non-zero with RED_OFFLINE_FLASH_TOOL_MISSING"
+  }
 }

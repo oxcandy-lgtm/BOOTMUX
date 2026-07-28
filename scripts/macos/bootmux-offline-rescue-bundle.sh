@@ -268,7 +268,8 @@ elif [ "$ESPTOOL_FOUND" = "BUNDLE_PIO" ]; then
     echo "OFFLINE_READY=true"
     echo "FLASH_TOOL_STATUS=FOUND"
 else
-    echo "BUNDLE=GREEN"
-    echo "OFFLINE_READY=true"
+    echo "BUNDLE=RED_OFFLINE_FLASH_TOOL_MISSING (no esptool found)"
+    echo "OFFLINE_READY=false"
     echo "FLASH_TOOL_STATUS=MISSING"
+    exit 1
 fi

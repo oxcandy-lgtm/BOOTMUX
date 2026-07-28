@@ -277,7 +277,10 @@ class TestPreFlashGate(unittest.TestCase):
             ],
         }
         build_dir = Path("/firmware/build-safe")
-        cmd = runner_mod.build_flash_command("esptool.py", "/dev/cu.test", manifest, build_dir)
+        # (argv, env) tuple as required by new API
+        esptool_data = (["esptool.py"], None)
+        cmd_result = runner_mod.build_flash_command(esptool_data, "/dev/cu.test", manifest, build_dir)
+        cmd, _ = cmd_result
         # The path in cmd should be /firmware/build-safe/bootloader/bootloader.bin
         # NOT /firmware/build-safe/build-safe/bootloader/bootloader.bin
         path_args = [cmd[i + 1] for i, a in enumerate(cmd) if a == "0x0"]
