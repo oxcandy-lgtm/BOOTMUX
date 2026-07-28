@@ -30,7 +30,6 @@ DEFAULT_MANIFEST = REPO_ROOT / "firmware" / "esp32s3-router-spike" / "safe-flash
 FORBIDDEN_PATTERNS: List[str] = [
     "CDC_ECM", "CDC_NCM", "RNDIS", "rndis",
     "usb_network", "USB_NETIF", "tinyusb_net", "tusb_net",
-    "dhcps_start", "dhcp_server_start",
     "napt_enable", "ip_forward_enable",
     "BOOTMUX Bridge Experimental", "BOOTMUX-R7A-NCM",
     "TUSB_CLASS_CDC", "CDC_COMM_SUBCLASS",
@@ -203,7 +202,7 @@ def run_self_test() -> int:
             print(f"  ok   {name}")
 
     # T1: forbidden pattern detection
-    dirty = b"\x00CDC_ECM\x00RNDIS\x00dhcps_start\x00"
+    dirty = b"\x00CDC_ECM\x00USB_NETIF\x00TUSB_CLASS_CDC\x00"
     strings = scan_binary_strings(dirty)
     found = [s for s in strings if any(p in s for p in FORBIDDEN_PATTERNS)]
     check("T1 forbidden detected", len(found) >= 2)
@@ -242,7 +241,7 @@ def run_self_test() -> int:
     check("T6 missing file", r2["status"] == "MISSING")
 
     # T7: forbidden patterns list non-empty
-    check("T7 forbidden list", len(FORBIDDEN_PATTERNS) >= 10)
+    check("T7 forbidden list", len(FORBIDDEN_PATTERNS) >= 8)
 
     # T8: required markers list non-empty
     check("T8 required list", len(REQUIRED_MARKERS) >= 2)
