@@ -1,46 +1,47 @@
 #!/bin/bash
-# R7C P4-R0 — Uninstall BOOTMUX Mac Pre-Attach Shield.
-# Disarms first (if armed), removes PF anchor, unloads daemon, removes plist.
-# Preserves state directory for forensic review.
+# R7C P4-R0B — Uninstall BOOTMUX Mac Pre-Attach Shield.
+# Supports --purge (complete removal) and --keep-evidence PATH (archive report).
 set -euo pipefail
 
 LABEL="com.bootmux.attach-shield"
-PLIST_DST="/Library/LaunchDaemons/${LABEL}.plist"
-SHIELD="$(cd "$(dirname "$0")" && pwd)/bootmux-attach-shield.py"
-PF_ANCHOR="com.bootmux.attach-shield"
+SHIELD="/usr/local/bootmux/scripts/macos/bootmux-attach-shield.py"
+PLIST="/Library/LaunchDaemons/${LABEL}.plist"
 STATE_DIR="/var/db/bootmux-shield"
+PURGE=false
+EVIDENCE=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --purge) PURGE=true; shift ;;
+        --keep-evidence) EVIDENCE="$2"; shift 2 ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+done
 
 if [[ $EUID -ne 0 ]]; then
     echo "ERROR: must run as root (sudo)" >&2
     exit 1
 fi
 
-echo "=== BOOTMUX Attach Shield Uninstaller ==="
+echo "=== BOOTMUX Attach Shield Uninstaller (Ephemeral Edition) ==="
 
-# 1. Disarm if armed (removes pinned routes, PF anchor)
+# Delegate to shield script for session close + artifact removal
 if [[ -f "$SHIELD" ]]; then
-    python3 "$SHIELD" --disarm 2>/dev/null || true
+    if $PURGE; then
+        python3 "$SHIELD" --uninstall --purge
+    elif [[ -n "$EVIDENCE" ]]; then
+        python3 "$SHIELD" --uninstall --keep-evidence "$EVIDENCE"
+    else
+        python3 "$SHIELD" --uninstall --purge
+    fi
+else
+    # Fallback: manual cleanup if shield script missing
+    echo "shield_script=MISSING (manual cleanup)"
+    launchctl unload "$PLIST" 2>/dev/null || true
+    pfctl -a "$LABEL" -F all 2>/dev/null || true
+    rm -f "$PLIST"
+    if $PURGE; then
+        rm -rf "$STATE_DIR"
+    fi
+    echo "UNINSTALL=MANUAL_OK"
 fi
-
-# 2. Remove PF anchor (only our rules)
-pfctl -a "$PF_ANCHOR" -F all 2>/dev/null || true
-echo "pf_anchor_cleared=$PF_ANCHOR"
-
-# 3. Unload daemon
-if launchctl list "$LABEL" >/dev/null 2>&1; then
-    launchctl unload "$PLIST_DST" 2>/dev/null || true
-    echo "daemon_unloaded=$LABEL"
-fi
-
-# 4. Remove plist
-if [[ -f "$PLIST_DST" ]]; then
-    rm -f "$PLIST_DST"
-    echo "plist_removed=$PLIST_DST"
-fi
-
-# 5. Preserve state directory for forensics (do NOT delete)
-if [[ -d "$STATE_DIR" ]]; then
-    echo "state_preserved=$STATE_DIR (not deleted — forensic evidence)"
-fi
-
-echo "UNINSTALL=OK"

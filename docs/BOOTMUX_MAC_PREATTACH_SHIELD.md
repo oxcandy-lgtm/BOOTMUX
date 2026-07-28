@@ -1,94 +1,120 @@
-# BOOTMUX Mac Pre-Attach Shield (R7C P4-R0)
+# BOOTMUX Mac Pre-Attach Shield (R7C P4-R0B — Ephemeral Edition)
 
 ## Purpose
 
-Pre-emptive macOS network protection that runs **before** the ESP32-S3 cable is
-inserted.  Complements P2 Guardian (post-fault recovery) by denying new external
-Ethernet authority, pinning Wi-Fi routes, and quarantining stale BOOTMUX state.
+One-shot macOS network protection for the dangerous legacy ESP32-S3 replacement.
+After the S3 is reflashed safe and the session is closed, the Mac returns to its
+**exact pre-install network behavior**. No permanent policy remains.
 
-The shield operates entirely offline — no Internet or WORKER dependency after arm.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│  bootmux-attach-shield.py  (root LaunchDaemon)  │
-│                                                 │
-│  ┌───────────┐  ┌──────────┐  ┌─────────────┐  │
-│  │ Baseline  │  │ Quarantine│  │ Event Loop  │  │
-│  │ Capture A │  │ BOOTMUX B │  │ Watchdog F  │  │
-│  └───────────┘  └──────────┘  └─────────────┘  │
-│  ┌───────────┐  ┌──────────┐  ┌─────────────┐  │
-│  │ PF Anchor │  │ Route Pin│  │ Recovery    │  │
-│  │ Section C │  │ Section E│  │ Q1–Q9 G     │  │
-│  └───────────┘  └──────────┘  └─────────────┘  │
-│  ┌───────────┐  ┌──────────┐                    │
-│  │ Wi-Fi Lock│  │ Forensic │                    │
-│  │ Section D │  │ Log H    │                    │
-│  └───────────┘  └──────────┘                    │
-└─────────────────────────────────────────────────┘
-```
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `bootmux-attach-shield.py` | Main shield controller (8 modes) |
-| `install-bootmux-attach-shield.sh` | Install LaunchDaemon (sudo) |
-| `uninstall-bootmux-attach-shield.sh` | Disarm + remove (sudo) |
-| `bootmux-attach-shield-status.sh` | Read-only status (no sudo) |
-| `launchd/com.bootmux.attach-shield.plist` | LaunchDaemon definition |
-| `tests/test_bootmux_attach_shield.py` | S01–S20 fixture tests |
-
-## Modes
-
-| Mode | Description |
-|---|---|
-| `--audit` | Read-only audit of current network state |
-| `--arm` | Capture baseline, quarantine, pin routes, persist state |
-| `--disarm` | Remove pinned routes, PF anchor, stop daemon |
-| `--status` | Show armed/disarmed state |
-| `--recover-now` | Run Q1–Q9 recovery immediately |
-| `--postmortem` | Generate sanitized forensic report |
-| `--daemon` | Run as LaunchDaemon (event loop + watchdog) |
-| `--self-test` | Internal consistency checks |
+This supersedes P4-R0. The shield is NOT a permanent machine policy.
 
 ## Lifecycle
 
+```text
+NOT_INSTALLED
+  -> install
+INSTALLED_DISARMED
+  -> arm --ttl 1800
+ARMED_TEMPORARY
+  -> safe S3 replacement work
+  -> close-session
+RESTORED
+  -> uninstall --purge
+NOT_INSTALLED / PRESTATE_EQUIVALENT
 ```
-install → arm → [daemon running] → status → recover-now → disarm → uninstall
+
+The shield must never be armed indefinitely.
+
+## TTL Bounds
+
+| Parameter | Value |
+|---|---|
+| Default TTL | 1800 s (30 min) |
+| Maximum TTL | 7200 s (2 hours) |
+| Minimum TTL | 60 s |
+| Zero/infinite | Rejected (clamped) |
+
+The daemon automatically executes exact rollback when TTL expires.
+Reboot with an expired/armed session triggers rollback before normal monitoring.
+
+## Network Location Isolation
+
+If supported (`networksetup -createlocation` available), the shield creates a
+temporary Network Location `BOOTMUX-SHIELD-<session-id>` and applies all
+mutations inside it. On close, it switches back to the original location and
+deletes the temporary one.
+
+If not supported or unstable, falls back to baseline/restore with field-by-field
+exact restoration.
+
+## Exact Mutation Journal
+
+Before each mutation, an append-only journal records the exact pre-value:
+- Network location, Wi-Fi power/service/IPv4/IPv6/DNS/search
+- Complete service order and enabled/disabled states
+- Each route added/removed
+- PF pre-state, anchor rules, enable reference
+- Launchd pre-state, installed files
+
+Rollback replays the journal in reverse. **Never infers an old value.**
+Unknown pre-value → `INCOMPLETE_ROLLBACK_UNKNOWN_PRESTATE`.
+
+## Close Session Order (C1–C12)
+
+```text
+C1  stop quarantine daemon
+C2  remove shield-owned PF anchor rules
+C3  release PF enable reference (preserve pre-existing PF)
+C4  remove shield-added IPv4/IPv6 split routes
+C5  restore exact enabled state of every modified service
+C6  restore exact original service order
+C7  restore exact Wi-Fi IPv4/IPv6 mode and values
+C8  restore exact DNS/search automatic-or-explicit state
+C9  switch back to original Network Location (if isolated)
+C10 delete temporary shield location
+C11 verify pre-state equivalence (fingerprint comparison)
+C12 mark session closed
 ```
 
-## PF Anchor
+## Purge
 
-Uses dedicated anchor `com.bootmux.attach-shield`.  Never replaces `/etc/pf.conf`,
-never flushes unrelated anchors.  Rollback removes only owned rules.
+`uninstall --purge` removes only BOOTMUX shield-owned artifacts:
+- LaunchDaemon plist + job
+- Installed shield script + empty parent dirs
+- State directory (sessions, logs, journal)
+- PF anchor rules
 
-## Route Pinning (Section E)
+After purge, a normal USB Ethernet adapter is handled by stock macOS with no
+BOOTMUX interception.
 
-Split-default routes (`0.0.0.0/1` + `128.0.0.0/1`) through the Wi-Fi gateway.
-Validated against local `route(8)` before applying.  If validation fails,
-returns `YELLOW_ROUTE_PIN_UNAVAILABLE` and relies on service pre-disable + PF +
-event-driven repair.
+## Fixes from P4-R0 (Section F)
 
-## State Store
+| ID | Fix |
+|---|---|
+| F1 | `cmd_disarm()` → `close_session()` restores all service states + order |
+| F2 | Automatic DNS restored as `Empty`, not skipped |
+| F3 | Manual IPv4/IPv6 restored exactly via journal |
+| F4 | Never call `-setairportnetwork` with SSID digest |
+| F5 | PF pre-state tracked; shield does not leave PF enabled |
+| F6 | BOOTMUX identification requires proven device/service mapping |
+| F7 | `pf_anchor_active` and service records reflect actual mutations |
 
-- Location: `/var/db/bootmux-shield/` (root-owned, 0700)
-- Files: 0600, no symlinks, atomic writes, bounded size
-- Sessions: `/var/db/bootmux-shield/sessions/<id>/shield.jsonl`
+## Tests
 
-## Hard Safety Gates
+E01–E20 (42 test methods) covering:
+- DHCP/manual IPv4/IPv6/DNS/search exact roundtrip
+- Service order and enabled-state restoration
+- PF pre-state (enabled/disabled) preservation
+- TTL bounds, expiry, reboot recovery
+- Idempotent close/purge
+- Device-present block / device-absent close
+- Journal unknown-prestate fail-closed
+- Fingerprint comparison
+- Network Location isolation
+- F4/F5/F6 regression guards
 
-- No S3 attachment before shield GREEN
-- No S3 flash in this phase
-- No network service deletion
-- No global route/PF flush
-- No saved Wi-Fi deletion or password export
-- No unrelated service mutation
-- No WORKER/Internet dependency after arm
-- No disarm while untrusted device present
+## Hard Gates
 
-## Privacy
-
-All logs and evidence are sanitized: no SSID plaintext, MAC addresses, serial
-numbers, private paths, or credentials.  SSID stored as SHA-256 digest prefix.
+No S3 attach, no flash, no service delete, no global route/PF flush,
+no saved-Wi-Fi delete, no unrelated service mutation, no permanent deny,
+no inferred rollback values.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# R7C P4-R0 — Install BOOTMUX Mac Pre-Attach Shield LaunchDaemon.
+# R7C P4-R0B — Install BOOTMUX Mac Pre-Attach Shield LaunchDaemon (Ephemeral).
 # Requires sudo.  Does NOT arm the shield — run --arm separately after install.
 set -euo pipefail
 
@@ -16,7 +16,7 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-echo "=== BOOTMUX Attach Shield Installer ==="
+echo "=== BOOTMUX Attach Shield Installer (Ephemeral Edition) ==="
 
 # 1. Validate shield script exists
 if [[ ! -f "$SHIELD_SRC" ]]; then
@@ -26,7 +26,7 @@ fi
 
 # 2. Validate plist
 if ! plutil -lint "$PLIST_SRC" >/dev/null 2>&1; then
-    echo "ERROR: plist failed lint: $PLIST_SRC" >&2
+    echo "ERROR: invalid plist: $PLIST_SRC" >&2
     exit 1
 fi
 
@@ -62,9 +62,9 @@ echo "daemon_loaded=$LABEL"
 if launchctl list "$LABEL" >/dev/null 2>&1; then
     echo "INSTALL=OK"
 else
-    echo "INSTALL=FAILED (daemon not in launchctl list)" >&2
+    echo "INSTALL=FAILED (daemon not loaded)" >&2
     exit 1
 fi
 
 echo ""
-echo "Next: sudo python3 $SHIELD --arm"
+echo "Next: sudo python3 $SHIELD --arm --ttl 1800"
