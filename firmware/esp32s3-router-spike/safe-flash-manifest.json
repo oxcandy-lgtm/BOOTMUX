@@ -1,0 +1,57 @@
+{
+  "manifest_version": "1.0.0",
+  "code_id": "R7C",
+  "phase": "P4-R1",
+  "profile": "safe-hid-only",
+  "build_dir": "build-native-r7b-r2",
+  "sdkconfig_marker": "# CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL is not set",
+  "usb_identity": {
+    "vid": "0x303A",
+    "pid": "0x4014",
+    "product": "BOOTMUX Keyboard Safe",
+    "serial": "BOOTMUX-HID-SAFE",
+    "device_class": "0x00",
+    "device_subclass": "0x00",
+    "device_protocol": "0x00"
+  },
+  "flash_params": {
+    "flash_mode": "dio",
+    "flash_freq": "80m",
+    "flash_size": "2MB"
+  },
+  "artifacts": [
+    {
+      "name": "bootloader",
+      "path": "build-native-r7b-r2/bootloader/bootloader.bin",
+      "offset": "0x0",
+      "size": 21088,
+      "sha256": "a2adba9b35ffbd96884a095fd38fcd3da0beff758f162cfadc00ecf57a7918bb"
+    },
+    {
+      "name": "partition-table",
+      "path": "build-native-r7b-r2/partition_table/partition-table.bin",
+      "offset": "0x8000",
+      "size": 3072,
+      "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+    },
+    {
+      "name": "application",
+      "path": "build-native-r7b-r2/bootmux_router_spike.bin",
+      "offset": "0x10000",
+      "size": 989936,
+      "sha256": "97b95053fa8ff45abf8aa98d76c9044d29e9047948d05d78cf4fdf5c535fe31a"
+    }
+  ],
+  "forbidden_strings": [
+    "CDC_ECM", "CDC_NCM", "RNDIS", "rndis",
+    "usb_net", "USB_NET", "usb_network",
+    "dhcps_start", "dhcp_server_start",
+    "napt_enable", "ip_forward_enable",
+    "BOOTMUX Bridge Experimental", "BOOTMUX-R7A-NCM"
+  ],
+  "required_strings": [
+    "BOOTMUX Keyboard Safe",
+    "BOOTMUX-HID-SAFE",
+    "BOOTMUX_USB_NETWORK_SAFE_OFF"
+  ]
+}
