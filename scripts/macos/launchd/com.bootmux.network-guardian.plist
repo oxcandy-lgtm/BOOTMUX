@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  BOOTMUX macOS network guardian LaunchDaemon (R7C P2).
+
+  Recovery-only host controller. Runs as root because `networksetup`,
+  `route`, and `ipconfig` require elevated privileges. The daemon is a
+  bounded, idempotent reconciler: it never deletes services, never flushes
+  the global routing table, and only ever touches BOOTMUX-owned state.
+
+  Install/uninstall via the companion shell scripts; do not hand-edit.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bootmux.network-guardian</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Library/Application Support/BOOTMUX/network-guardian/bootmux-network-guardian.py</string>
+        <string>--daemon</string>
+        <string>--state-dir</string>
+        <string>/var/db/bootmux-network-guardian</string>
+    </array>
+
+    <key>UserName</key>
+    <string>root</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Bounded restart throttle: never spin faster than once per 10s. -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/var/log/bootmux-network-guardian.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/var/log/bootmux-network-guardian.err</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/sbin:/usr/bin:/sbin:/bin</string>
+    </dict>
+</dict>
+</plist>

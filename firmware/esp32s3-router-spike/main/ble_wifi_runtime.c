@@ -29,6 +29,9 @@
 #include "tusb.h"
 #include "usb_router.h"
 #include "http_connect_proxy.h"
+#include "management_gate.h"
+#include "target_probe.h"
+#include "ping_sock.h"
 
 #define BMX_MAX_FRAME 520
 #define BMX_FRAME_QUEUE 32
@@ -45,6 +48,28 @@
 #define BMX_WIFI_EVENT_QUEUE 8
 #define BMX_HID_REPORT_TIMEOUT_MS 250
 #define BMX_PROXY_PORT 3128
+
+/* R7C-P1 S3 management-path gate tuning. */
+#define BMX_GATE_TICK_MS 250            /* lease-expiry / probe cadence (<=250ms) */
+#define BMX_PROBE_INTERVAL_MS 2000      /* bounded probe period while probing */
+#define BMX_PROBE_TIMEOUT_MS 1000       /* per-probe timeout (<=1s) */
+#define BMX_PROBE_COUNT 1               /* one ping per probe round */
+#define BMX_MGMT_QUEUE 8                /* management events from BLE / ping cb */
+
+/* Management events handed to the wifi_task reconciler.  Kept tiny and free of
+ * any credential / SSID / IP-individual payload. */
+typedef enum {
+    MGMT_BLE_DISCONNECTED,
+    MGMT_LEASE_GRANT,
+    MGMT_LEASE_RELEASE,
+    MGMT_PROBE_RESULT,
+} mgmt_event_kind_t;
+
+typedef struct {
+    mgmt_event_kind_t kind;
+    int ttl_seconds;     /* LEASE_GRANT only */
+    bool probe_success;  /* PROBE_RESULT only */
+} mgmt_event_t;
 
 static const char *kDeviceName = "BOOTMUX Bridge";
 static const char *TAG = "bootmux_r7b";
@@ -110,6 +135,15 @@ static int64_t s_wifi_deadline;
 static uint8_t s_wifi_attempts;
 static bool s_proxy_ready;
 static bootmux_proxy_endpoint_state_t s_proxy_endpoint;
+
+/* R7C-P1 S3 management-path gate state.  Mutated only by the wifi_task
+ * reconciler; BLE frame handlers and the ping callback enqueue mgmt_event_t. */
+static mg_state_t s_gate;
+static tp_state_t s_probe;
+static QueueHandle_t s_mgmt_events;
+static esp_ping_handle_t s_ping_handle;
+static bool s_ping_running;
+static int64_t s_last_probe_ms;
 
 static uint32_t s_completed[16];
 static size_t s_completed_index;
@@ -428,7 +462,164 @@ static bool decode_wifi_json(const char *encoded, size_t length, char *ssid, siz
     return valid;
 }
 
+/* ping_sock callbacks run in the ping task context; they only enqueue a tiny
+ * management event for the wifi_task reconciler to consume.  No secrets here. */
+static void ping_on_success(esp_ping_handle_t hdl, void *args) {
+    (void)hdl; (void)args;
+    if (!s_mgmt_events) return;
+    mgmt_event_t event = { .kind = MGMT_PROBE_RESULT, .ttl_seconds = 0, .probe_success = true };
+    (void)xQueueSend(s_mgmt_events, &event, 0);
+}
+
+static void ping_on_timeout(esp_ping_handle_t hdl, void *args) {
+    (void)hdl; (void)args;
+    if (!s_mgmt_events) return;
+    mgmt_event_t event = { .kind = MGMT_PROBE_RESULT, .ttl_seconds = 0, .probe_success = false };
+    (void)xQueueSend(s_mgmt_events, &event, 0);
+}
+
+static void ping_on_end(esp_ping_handle_t hdl, void *args) {
+    (void)args;
+    s_ping_running = false;
+    if (hdl == s_ping_handle) {
+        esp_ping_stop(hdl);
+        esp_ping_delete_session(hdl);
+        s_ping_handle = NULL;
+    }
+}
+
 static void handle_wifi_command(const wifi_command_t *command);
+
+/* ---- R7C-P1 S3 management-path gate glue ------------------------------- */
+
+static int64_t now_ms(void) {
+    return esp_timer_get_time() / 1000;
+}
+
+/* Marker emitter: prints the exact fixed line required by the NX capsule. */
+static void gate_emit(const char *line, void *ctx) {
+    (void)ctx;
+    puts(line);
+}
+
+/* Injected side-effect layer.  Open order netif -> NAPT -> proxy; the gate
+ * closes in the strict reverse.  All callbacks are idempotent on the device. */
+static mg_err_t gate_netif_start(void *ctx) {
+    (void)ctx;
+    return bootmux_usb_router_start() == ESP_OK ? MG_OK : MG_FAIL;
+}
+static mg_err_t gate_napt_enable(void *ctx) {
+    (void)ctx;
+    return bootmux_usb_router_enable_napt() == ESP_OK ? MG_OK : MG_FAIL;
+}
+static mg_err_t gate_proxy_start(void *ctx) {
+    (void)ctx;
+    if (bootmux_http_proxy_is_ready()) return MG_OK;
+    if (bootmux_http_proxy_start(s_sta_netif, s_proxy_endpoint.wifi_epoch) == ESP_OK &&
+        bootmux_http_proxy_is_ready()) {
+        s_proxy_endpoint.proxy_listener_ready = true;
+        s_proxy_ready = true;
+        return MG_OK;
+    }
+    return MG_FAIL;
+}
+static void gate_proxy_stop(void *ctx) {
+    (void)ctx;
+    bootmux_http_proxy_stop();
+    s_proxy_endpoint.proxy_listener_ready = false;
+    s_proxy_ready = false;
+}
+static void gate_napt_disable(void *ctx) {
+    (void)ctx;
+    (void)bootmux_usb_router_disable_napt();
+}
+static void gate_netif_stop(void *ctx) {
+    (void)ctx;
+    (void)bootmux_usb_router_stop();
+}
+
+static const mg_actions_t s_gate_actions = {
+    .netif_start = gate_netif_start,
+    .napt_enable = gate_napt_enable,
+    .proxy_start = gate_proxy_start,
+    .proxy_stop = gate_proxy_stop,
+    .napt_disable = gate_napt_disable,
+    .netif_stop = gate_netif_stop,
+    .emit = gate_emit,
+    .ctx = NULL,
+};
+
+/* Map the current gate inputs to the single fail-closed reason to record. */
+static mg_reason_t gate_close_reason(int64_t now) {
+    if (!s_gate.wifi_has_ip) {
+        return (s_wifi_state == WIFI_AUTH_FAILED || s_wifi_state == WIFI_AP_NOT_FOUND ||
+                s_wifi_state == WIFI_NO_IP) ? MG_REASON_WIFI_NO_IP : MG_REASON_WIFI_DISCONNECTED;
+    }
+    if (!tp_allowlist_loaded(&s_probe)) return MG_REASON_TARGET_UNREACHABLE;
+    if (!tp_is_reachable(&s_probe, now)) return MG_REASON_TARGET_UNREACHABLE;
+    if (!mg_lease_active(&s_gate, now)) {
+        return s_gate.lease_deadline_ms == 0 ? MG_REASON_LEASE_ABSENT : MG_REASON_LEASE_EXPIRED;
+    }
+    return MG_REASON_BOOT; /* unreachable when should_open is false */
+}
+
+/*
+ * The single management-path reconciler.  Called only from the wifi_task, so
+ * all gate / probe mutation is serialized to one task.  Drives the bounded
+ * probe, refreshes reachability, and applies the four-condition gate.
+ */
+static void reconcile_management_path(mg_reason_t reason) {
+    int64_t now = now_ms();
+
+    /* Refresh reachability (applies the 15s no-response decay). */
+    s_gate.target_reachable = tp_is_reachable(&s_probe, now);
+    s_gate.allowlist_loaded = tp_allowlist_loaded(&s_probe);
+
+    /* Drive a bounded probe round when allowed and the interval has elapsed. */
+    if (tp_probe_allowed(&s_probe) && !s_ping_running &&
+        now - s_last_probe_ms >= BMX_PROBE_INTERVAL_MS) {
+        uint32_t target = tp_select_target(&s_probe);
+        if (target != 0) {
+            ip4_addr_t addr = { .addr = lwip_htonl(target) };
+            esp_ping_config_t cfg = ESP_PING_DEFAULT_CONFIG();
+            cfg.target_addr.u_addr.ip4 = addr;
+            cfg.target_addr.type = ESP_IPADDR_TYPE_V4;
+            cfg.count = BMX_PROBE_COUNT;
+            cfg.interval_ms = BMX_PROBE_INTERVAL_MS;
+            cfg.timeout_ms = BMX_PROBE_TIMEOUT_MS;
+            esp_ping_callbacks_t cbs = {0};
+            cbs.on_ping_success = ping_on_success;
+            cbs.on_ping_timeout = ping_on_timeout;
+            cbs.on_ping_end = ping_on_end;
+            cbs.cb_args = NULL;
+            if (esp_ping_new_session(&cfg, &cbs, &s_ping_handle) == ESP_OK &&
+                esp_ping_start(s_ping_handle) == ESP_OK) {
+                s_ping_running = true;
+                s_last_probe_ms = now;
+            } else {
+                /* Treat a failed probe launch as a failed probe result. */
+                tp_record_result(&s_probe, false, now);
+                s_last_probe_ms = now;
+            }
+        }
+    }
+
+    /* Recompute after any probe bookkeeping. */
+    s_gate.target_reachable = tp_is_reachable(&s_probe, now);
+    s_gate.allowlist_loaded = tp_allowlist_loaded(&s_probe);
+
+    mg_reconcile(&s_gate, now, reason, &s_gate_actions);
+
+    /* While closed, surface one marker per distinct failing condition. */
+    if (!s_gate.path_open) {
+        mg_reason_t close_reason = gate_close_reason(now);
+        if (mg_close_reason_changed(&s_gate, close_reason)) {
+            char line[64];
+            snprintf(line, sizeof(line), "BOOTMUX_PATH_CLOSED reason=%s", mg_reason_str(close_reason));
+            gate_emit(line, NULL);
+        }
+    }
+}
 
 static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data) {
     (void)arg;
@@ -448,12 +639,16 @@ static void wifi_task(void *arg) {
         if (xQueueReceive(s_wifi_events, &event, pdMS_TO_TICKS(250)) == pdTRUE) {
             if (event.event_id == WIFI_EVENT_STA_START) {
                 set_wifi_state(WIFI_CONNECTING);
+                reconcile_management_path(MG_REASON_BOOT);
             } else if (event.event_id == WIFI_EVENT_STA_DISCONNECTED) {
-                bootmux_http_proxy_stop();
-                s_proxy_ready = false;
+                /* R7C-P1 S3: any disconnect withdraws the management path.  The
+                 * proxy/NAPT/netif teardown is owned by reconcile; here we only
+                 * clear the Wi-Fi-side inputs and the probe subnet. */
                 s_proxy_endpoint.wifi_has_ip = false;
                 s_proxy_endpoint.proxy_listener_ready = false;
                 s_proxy_endpoint.sta_ipv4_be = 0;
+                s_gate.wifi_has_ip = false;
+                tp_set_subnet(&s_probe, 0, 0);
                 notify_proxy_status("PROXY_OFFLINE");
                 if (event.reason == WIFI_REASON_AUTH_FAIL || event.reason == WIFI_REASON_AUTH_EXPIRE || event.reason == WIFI_REASON_HANDSHAKE_TIMEOUT) {
                     s_wifi_deadline = 0;
@@ -464,6 +659,7 @@ static void wifi_task(void *arg) {
                 } else if (s_wifi_state != WIFI_AUTH_FAILED && s_wifi_state != WIFI_AP_NOT_FOUND && s_wifi_state != WIFI_NO_IP) {
                     set_wifi_state(WIFI_DISCONNECTED);
                 }
+                reconcile_management_path(MG_REASON_WIFI_DISCONNECTED);
             } else if (event.event_id == IP_EVENT_STA_GOT_IP) {
                 s_wifi_deadline = 0;
                 s_wifi_attempts = 0;
@@ -473,7 +669,10 @@ static void wifi_task(void *arg) {
                     s_proxy_endpoint.wifi_has_ip = false;
                     s_proxy_endpoint.proxy_listener_ready = false;
                     s_proxy_endpoint.sta_ipv4_be = 0;
+                    s_gate.wifi_has_ip = false;
+                    tp_set_subnet(&s_probe, 0, 0);
                     notify_proxy_status("PROXY_ERROR");
+                    reconcile_management_path(MG_REASON_WIFI_NO_IP);
                     continue;
                 }
                 ++s_proxy_endpoint.wifi_epoch;
@@ -483,24 +682,49 @@ static void wifi_task(void *arg) {
                 s_proxy_endpoint.sta_ipv4_be = info.ip.addr;
                 s_proxy_endpoint.proxy_port = BMX_PROXY_PORT;
                 set_wifi_state(WIFI_ONLINE);
-                if (bootmux_usb_router_enable_napt() != ESP_OK) notify_error(0, "napt_enable_failed");
-                if (bootmux_http_proxy_start(s_sta_netif, s_proxy_endpoint.wifi_epoch) == ESP_OK && bootmux_http_proxy_is_ready()) {
-                    s_proxy_endpoint.proxy_listener_ready = true;
-                    s_proxy_ready = true;
-                    notify_proxy_status("PROXY_READY");
-                } else {
-                    s_proxy_endpoint.proxy_listener_ready = false;
-                    s_proxy_endpoint.sta_ipv4_be = 0;
-                    s_proxy_ready = false;
-                    notify_proxy_status("PROXY_ERROR");
-                    notify_error(0, "proxy_start_failed");
-                }
+                /*
+                 * R7C-P1 S3: an IP alone does NOT open the path.  Record the
+                 * Wi-Fi input and the probe subnet, then let the gate decide.
+                 * NAPT/proxy/netif start only when all four conditions hold.
+                 */
+                s_gate.wifi_has_ip = true;
+                tp_set_subnet(&s_probe, info.ip.addr, info.netmask.addr);
+                reconcile_management_path(MG_REASON_BOOT);
             }
         }
         wifi_command_t command;
         if (xQueueReceive(s_wifi_commands, &command, 0) == pdTRUE) {
             handle_wifi_command(&command);
             secure_zero(&command, sizeof(command));
+        }
+        /* Drain management events (BLE lease grant/release, BLE disconnect,
+         * probe results) and reconcile after each. */
+        mgmt_event_t mgmt;
+        while (xQueueReceive(s_mgmt_events, &mgmt, 0) == pdTRUE) {
+            mg_reason_t reason = MG_REASON_BOOT;
+            switch (mgmt.kind) {
+                case MGMT_LEASE_GRANT:
+                    if (mg_lease_grant(&s_gate, mgmt.ttl_seconds, now_ms())) {
+                        reason = MG_REASON_CONDITIONS_MET;
+                    } else {
+                        reason = MG_REASON_LEASE_ABSENT;
+                    }
+                    break;
+                case MGMT_LEASE_RELEASE:
+                    mg_lease_release(&s_gate);
+                    reason = MG_REASON_NET_RELEASED;
+                    break;
+                case MGMT_BLE_DISCONNECTED:
+                    mg_lease_release(&s_gate);
+                    reason = MG_REASON_BLE_DISCONNECTED;
+                    break;
+                case MGMT_PROBE_RESULT:
+                    tp_record_result(&s_probe, mgmt.probe_success, now_ms());
+                    reason = mgmt.probe_success ? MG_REASON_CONDITIONS_MET
+                                               : MG_REASON_TARGET_UNREACHABLE;
+                    break;
+            }
+            reconcile_management_path(reason);
         }
         if (s_wifi_state == WIFI_CONNECTING && s_wifi_deadline > 0 && (esp_timer_get_time() / 1000) >= s_wifi_deadline) {
             if (s_wifi_attempts < BMX_WIFI_TRIES) {
@@ -528,6 +752,10 @@ static void wifi_task(void *arg) {
                 set_wifi_state(WIFI_NO_IP);
             }
         }
+        /* Periodic reconcile (<=250ms cadence): detects lease expiry and the
+         * probe no-response decay even when no event arrives. */
+        reconcile_management_path(s_gate.path_open ? MG_REASON_CONDITIONS_MET
+                                                   : MG_REASON_LEASE_EXPIRED);
     }
 }
 
@@ -609,6 +837,35 @@ static void handle_frame(const bmx_frame_t *frame) {
         return;
     }
     if (strcmp(fields[1], "WIFI_STATUS") == 0 && count == 5) { notify_network(); notify_ack(sequence, "APPLIED"); return; }
+    if (strcmp(fields[1], "NET_LEASE") == 0 && count == 5) {
+        /* BMX1|NET_LEASE|<session>|<seq>|<ttl>  ttl in [10,60] seconds only. */
+        uint32_t ttl = 0;
+        if (!parse_uint(fields[4], &ttl) || ttl < 10 || ttl > 60) {
+            notify_error(sequence, "invalid_lease_ttl");
+            return;
+        }
+        if (completed_sequence(sequence)) { notify_ack(sequence, "DUPLICATE"); return; }
+        mgmt_event_t event = { .kind = MGMT_LEASE_GRANT, .ttl_seconds = (int)ttl, .probe_success = false };
+        if (!s_mgmt_events || xQueueSend(s_mgmt_events, &event, 0) != pdTRUE) {
+            notify_error(sequence, "mgmt_queue_overflow");
+            return;
+        }
+        remember_sequence(sequence);
+        notify_ack(sequence, "APPLIED");
+        return;
+    }
+    if (strcmp(fields[1], "NET_RELEASE") == 0 && count == 5) {
+        /* BMX1|NET_RELEASE|<session>|<seq>|RELEASE */
+        if (completed_sequence(sequence)) { notify_ack(sequence, "DUPLICATE"); return; }
+        mgmt_event_t event = { .kind = MGMT_LEASE_RELEASE, .ttl_seconds = 0, .probe_success = false };
+        if (!s_mgmt_events || xQueueSend(s_mgmt_events, &event, 0) != pdTRUE) {
+            notify_error(sequence, "mgmt_queue_overflow");
+            return;
+        }
+        remember_sequence(sequence);
+        notify_ack(sequence, "APPLIED");
+        return;
+    }
     if (strcmp(fields[1], "PROXY_STATUS") == 0 && count == 5) {
         s_proxy_ready = s_proxy_endpoint.wifi_has_ip && s_proxy_endpoint.proxy_listener_ready && bootmux_http_proxy_is_ready();
         notify_proxy_status(s_proxy_ready ? "PROXY_READY" : "PROXY_OFFLINE");
@@ -623,6 +880,11 @@ static void handle_frame(const bmx_frame_t *frame) {
         secure_zero(&empty, sizeof(empty));
         if (error != ESP_OK) { notify_error(sequence, "wifi_clear_failed"); return; }
         s_wifi_deadline = 0;
+        /* R7C-P1 S3: WIFI_CLEAR immediately drops the lease and withdraws the
+         * management path.  The disconnect event also reconciles; the explicit
+         * release guarantees the lease is gone even before that lands. */
+        mgmt_event_t release = { .kind = MGMT_LEASE_RELEASE, .ttl_seconds = 0, .probe_success = false };
+        if (s_mgmt_events) (void)xQueueSend(s_mgmt_events, &release, 0);
         bootmux_http_proxy_stop();
         s_proxy_ready = false;
         s_proxy_endpoint.wifi_has_ip = false;
@@ -671,6 +933,12 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
         else restart_advertising();
     } else if (event->type == BLE_GAP_EVENT_DISCONNECT) {
         s_connected = false; s_conn_handle = BLE_HS_CONN_HANDLE_NONE; s_session[0] = 0; s_output_enabled = false; s_stopped = false; clear_text_reassembly(); clear_wifi_reassembly(); release_all();
+        /* R7C-P1 S3: BLE disconnect immediately invalidates the management
+         * lease and withdraws the path via the wifi_task reconciler. */
+        if (s_mgmt_events) {
+            mgmt_event_t release = { .kind = MGMT_BLE_DISCONNECTED, .ttl_seconds = 0, .probe_success = false };
+            (void)xQueueSend(s_mgmt_events, &release, 0);
+        }
         restart_advertising();
     } else if (event->type == BLE_GAP_EVENT_ADV_COMPLETE) {
         restart_advertising();
@@ -754,8 +1022,16 @@ esp_err_t bootmux_ble_wifi_init(void) {
     s_notifications = xQueueCreate(BMX_NOTIFY_QUEUE, sizeof(bmx_notification_t));
     s_wifi_commands = xQueueCreate(BMX_WIFI_QUEUE, sizeof(wifi_command_t));
     s_wifi_events = xQueueCreate(BMX_WIFI_EVENT_QUEUE, sizeof(wifi_runtime_event_t));
-    if (!s_frames || !s_notifications || !s_wifi_commands || !s_wifi_events) return runtime_failure("QUEUE", ESP_ERR_NO_MEM);
+    s_mgmt_events = xQueueCreate(BMX_MGMT_QUEUE, sizeof(mgmt_event_t));
+    if (!s_frames || !s_notifications || !s_wifi_commands || !s_wifi_events || !s_mgmt_events) return runtime_failure("QUEUE", ESP_ERR_NO_MEM);
     puts("BOOT_STAGE_QUEUE_OK");
+
+    /* R7C-P1 S3: initialize the management-path gate and bounded probe in the
+     * fail-closed state.  The path stays closed until all four conditions hold. */
+    mg_init(&s_gate);
+    tp_init(&s_probe);
+    reconcile_management_path(MG_REASON_BOOT);
+    puts("BOOT_STAGE_GATE_INIT_OK");
 
     esp_err_t error = esp_netif_init();
     if (error != ESP_OK) return runtime_failure("NETIF_INIT", error);

@@ -1,0 +1,63 @@
+{
+  "receipt_version": "2.0.0",
+  "phase": "P4-R2",
+  "code_id": "R7C",
+  "scope": {
+    "firmware_changed": false,
+    "s3_attached": true,
+    "mac_network_mutated": false,
+    "p5_started": false
+  },
+  "build_identity": {
+    "build_dir": "build-p4-safe",
+    "manifest_sha256": "dda87668dc12e6e0e79b0ea8ace334b42c291a5c0b8d602ea25ebdd1a91bb2bf",
+    "artifact_sha256": {
+      "bootloader": "6675f1e165684a7d4ba3c08b97c32e91e2b3939ad467082f2d9c639a2eb3ac29",
+      "partition-table": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+      "application": "66b3aebed7ac55a4d881df2cde276c0480f98e7f2967e8b265a70091ff1f08cb"
+    },
+    "tarball_sha256": "eb25e1c7207c743eff2e020de27611e5166edeb1515338009ce7e2fa6965000a"
+  },
+  "flash_parameters": {
+    "bootloader": {"offset": "0x0", "size": 21088},
+    "partition-table": {"offset": "0x8000", "size": 3072},
+    "application": {"offset": "0x10000", "size": 1002512},
+    "flash_mode": "dio",
+    "flash_freq": "80m",
+    "flash_size": "2MB"
+  },
+  "safe_usb_identity": {
+    "product": "BOOTMUX Keyboard Safe",
+    "serial": "BOOTMUX-HID-SAFE",
+    "bDeviceClass": 0,
+    "hid_only": true,
+    "ncm_ecm_rndis_absent": true,
+    "bootmux_ethernet_service_absent": true,
+    "experimental_network_surface_absent": true
+  },
+  "shield_lifecycle": {
+    "pre_flash_armed": true,
+    "post_flash_closed": true,
+    "uninstall_purge": true
+  },
+  "three_attach_detach_cycles": "ALL_PASS",
+  "verification": {
+    "preflight_isolated": "GREEN",
+    "hash_verify": "GREEN",
+    "inspector_overall": "GREEN",
+    "pre_flash_gate": "GREEN",
+    "bundle_esptool_found": true,
+    "offline_flash_tool": "FOUND",
+    "env_propagation_verified": true,
+    "serial_opened": true,
+    "write_flash_completed": true,
+    "post_flash_identity_verified": true
+  },
+  "network_integrity": {
+    "default_route_unchanged": true,
+    "dns_unchanged": true,
+    "wifi_unchanged": true,
+    "service_order_unchanged": true,
+    "experimental_ip_surface_absent": true
+  }
+}

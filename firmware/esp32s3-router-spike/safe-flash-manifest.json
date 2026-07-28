@@ -1,0 +1,64 @@
+{
+  "manifest_version": "1.0.0",
+  "code_id": "R7C",
+  "phase": "P4-R1C",
+  "profile": "safe-hid-only",
+  "build_dir": "build-p4-safe",
+  "sdkconfig_marker": "# CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL is not set",
+  "usb_identity": {
+    "vid": "0x303A",
+    "pid": "0x4014",
+    "product": "BOOTMUX Keyboard Safe",
+    "serial": "BOOTMUX-HID-SAFE",
+    "device_class": "0x00",
+    "device_subclass": "0x00",
+    "device_protocol": "0x00"
+  },
+  "flash_params": {
+    "flash_mode": "dio",
+    "flash_freq": "80m",
+    "flash_size": "2MB"
+  },
+  "artifacts": [
+    {
+      "name": "bootloader",
+      "path": "build-p4-safe/bootloader/bootloader.bin",
+      "offset": "0x0",
+      "size": 21088,
+      "sha256": "6675f1e165684a7d4ba3c08b97c32e91e2b3939ad467082f2d9c639a2eb3ac29"
+    },
+    {
+      "name": "partition-table",
+      "path": "build-p4-safe/partition_table/partition-table.bin",
+      "offset": "0x8000",
+      "size": 3072,
+      "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+    },
+    {
+      "name": "application",
+      "path": "build-p4-safe/bootmux_router_spike.bin",
+      "offset": "0x10000",
+      "size": 1002512,
+      "sha256": "66b3aebed7ac55a4d881df2cde276c0480f98e7f2967e8b265a70091ff1f08cb"
+    }
+  ],
+  "forbidden_strings": [
+    "CDC_ECM",
+    "CDC_NCM",
+    "RNDIS",
+    "rndis",
+    "usb_network",
+    "USB_NETIF",
+    "tinyusb_net",
+    "tusb_net",
+    "napt_enable",
+    "ip_forward_enable",
+    "BOOTMUX Bridge Experimental",
+    "BOOTMUX-R7A-NCM"
+  ],
+  "required_strings": [
+    "BOOTMUX Keyboard Safe",
+    "BOOTMUX-HID-SAFE",
+    "BOOTMUX_USB_NETWORK_SAFE_OFF"
+  ]
+}

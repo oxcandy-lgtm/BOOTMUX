@@ -1,0 +1,13 @@
+menu "BOOTMUX router-spike safety"
+
+config BOOTMUX_USB_NETWORK_EXPERIMENTAL
+    bool "Enable experimental USB Ethernet/NCM interface"
+    default n
+    help
+        Exposes the ESP32-S3 to the USB host as an Ethernet device and enables
+        the USB-to-Wi-Fi routing experiment. Keep this disabled for normal
+        BOOTMUX keyboard use. When disabled the USB configuration is HID-only,
+        so plugging the S3 into a Mac cannot inject a DHCP lease, DNS server,
+        or default route.
+
+endmenu
