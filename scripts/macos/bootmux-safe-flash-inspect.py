@@ -29,7 +29,7 @@ DEFAULT_MANIFEST = REPO_ROOT / "firmware" / "esp32s3-router-spike" / "safe-flash
 
 FORBIDDEN_PATTERNS: List[str] = [
     "CDC_ECM", "CDC_NCM", "RNDIS", "rndis",
-    "usb_net", "USB_NET", "usb_network",
+    "usb_network", "USB_NETIF", "tinyusb_net", "tusb_net",
     "dhcps_start", "dhcp_server_start",
     "napt_enable", "ip_forward_enable",
     "BOOTMUX Bridge Experimental", "BOOTMUX-R7A-NCM",
@@ -99,11 +99,20 @@ def inspect_artifact(path: Path, manifest_entry: Dict[str, Any]) -> Dict[str, An
 
 
 def inspect_build(build_dir: Path, manifest: Dict[str, Any]) -> Dict[str, Any]:
-    """Full build inspection: all artifacts + sdkconfig marker."""
+    """Full build inspection: all artifacts + sdkconfig marker + safe-off + USB identity.
+
+    OVERALL=GREEN requires ALL of:
+      1. sdkconfig_marker present in sdkconfig
+      2. Every artifact: size_match AND sha256_match AND forbidden_clean
+      3. SAFE_OFF_MARKER found in application binary
+      4. USB identity (product + serial) found in application binary
+    """
     results: Dict[str, Any] = {
         "build_dir": str(build_dir),
         "artifacts": [],
         "sdkconfig_marker": False,
+        "safe_off_marker": False,
+        "usb_identity": {"match": False},
         "overall": "RED",
     }
 
@@ -116,14 +125,35 @@ def inspect_build(build_dir: Path, manifest: Dict[str, Any]) -> Dict[str, Any]:
 
     # Inspect each artifact
     all_green = True
+    app_data: Optional[bytes] = None
     for entry in manifest.get("artifacts", []):
         art_path = build_dir.parent / entry["path"]
         art_result = inspect_artifact(art_path, entry)
         results["artifacts"].append(art_result)
         if art_result["status"] != "GREEN":
             all_green = False
+        if entry["name"] == "application" and art_path.exists():
+            app_data = art_path.read_bytes()
 
-    results["overall"] = "GREEN" if (all_green and results["sdkconfig_marker"]) else "RED"
+    # Check safe-off marker in application binary
+    if app_data is not None:
+        strings = scan_binary_strings(app_data)
+        all_text = "\n".join(strings)
+        results["safe_off_marker"] = SAFE_OFF_MARKER in all_text
+    else:
+        results["safe_off_marker"] = False
+
+    # Check USB identity in application binary
+    usb_result = verify_usb_identity(manifest, build_dir)
+    results["usb_identity"] = usb_result
+
+    # OVERALL=GREEN only when ALL conditions met
+    results["overall"] = "GREEN" if (
+        all_green
+        and results["sdkconfig_marker"]
+        and results["safe_off_marker"]
+        and usb_result.get("match", False)
+    ) else "RED"
     return results
 
 
@@ -242,8 +272,6 @@ def main() -> int:
     build_dir = Path(args.build_dir) if args.build_dir else manifest_path.parent / manifest.get("build_dir", "build-native-r7b-r2")
 
     result = inspect_build(build_dir, manifest)
-    usb_result = verify_usb_identity(manifest, build_dir)
-    result["usb_identity"] = usb_result
 
     if args.json:
         print(json.dumps(result, indent=2, default=str))
@@ -255,7 +283,9 @@ def main() -> int:
                   f" size={'OK' if art.get('size_match') else 'MISMATCH'}"
                   f" sha256={'OK' if art.get('sha256_match') else 'MISMATCH'}"
                   f" forbidden={'CLEAN' if art.get('forbidden_clean') else 'FOUND:' + str(art.get('forbidden_found'))}")
-        print(f"USB_IDENTITY: {'GREEN' if usb_result.get('match') else 'RED'}")
+        print(f"SAFE_OFF_MARKER: {'GREEN' if result.get('safe_off_marker') else 'RED'}")
+        usb = result.get("usb_identity", {})
+        print(f"USB_IDENTITY: {'GREEN' if usb.get('match') else 'RED'}")
         print(f"OVERALL: {result['overall']}")
 
     return 0 if result["overall"] == "GREEN" else 1

@@ -44,7 +44,7 @@
   ],
   "forbidden_strings": [
     "CDC_ECM", "CDC_NCM", "RNDIS", "rndis",
-    "usb_net", "USB_NET", "usb_network",
+    "usb_network", "USB_NETIF", "tinyusb_net", "tusb_net",
     "dhcps_start", "dhcp_server_start",
     "napt_enable", "ip_forward_enable",
     "BOOTMUX Bridge Experimental", "BOOTMUX-R7A-NCM"

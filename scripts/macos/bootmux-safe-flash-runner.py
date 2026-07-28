@@ -239,7 +239,11 @@ def find_esptool() -> Optional[str]:
 
 def build_flash_command(esptool: str, port: str, manifest: Dict[str, Any],
                         build_dir: Path) -> List[str]:
-    """Build the esptool flash command from manifest."""
+    """Build the esptool flash command from manifest.
+
+    Note: artifact paths in the manifest are relative to FIRMWARE_DIR
+    (they include the build-dir prefix), so we join with build_dir.parent.
+    """
     flash_params = manifest.get("flash_params", {})
     cmd = esptool.split() + [
         "--chip", "esp32s3",
@@ -253,7 +257,7 @@ def build_flash_command(esptool: str, port: str, manifest: Dict[str, Any],
         "--flash_size", flash_params.get("flash_size", "2MB"),
     ]
     for art in manifest.get("artifacts", []):
-        cmd.extend([art["offset"], str(build_dir / art["path"])])
+        cmd.extend([art["offset"], str(build_dir.parent / art["path"])])
     return cmd
 
 
@@ -329,6 +333,7 @@ RUNNER_STEPS = [
     "WAIT_FOR_DEVICE",
     "SERIAL_DETECT",
     "ROM_MODE_CHECK",
+    "PRE_FLASH_GATE",
     "FLASH",
     "FLASH_VERIFY",
     "SAFE_IDENTITY_VERIFY",
@@ -438,6 +443,58 @@ class SafeFlashRunner:
                                                "is_rom": is_rom, "detail": detail},
                             status="OK" if is_rom else "RED")
         return "GREEN" if is_rom else f"RED:{detail}"
+
+    def step_pre_flash_gate(self) -> str:
+        """Authoritative inspection + hash re-verification BEFORE write_flash.
+
+        Runs the inspector as a subprocess and re-verifies every artifact
+        hash from disk.  If overall != GREEN, write_flash is NEVER reached.
+        """
+        if not self.manifest or not self.build_dir:
+            return "RED:PRECONDITIONS"
+
+        # 1. Authoritative inspection via inspector subprocess
+        proc = subprocess.run(
+            [sys.executable, str(INSPECT_SCRIPT),
+             "--manifest", str(MANIFEST_PATH), "--json"],
+            capture_output=True, text=True, timeout=60)
+        try:
+            result = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            self.journal.append("PRE_FLASH_GATE",
+                                {"error": "inspector json parse failed",
+                                 "stderr": proc.stderr[:300]}, status="RED")
+            return "RED:INSPECTOR_PARSE_FAILED"
+
+        overall = result.get("overall", "RED")
+        if overall != "GREEN":
+            self.journal.append("PRE_FLASH_GATE",
+                                {"overall": overall,
+                                 "safe_off": result.get("safe_off_marker"),
+                                 "usb_identity": result.get("usb_identity", {}).get("match"),
+                                 "sdkconfig": result.get("sdkconfig_marker")},
+                                status="RED")
+            return f"RED:INSPECTION_NOT_GREEN:{overall}"
+
+        # 2. Final hash re-verification from disk (independent of inspector)
+        for art in self.manifest.get("artifacts", []):
+            art_path = self.build_dir.parent / art["path"]
+            if not art_path.exists():
+                self.journal.append("PRE_FLASH_GATE",
+                                    {"error": f"artifact missing: {art_path}"},
+                                    status="RED")
+                return f"RED:ARTIFACT_MISSING:{art['name']}"
+            actual_sha = hashlib.sha256(art_path.read_bytes()).hexdigest()
+            if actual_sha != art["sha256"]:
+                self.journal.append("PRE_FLASH_GATE",
+                                    {"artifact": art["name"],
+                                     "expected": art["sha256"],
+                                     "actual": actual_sha}, status="RED")
+                return f"RED:HASH_MISMATCH:{art['name']}"
+
+        self.journal.append("PRE_FLASH_GATE",
+                            {"overall": "GREEN", "artifacts_verified": len(self.manifest["artifacts"])})
+        return "GREEN"
 
     def step_flash(self) -> str:
         if not self.serial_port or not self.manifest or not self.build_dir:
@@ -556,6 +613,7 @@ class SafeFlashRunner:
             ("SERIAL_BASELINE", self.step_serial_baseline),
             ("SERIAL_DETECT", self.step_serial_detect),
             ("ROM_MODE_CHECK", self.step_rom_mode_check),
+            ("PRE_FLASH_GATE", self.step_pre_flash_gate),
             ("FLASH", self.step_flash),
             ("FLASH_VERIFY", self.step_flash_verify),
             ("SAFE_IDENTITY_VERIFY", self.step_safe_identity_verify),

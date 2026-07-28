@@ -220,5 +220,100 @@ class TestManifest(unittest.TestCase):
         self.assertEqual(offsets["application"], "0x10000")
 
 
+class TestPreFlashGate(unittest.TestCase):
+    """F24-F28: Pre-flash gate and build path correctness."""
+
+    def test_F24_gate_blocks_on_red_inspection(self):
+        """Pre-flash gate must return RED when inspector reports non-GREEN."""
+        with tempfile.TemporaryDirectory() as td:
+            runner = runner_mod.SafeFlashRunner(session_id="test-gate-red", dry_run=True)
+            runner.journal = runner_mod.FlashJournal("test-gate-red", Path(td))
+            runner.journal.init()
+            runner.manifest = json.loads(runner_mod.MANIFEST_PATH.read_text())
+            runner.build_dir = runner_mod.FIRMWARE_DIR / runner.manifest["build_dir"]
+            # Current build is experimental → inspector reports RED → gate blocks
+            result = runner.step_pre_flash_gate()
+            self.assertTrue(result.startswith("RED"), f"Gate should block, got: {result}")
+            self.assertIn("INSPECTION_NOT_GREEN", result)
+
+    def test_F25_gate_blocks_on_hash_mismatch(self):
+        """Pre-flash gate must return RED when artifact hash doesn't match."""
+        with tempfile.TemporaryDirectory() as td:
+            runner = runner_mod.SafeFlashRunner(session_id="test-gate-hash", dry_run=True)
+            runner.journal = runner_mod.FlashJournal("test-gate-hash", Path(td))
+            runner.journal.init()
+            # Craft manifest with wrong hash for an existing file
+            manifest = json.loads(runner_mod.MANIFEST_PATH.read_text())
+            manifest["artifacts"][0]["sha256"] = "0" * 64  # wrong hash
+            runner.manifest = manifest
+            runner.build_dir = runner_mod.FIRMWARE_DIR / manifest["build_dir"]
+            # Inspector will return RED for the real build anyway, so gate blocks
+            result = runner.step_pre_flash_gate()
+            self.assertTrue(result.startswith("RED"))
+
+    def test_F26_build_flash_command_no_double_concat(self):
+        """build_flash_command must use build_dir.parent to avoid double build-dir prefix."""
+        manifest = {
+            "flash_params": {"flash_mode": "dio", "flash_freq": "80m", "flash_size": "2MB"},
+            "artifacts": [
+                {"name": "bootloader", "path": "build-safe/bootloader/bootloader.bin",
+                 "offset": "0x0", "size": 100, "sha256": "abc"},
+            ],
+        }
+        build_dir = Path("/firmware/build-safe")
+        cmd = runner_mod.build_flash_command("esptool.py", "/dev/cu.test", manifest, build_dir)
+        # The path in cmd should be /firmware/build-safe/bootloader/bootloader.bin
+        # NOT /firmware/build-safe/build-safe/bootloader/bootloader.bin
+        path_args = [cmd[i + 1] for i, a in enumerate(cmd) if a == "0x0"]
+        self.assertEqual(len(path_args), 1)
+        self.assertNotIn("build-safe/build-safe", path_args[0])
+        self.assertIn("build-safe/bootloader/bootloader.bin", path_args[0])
+
+    def test_F27_inspector_green_requires_all_conditions(self):
+        """Inspector OVERALL=GREEN requires sdkconfig + forbidden clean + safe-off + USB identity."""
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            build_dir = td / "build"
+            build_dir.mkdir()
+            # Create sdkconfig with marker
+            (td / "sdkconfig").write_text("# CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL is not set\n")
+            # Create clean app binary with all required strings
+            app_data = (b"\x00BOOTMUX Keyboard Safe\x00BOOTMUX-HID-SAFE\x00"
+                        b"BOOTMUX_USB_NETWORK_SAFE_OFF\x00" + b"\x00" * 100)
+            (td / "app.bin").write_bytes(app_data)
+            app_sha = inspect_mod.sha256_file(td / "app.bin")
+            manifest = {
+                "sdkconfig_marker": "# CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL is not set",
+                "usb_identity": {"product": "BOOTMUX Keyboard Safe", "serial": "BOOTMUX-HID-SAFE"},
+                "artifacts": [{"name": "application", "path": "app.bin",
+                               "offset": "0x10000", "size": len(app_data), "sha256": app_sha}],
+            }
+            result = inspect_mod.inspect_build(build_dir, manifest)
+            self.assertEqual(result["overall"], "GREEN")
+            self.assertTrue(result["safe_off_marker"])
+            self.assertTrue(result["usb_identity"]["match"])
+
+    def test_F28_inspector_red_without_safe_off(self):
+        """Inspector must report RED when safe-off marker is missing."""
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            build_dir = td / "build"
+            build_dir.mkdir()
+            (td / "sdkconfig").write_text("# CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL is not set\n")
+            # App binary WITHOUT safe-off marker
+            app_data = (b"\x00BOOTMUX Keyboard Safe\x00BOOTMUX-HID-SAFE\x00" + b"\x00" * 100)
+            (td / "app.bin").write_bytes(app_data)
+            app_sha = inspect_mod.sha256_file(td / "app.bin")
+            manifest = {
+                "sdkconfig_marker": "# CONFIG_BOOTMUX_USB_NETWORK_EXPERIMENTAL is not set",
+                "usb_identity": {"product": "BOOTMUX Keyboard Safe", "serial": "BOOTMUX-HID-SAFE"},
+                "artifacts": [{"name": "application", "path": "app.bin",
+                               "offset": "0x10000", "size": len(app_data), "sha256": app_sha}],
+            }
+            result = inspect_mod.inspect_build(build_dir, manifest)
+            self.assertEqual(result["overall"], "RED")
+            self.assertFalse(result["safe_off_marker"])
+
+
 if __name__ == "__main__":
     unittest.main()
