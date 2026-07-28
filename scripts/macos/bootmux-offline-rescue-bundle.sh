@@ -47,37 +47,23 @@ if [ "$INSPECT_OVERALL" != "GREEN" ]; then
 fi
 echo "Inspector OVERALL=GREEN — safe to bundle ✓"
 
-# ---- Verify flash tool availability ----
+# ---- Verify flash tool availability (must run 'version' successfully) ----
 echo ""
 echo "=== Flash tool (esptool) check ==="
 ESPTOOL_FOUND=""
-if command -v esptool.py &>/dev/null; then
-    ESPTOOL_FOUND="SYSTEM_esptool.py"
-elif python3 -c "import esptool" 2>/dev/null; then
-    ESPTOOL_FOUND="PYTHON_esptool"
-elif [ -f "$HOME/.platformio/packages/tool-esptoolpy/esptool.py" ]; then
-    ESPTOOL_FOUND="PIO_esptoolpy"
-    # Bundle esptool from PlatformIO
-    mkdir -p "$BUNDLE_DIR/tools"
-    cp -r "$HOME/.platformio/packages/tool-esptoolpy" "$BUNDLE_DIR/tools/" 2>/dev/null || true
-elif [ -f "$HOME/.platformio/packages/framework-espidf/components/esptool_py/esptool/esptool.py" ]; then
-    ESPTOOL_FOUND="IDF_esptool"
-fi
+BUNDLE_ESPTOOL="$BUNDLE_DIR/tools/tool-esptoolpy/esptool.py"
 
-# Also check for PlatformIO's esptool
-PIO_ESPTOOL=""
-if [ -f "$HOME/.platformio/packages/tool-esptoolpy/esptool.py" ]; then
-    PIO_ESPTOOL="$HOME/.platformio/packages/tool-esptoolpy"
+# Check bundle-local first (will be copied later, check source)
+SRC_ESPTOOL="$HOME/.platformio/packages/tool-esptoolpy/esptool.py"
+if [ -f "$SRC_ESPTOOL" ]; then
+    if python3 "$SRC_ESPTOOL" version >/dev/null 2>&1; then
+        ESPTOOL_FOUND="BUNDLE_PIO"
+        echo "esptool: BUNDLE ($SRC_ESPTOOL version OK)"
+    else
+        echo "esptool: BUNDLE ($SRC_ESPTOOL version FAILED)"
+        ESPTOOL_FOUND="BUNDLE_VERSION_FAILED"
+    fi
 fi
-if [ -z "$ESPTOOL_FOUND" ] && [ -z "$PIO_ESPTOOL" ]; then
-    echo "WARNING: esptool.py not found on system PATH or PlatformIO packages"
-    echo "Flash tool will be MISSING from bundle"
-    FLASH_TOOL_STATUS="MISSING"
-else
-    echo "esptool: $ESPTOOL_FOUND"
-    FLASH_TOOL_STATUS="FOUND"
-fi
-echo "flashtool_status=$FLASH_TOOL_STATUS"
 
 # ---- Build bundle directory structure ----
 rm -rf "$BUNDLE_DIR"
@@ -137,10 +123,18 @@ if [ -f "$FIRMWARE_DIR/sdkconfig" ]; then
     echo "  OK sdkconfig"
 fi
 
-# --- Copy esptool if available ---
-if [ -n "$PIO_ESPTOOL" ]; then
-    cp -r "$PIO_ESPTOOL" "$BUNDLE_DIR/tools/tool-esptoolpy" 2>/dev/null || true
+# --- Copy esptool + pyserial if version check passed ---
+if [ "$ESPTOOL_FOUND" = "BUNDLE_PIO" ]; then
+    mkdir -p "$BUNDLE_DIR/tools"
+    cp -r "$HOME/.platformio/packages/tool-esptoolpy" "$BUNDLE_DIR/tools/tool-esptoolpy" 2>/dev/null || true
     echo "  OK tools/tool-esptoolpy"
+    # Bundle pyserial (esptool runtime dependency)
+    PYSERIAL_SRC=$(python3 -c "import serial; print(serial.__file__)" 2>/dev/null) || true
+    if [ -n "$PYSERIAL_SRC" ]; then
+        PYSERIAL_DIR=$(dirname "$PYSERIAL_SRC")
+        cp -r "$PYSERIAL_DIR" "$BUNDLE_DIR/tools/serial" 2>/dev/null || true
+        echo "  OK tools/serial (pyserial)"
+    fi
 fi
 
 # --- Copy docs ---
@@ -264,6 +258,17 @@ fi
 
 # --- Output ---
 echo ""
-echo "BUNDLE=GREEN"
-echo "OFFLINE_READY=true"
-echo "FLASH_TOOL_STATUS=$FLASH_TOOL_STATUS"
+if [ "$ESPTOOL_FOUND" = "BUNDLE_VERSION_FAILED" ]; then
+    echo "BUNDLE=RED_OFFLINE_FLASH_TOOL_MISSING (esptool version check failed)"
+    echo "OFFLINE_READY=false"
+    echo "FLASH_TOOL_STATUS=MISSING"
+    exit 1
+elif [ "$ESPTOOL_FOUND" = "BUNDLE_PIO" ]; then
+    echo "BUNDLE=GREEN"
+    echo "OFFLINE_READY=true"
+    echo "FLASH_TOOL_STATUS=FOUND"
+else
+    echo "BUNDLE=GREEN"
+    echo "OFFLINE_READY=true"
+    echo "FLASH_TOOL_STATUS=MISSING"
+fi

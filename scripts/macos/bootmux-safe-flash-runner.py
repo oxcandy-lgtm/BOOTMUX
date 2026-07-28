@@ -207,45 +207,101 @@ def check_rom_download_mode(port: str, timeout: float = 5.0) -> Tuple[bool, str]
 # Flash operations
 # ---------------------------------------------------------------------------
 
-def find_esptool() -> Optional[str]:
-    """Find esptool.py — check IDF tools, pip, system."""
-    # Check common IDF locations
+def find_esptool(bundle_dir: Optional[Path] = None) -> Optional[List[str]]:
+    """Find esptool.py — bundle-local first, then system.
+
+    Returns argv-compatible list for subprocess.run, or None if not found.
+    When bundle_dir is provided, checks tools/tool-esptoolpy/ first.
+    Verifies the tool by running 'version' before returning.
+    """
+    candidates: List[Tuple[str, Path]] = []  # (label, path)
+
+    # 1. Bundle-local (highest priority)
+    if bundle_dir is not None:
+        bundle_esptool = Path(bundle_dir) / "tools" / "tool-esptoolpy" / "esptool.py"
+        if bundle_esptool.exists():
+            candidates.append(("BUNDLE", bundle_esptool))
+
+    # 1b. Auto-detect bundle root from SCRIPT_DIR (scripts/macos/ -> bundle root)
+    bundle_local = SCRIPT_DIR.parent.parent / "tools" / "tool-esptoolpy" / "esptool.py"
+    if bundle_local.exists():
+        # Only add if not already in candidates
+        if not any(c[0] == "BUNDLE" and c[1] == bundle_local for c in candidates):
+            candidates.append(("BUNDLE_AUTO", bundle_local))
+
+    # 2. IDF_PATH from env
     idf_path = os.environ.get("IDF_PATH", "")
-    candidates = []
     if idf_path:
-        candidates.append(Path(idf_path) / "components" / "esptool_py" / "esptool" / "esptool.py")
+        candidates.append(("IDF_PATH", Path(idf_path) / "components" / "esptool_py" / "esptool" / "esptool.py"))
+
+    # 3. System locations
     candidates.extend([
-        Path.home() / ".espressif" / "python_env" / "idf_py" / "bin" / "esptool.py",
-        Path("/usr/local/bin/esptool.py"),
-        Path("/opt/homebrew/bin/esptool.py"),
+        ("HOME_ESPRESSIF", Path.home() / ".espressif" / "python_env" / "idf_py" / "bin" / "esptool.py"),
+        ("USR_BIN", Path("/usr/local/bin/esptool.py")),
+        ("HOMEBREW", Path("/opt/homebrew/bin/esptool.py")),
     ])
-    for c in candidates:
-        if c.exists():
-            return str(c)
 
-    # Try which
-    result = subprocess.run(["which", "esptool.py"], capture_output=True, text=True)
-    if result.returncode == 0:
-        return result.stdout.strip()
+    # 4. PlatformIO packages (scan common paths)
+    pio_packages = Path.home() / ".platformio" / "packages"
+    pio_esptool = pio_packages / "tool-esptoolpy" / "esptool.py"
+    if pio_esptool.exists():
+        candidates.append(("PLATFORMIO", pio_esptool))
+    idf_esptool = pio_packages / "framework-espidf" / "components" / "esptool_py" / "esptool" / "esptool.py"
+    if idf_esptool.exists():
+        candidates.append(("IDF_PIO", idf_esptool))
 
-    # Try python module
-    result = subprocess.run([sys.executable, "-m", "esptool", "version"],
-                            capture_output=True, text=True)
-    if result.returncode == 0:
-        return f"{sys.executable} -m esptool"
+    # Verify candidates in priority order
+    for label, path in candidates:
+        if not path.exists():
+            continue
+        try:
+            # For bundle-local esptool, set env to find bundled pyserial
+            extra_env = None
+            if label.startswith("BUNDLE"):
+                tools_dir = path.parent.parent  # tools/tool-esptoolpy/ -> tools/
+                if (tools_dir / "serial").exists():
+                    extra_env = os.environ.copy()
+                    extra_env["PYTHONPATH"] = str(tools_dir) + ":" + extra_env.get("PYTHONPATH", "")
+            # Try running as a script with python3
+            result = subprocess.run(
+                [sys.executable, str(path), "version"],
+                capture_output=True, text=True, timeout=10,
+                env=extra_env)
+            if result.returncode == 0:
+                return [sys.executable, str(path)]
+        except (subprocess.TimeoutExpired, OSError):
+            continue
+
+    # 5. Try which (last resort)
+    try:
+        result = subprocess.run(["which", "esptool.py"], capture_output=True, text=True)
+        if result.returncode == 0:
+            return [result.stdout.strip()]
+    except OSError:
+        pass
+
+    # 6. Try python -m esptool
+    try:
+        result = subprocess.run([sys.executable, "-m", "esptool", "version"],
+                                capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return [sys.executable, "-m", "esptool"]
+    except (subprocess.TimeoutExpired, OSError):
+        pass
 
     return None
 
 
-def build_flash_command(esptool: str, port: str, manifest: Dict[str, Any],
+def build_flash_command(esptool_cmd: List[str], port: str, manifest: Dict[str, Any],
                         build_dir: Path) -> List[str]:
     """Build the esptool flash command from manifest.
 
+    esptool_cmd is an argv list (e.g. ['python3', '/path/to/esptool.py']).
     Note: artifact paths in the manifest are relative to FIRMWARE_DIR
     (they include the build-dir prefix), so we join with build_dir.parent.
     """
     flash_params = manifest.get("flash_params", {})
-    cmd = esptool.split() + [
+    cmd = list(esptool_cmd) + [
         "--chip", "esp32s3",
         "--port", port,
         "--baud", "460800",
@@ -264,8 +320,8 @@ def build_flash_command(esptool: str, port: str, manifest: Dict[str, Any],
 def verify_flash_sha(port: str, manifest: Dict[str, Any],
                      build_dir: Path) -> Dict[str, Any]:
     """Read back flash and verify SHA-256 (post-flash verification)."""
-    esptool = find_esptool()
-    if not esptool:
+    esptool_cmd = find_esptool()
+    if not esptool_cmd:
         return {"status": "YELLOW", "reason": "ESPTOOL_MISSING"}
 
     results = []
@@ -273,7 +329,7 @@ def verify_flash_sha(port: str, manifest: Dict[str, Any],
         offset = int(art["offset"], 16)
         size = art["size"]
         # Read back via esptool read_flash
-        cmd = esptool.split() + [
+        cmd = list(esptool_cmd) + [
             "--chip", "esp32s3", "--port", port,
             "read_flash", hex(offset), str(size), "/tmp/bootmux-readback.bin",
         ]
@@ -348,9 +404,11 @@ RUNNER_STEPS = [
 class SafeFlashRunner:
     """One-shot safe flash runner with journal-backed crash recovery."""
 
-    def __init__(self, session_id: Optional[str] = None, dry_run: bool = True):
+    def __init__(self, session_id: Optional[str] = None, dry_run: bool = True,
+                 preflight_only: bool = False):
         self.session_id = session_id or f"flash-{int(time.time()):x}"
         self.dry_run = dry_run
+        self.preflight_only = preflight_only
         self.journal = FlashJournal(self.session_id)
         self.manifest: Optional[Dict[str, Any]] = None
         self.build_dir: Optional[Path] = None
@@ -371,11 +429,28 @@ class SafeFlashRunner:
         signal.signal(signal.SIGTERM, handler)
 
     def load_manifest(self) -> bool:
-        if not MANIFEST_PATH.exists():
-            print(f"MANIFEST_MISSING: {MANIFEST_PATH}", file=sys.stderr)
+        path = MANIFEST_PATH
+        # Fallback: try bundle-relative path
+        if not path.exists():
+            bundle_root = SCRIPT_DIR.parent.parent
+            alt = bundle_root / "firmware" / "esp32s3-router-spike" / "safe-flash-manifest.json"
+            if alt.exists():
+                path = alt
+        if not path.exists():
+            print(f"MANIFEST_MISSING: {path}", file=sys.stderr)
             return False
-        self.manifest = json.loads(MANIFEST_PATH.read_text())
-        self.build_dir = FIRMWARE_DIR / self.manifest.get("build_dir", "build-native-r7b-r2")
+        self.manifest = json.loads(path.read_text())
+        # Determine build_dir: prefer bundle-relative when FIRMWARE_DIR doesn't exist
+        build_dir_name = self.manifest.get("build_dir", "build-p4-safe")
+        candidate = FIRMWARE_DIR / build_dir_name
+        if candidate.exists():
+            self.build_dir = candidate
+        else:
+            # Bundle-relative fallback
+            bundle_root = path.parent.parent.parent  # firmware/esp32s3-router-spike/ -> bundle root
+            # Actually path.parent is firmware/esp32s3-router-spike/
+            # and manifest path is inside bundle, so path.parent / build_dir_name
+            self.build_dir = path.parent / build_dir_name
         return True
 
     def step_pre_fingerprint(self) -> str:
@@ -503,12 +578,12 @@ class SafeFlashRunner:
             self.journal.append("FLASH", {"dry_run": True, "port": self.serial_port})
             return "GREEN_DRY_RUN"
 
-        esptool = find_esptool()
-        if not esptool:
+        esptool_cmd = find_esptool()
+        if not esptool_cmd:
             self.journal.append("FLASH", {"error": "esptool not found"}, status="RED")
             return "RED:ESPTOOL_MISSING"
 
-        cmd = build_flash_command(esptool, self.serial_port, self.manifest, self.build_dir)
+        cmd = build_flash_command(esptool_cmd, self.serial_port, self.manifest, self.build_dir)
         self.journal.append("FLASH_START", {"cmd": " ".join(cmd[:10]) + "..."})
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         ok = proc.returncode == 0
@@ -594,8 +669,78 @@ class SafeFlashRunner:
             status="OK" if ok else "RED")
         return "GREEN" if ok else f"RED:UNEXPECTED_DIFFS:{unexpected}"
 
+    def _run_preflight(self) -> Dict[str, Any]:
+        """Preflight-only: inspector + hash verify + esptool check.
+        No serial, no flash, no shield, no fingerprint.
+        Uses temp journal dir (/tmp/bootmux-preflight-*).
+        """
+        print("MODE=PREFLIGHT_ONLY (no serial, no flash)")
+        self._setup_signal_handlers()
+
+        # Use temp journal dir to avoid /var/db/ permission issues
+        import tempfile
+        temp_journal = Path(tempfile.mkdtemp(prefix="bootmux-preflight-"))
+        self.journal = FlashJournal("preflight", temp_journal)
+        self.journal.init()
+        self.journal.append("PREFLIGHT_START", {"pid": os.getpid()})
+
+        if not self.load_manifest():
+            return {"status": "RED", "reason": "MANIFEST_MISSING"}
+
+        results: Dict[str, str] = {}
+
+        # Step 1: Bundle-local esptool availability
+        bundle_dir = FIRMWARE_DIR.parent if FIRMWARE_DIR.exists() else None
+        esptool_cmd = find_esptool(bundle_dir)
+        if esptool_cmd:
+            print(f"[BUNDLE_ESPTOOL] ... {' '.join(esptool_cmd)}")
+            results["BUNDLE_ESPTOOL"] = "GREEN"
+        else:
+            print("[BUNDLE_ESPTOOL] ... RED (no esptool found)")
+            results["BUNDLE_ESPTOOL"] = "RED"
+            return {"status": "RED", "failed_step": "BUNDLE_ESPTOOL", "results": results}
+
+        # Step 2: Hash re-verification from disk (independent of inspector)
+        print("[HASH_VERIFY] ...", end=" ", flush=True)
+        if not self.manifest or not self.build_dir:
+            results["HASH_VERIFY"] = "RED:PRECONDITIONS"
+            return {"status": "RED", "failed_step": "HASH_VERIFY", "results": results}
+        hash_ok = True
+        for art in self.manifest.get("artifacts", []):
+            art_path = self.build_dir.parent / art["path"]
+            if not art_path.exists():
+                print(f"RED (missing {art['name']})")
+                results["HASH_VERIFY"] = f"RED:MISSING:{art['name']}"
+                hash_ok = False
+                break
+            actual = hashlib.sha256(art_path.read_bytes()).hexdigest()
+            if actual != art["sha256"]:
+                print(f"RED (hash mismatch {art['name']})")
+                results["HASH_VERIFY"] = f"RED:HASH_MISMATCH:{art['name']}"
+                hash_ok = False
+                break
+        if hash_ok:
+            print("GREEN (all 3 artifacts match)")
+            results["HASH_VERIFY"] = "GREEN"
+
+        # Step 3: PRE_FLASH_GATE (inspector subprocess + hash re-verify)
+        print("[PRE_FLASH_GATE] ...", end=" ", flush=True)
+        gate_result = self.step_pre_flash_gate()
+        results["PRE_FLASH_GATE"] = gate_result
+        print(gate_result)
+
+        # Step 4: Overall status
+        if results.get("HASH_VERIFY", "").startswith("GREEN") and results.get("PRE_FLASH_GATE", "").startswith("GREEN"):
+            overall = "GREEN"
+        else:
+            overall = "RED"
+
+        return {"status": overall, "results": results, "preflight_only": True}
+
     def run(self) -> Dict[str, Any]:
         """Execute the full runner pipeline."""
+        if self.preflight_only:
+            return self._run_preflight()
         self._setup_signal_handlers()
         self.journal.init()
         self.journal.append("RUNNER_START", {
@@ -678,6 +823,8 @@ def main() -> int:
                         help="Dry run (default in P4-R1)")
     parser.add_argument("--execute", action="store_true",
                         help="Actually execute (P4-R2 only)")
+    parser.add_argument("--preflight-only", action="store_true",
+                        help="Preflight only: inspector + hash verify + esptool, no serial/flash")
     parser.add_argument("--resume", type=str, default=None,
                         help="Resume session by ID")
     parser.add_argument("--session-id", type=str, default=None)
@@ -691,8 +838,8 @@ def main() -> int:
         print(f"TTL_SECONDS={TTL_SECONDS}")
         print(f"MANIFEST={MANIFEST_PATH}")
         print(f"MANIFEST_EXISTS={MANIFEST_PATH.exists()}")
-        esptool = find_esptool()
-        print(f"ESPTOOL={'FOUND:' + esptool if esptool else 'NOT_FOUND'}")
+        esptool_cmd = find_esptool()
+        print(f"ESPTOOL={'FOUND:' + esptool_cmd[0] if esptool_cmd else 'NOT_FOUND'}")
         return 0
 
     if args.resume:
@@ -702,9 +849,10 @@ def main() -> int:
         return 0 if result["status"] == "GREEN" else 1
 
     dry_run = not args.execute
-    runner = SafeFlashRunner(session_id=args.session_id, dry_run=dry_run)
+    runner = SafeFlashRunner(session_id=args.session_id, dry_run=dry_run,
+                             preflight_only=args.preflight_only)
 
-    if dry_run:
+    if dry_run and not args.preflight_only:
         print("MODE=DRY_RUN (P4-R1: execution deferred to P4-R2)")
         print("ATTACH_AUTHORITY=BLOCKED_PENDING_P4_R2")
 
