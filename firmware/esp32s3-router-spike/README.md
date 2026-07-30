@@ -54,6 +54,10 @@ On macOS, the USB device must appear as a keyboard/HID device only. A new
 
 ## Explicit USB-network experiment
 
+> **DEPRECATED (Phase 4):** USB CDC-NCM networking is disabled by default in
+> all builds. See [`USB_NETWORK_DEPRECATED.md`](USB_NETWORK_DEPRECATED.md) for
+> the full deprecation notice and safe-profile details.
+
 The old USB router path is retained only as an opt-in research profile. Build it
 with `sdkconfig.usb-network.defaults` instead of the normal defaults. Do not use
 this profile for ordinary BOOTMUX keyboard operation.

@@ -1,3 +1,9 @@
+# ============================================================================
+# DEPRECATED: USB Network Experimental Configuration
+# This file is kept for historical reference only.
+# USB network is DISABLED by default. See USB_NETWORK_DEPRECATED.md
+# ============================================================================
+
 CONFIG_TINYUSB_HID_COUNT=1
 # CONFIG_TINYUSB_NET_MODE_NONE is not set
 CONFIG_TINYUSB_NET_MODE_NCM=y
